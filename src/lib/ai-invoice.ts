@@ -281,9 +281,10 @@ export const GEMINI_RESPONSE_SCHEMA = {
   },
 }
 
-type PostResult = { ok: true; json: unknown } | { ok: false; status: number }
+export type PostResult = { ok: true; json: unknown } | { ok: false; status: number }
 
-async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<PostResult> {
+/** POST JSON vers un fournisseur IA (délai 25 s) ; seul le statut HTTP est journalisé, jamais le contenu. */
+export async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<PostResult> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   try {

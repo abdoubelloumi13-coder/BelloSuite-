@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
-import { Plus, Trash2, Save, ArrowLeft, Search, User, Package, Calendar, Info, CreditCard, FileText, Warehouse, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Save, ArrowLeft, Search, User, Package, Calendar, Info, CreditCard, FileText, Warehouse, AlertTriangle, Mic, X } from 'lucide-react'
 import { calculateInvoiceTotals, VAT_RATES, FISCAL_STAMP } from '@/lib/fiscal'
 import { Link } from '@/i18n/routing'
 import { useSession } from '@/hooks/useSession'
 import { findShortages, aggregateQuantities } from '@/lib/delivery-note-logic'
+import DictateQuoteDialog from '@/components/commercial/DictateQuoteDialog'
+import type { DictatedQuote } from '@/lib/dictate-quote'
 
 type WarehouseOpt = { id: string; code: string; name: string; isDefault?: boolean }
 type ProductOpt = { id: string; name: string; code?: string; salePrice?: unknown; vatRate?: unknown; fodec?: boolean; currentStock?: unknown; warehouseStock?: Array<{ warehouseId: string; stock: string | number }> }
@@ -27,6 +29,7 @@ export default function NewInvoicePage() {
   const [warehouseId, setWarehouseId] = useState('')
   const [allowNegative, setAllowNegative] = useState(false)
   const [error, setError] = useState('')
+  const [dictateOpen, setDictateOpen] = useState(false)
   
   const [invoiceData, setInvoiceData] = useState({
     clientId: '',
@@ -140,6 +143,41 @@ export default function NewInvoicePage() {
     }
     
     setInvoiceData({ ...invoiceData, items: newItems })
+  }
+
+  // Speech-to-Devis : lignes dictées ajoutées (prix catalogue si produit reconnu, prix dicté prioritaire), rien n'est enregistré
+  const applyDictation = (q: DictatedQuote) => {
+    setInvoiceData(d => {
+      const added = q.lines.map(l => {
+        const p = l.productId ? products.find(x => x.id === l.productId) : undefined
+        const vat = l.vatRate !== null && VAT_RATES.includes(l.vatRate) ? l.vatRate : p ? Number(p.vatRate) : 19
+        return {
+          productId: p?.id ?? '',
+          description: p ? p.name : l.description,
+          quantity: l.quantity,
+          unitPriceHT: l.unitPrice ?? (p ? Number(p.salePrice) : 0),
+          discount: l.discount ?? 0,
+          vatRate: vat,
+          fodecApply: p ? Boolean(p.fodec) : false,
+          unit: (l.unit || 'EA').slice(0, 8),
+        }
+      })
+      // la ligne vide initiale est remplacée plutôt que conservée
+      const kept = d.items.filter(it => it.productId || String(it.description).trim() || Number(it.unitPriceHT) > 0)
+      let dueDate = d.dueDate
+      if (q.validityDays && !dueDate && d.date) {
+        const due = new Date(`${d.date}T00:00:00Z`)
+        due.setUTCDate(due.getUTCDate() + q.validityDays)
+        dueDate = due.toISOString().split('T')[0]
+      }
+      return {
+        ...d,
+        clientId: q.clientId || d.clientId,
+        items: added.length ? [...kept, ...added] : d.items,
+        dueDate,
+        notes: q.notes ? (d.notes.trim() ? `${d.notes.trim()}\n${q.notes}` : q.notes) : d.notes,
+      }
+    })
   }
 
   const totals = calculateInvoiceTotals(invoiceData.items)
@@ -315,6 +353,15 @@ export default function NewInvoicePage() {
                  <h2 className="text-xl font-black flex items-center gap-2 text-stone-900">
                     <Package className="w-5 h-5 text-teal-600" /> {t('items.title')}
                  </h2>
+                 <div className="flex items-center gap-2">
+                 <button
+                   type="button"
+                   onClick={() => setDictateOpen(true)}
+                   title={t('dictation.button_title')}
+                   className="flex items-center gap-2 px-4 py-3 bg-stone-900 text-white rounded-xl transition-all hover:bg-stone-700 text-xs font-black uppercase tracking-widest"
+                 >
+                   <Mic className="w-4 h-4" /> {t('dictation.button')}
+                 </button>
                  <button 
                    type="button"
                    onClick={handleAddItem}
@@ -322,6 +369,7 @@ export default function NewInvoicePage() {
                  >
                    <Plus className="w-5 h-5" />
                  </button>
+                 </div>
               </div>
 
               <div className="space-y-6">
@@ -420,6 +468,14 @@ export default function NewInvoicePage() {
                              </button>
                          </div>
                       </div>
+                      {Number(item.discount) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-[11px] font-bold">
+                          {t('dictation.discount_badge', { value: fmt(Number(item.discount)) })}
+                          <button type="button" onClick={() => handleItemChange(index, 'discount', 0)} aria-label={t('dictation.remove_discount')} className="hover:text-amber-900">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      )}
                    </div>
                  ))}
               </div>
@@ -493,6 +549,15 @@ export default function NewInvoicePage() {
         </div>
 
       </form>
+
+      {dictateOpen && (
+        <DictateQuoteDialog
+          onClose={() => setDictateOpen(false)}
+          onApply={applyDictation}
+          products={products}
+          clients={clients}
+        />
+      )}
     </div>
   )
 }

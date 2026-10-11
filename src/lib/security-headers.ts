@@ -59,7 +59,8 @@ export function securityHeaders(opts: { supabaseUrl?: string; isDev?: boolean } 
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-    { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()' },
+    // microphone=(self) : dictée vocale (Speech-to-Devis) sur le même domaine uniquement ; jamais dans un iframe tiers
+    { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=()' },
     { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
     { key: 'X-DNS-Prefetch-Control', value: 'on' },
   ]

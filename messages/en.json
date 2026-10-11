@@ -785,6 +785,52 @@
         "warehouse_inactive": "This warehouse is archived: choose an active warehouse.",
         "duplicate_number": "This document number is already in use.",
         "generic": "Could not save the document. Please try again."
+      },
+      "dictation": {
+        "button": "Dictate",
+        "button_title": "Dictate the document by voice",
+        "title": "Voice dictation",
+        "subtitle": "Say the client, items, quantities and prices. Nothing is saved until you confirm.",
+        "language": "Dictation language",
+        "lang": {
+          "fr": "Français",
+          "ar": "العربية (تونس)",
+          "en": "English"
+        },
+        "start": "Start",
+        "stop": "Stop",
+        "listening": "Listening…",
+        "unsupported": "Speech recognition is not available in this browser (e.g. Firefox). Type or paste the text below.",
+        "permission_denied": "Microphone access denied. Allow the microphone in your browser or type the text.",
+        "speech_error": "Speech recognition stopped. Try again or correct the text.",
+        "transcript_label": "Dictated text (editable)",
+        "transcript_placeholder": "E.g.: Quote for Textiles Sfax, 3 rolls of denim fabric at 12.5 dinars, ten shirts, valid 30 days",
+        "privacy": "Your voice is transcribed by your browser's speech service; BelloSuite does not keep the text.",
+        "analyze": "Analyse",
+        "analyzing": "Analysing…",
+        "cancel": "Cancel",
+        "close": "Close",
+        "preview_title": "Check before inserting",
+        "source_ai": "AI analysis",
+        "source_local": "Local analysis (no AI)",
+        "client": "Client",
+        "client_unmatched": "“{name}” not found — pick the client from the list",
+        "no_client": "No client recognised",
+        "line_catalog": "Catalogue",
+        "line_free": "Free line",
+        "unit_price": "dictated unit price",
+        "catalog_price": "catalogue price",
+        "discount_badge": "Discount {value} %",
+        "remove_discount": "Remove discount",
+        "validity": "Valid for {days} days",
+        "notes": "Note",
+        "no_lines": "No line recognised. Correct the text and analyse again.",
+        "back": "Edit text",
+        "insert": "Insert into document",
+        "errors": {
+          "rate_limited": "Too many dictations this hour. Try again later.",
+          "generic": "Analysis failed. Try again or enter the lines manually."
+        }
       }
     },
     "RetenueSource": {
