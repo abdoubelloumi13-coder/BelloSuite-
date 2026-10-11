@@ -94,7 +94,8 @@
     "pos": "نقطة البيع",
     "avatar_alt": "الصورة الرمزية",
     "scan_document": "مسح وثيقة",
-    "fiscal_assistant": "المساعد الجبائي"
+    "fiscal_assistant": "المساعد الجبائي",
+    "anomalies": "نقاط للمراجعة"
   },
   "Common": {
     "dashboard": "لوحة القيادة",
@@ -2549,5 +2550,102 @@
     "code_IRPP_IS": "مجلة الضريبة على الدخل والشركات",
     "code_LF2026": "قانون المالية 2026",
     "code_FODEC": "FODEC"
+  },
+  "Anomalies": {
+    "title": "نقاط للمراجعة",
+    "subtitle": "الحالات غير العادية في المحاسبة والمبيعات، تُرصد كل ليلة على آخر 30 يومًا.",
+    "widget_title": "نقاط للمراجعة",
+    "widget_count": "نقاط مفتوحة: {count}",
+    "widget_empty": "لا توجد حالات مفتوحة. كل شيء على ما يرام.",
+    "view_all": "عرض الكل",
+    "table_missing": "جداول الحالات غير موجودة بعد (يجب تطبيق الترحيل 20261011050000_anomalies.sql في Supabase).",
+    "run_now": "تحليل الآن",
+    "running": "جارٍ التحليل…",
+    "run_done": "عدد الحالات المفتوحة بعد التحليل: {count}",
+    "last_run": "آخر تحليل: {date}",
+    "never_run": "لم يُجرَ أي تحليل بعد.",
+    "email_optout": "إيقاف البريد الصباحي",
+    "email_optout_saved": "تم حفظ التفضيل.",
+    "admins_only": "مخصص للمسؤولين.",
+    "open_document": "فتح الوثيقة",
+    "ignore": "تجاهل",
+    "resolve": "تمت المعالجة",
+    "reopen": "إعادة فتح",
+    "detected_on": "رُصدت في {date}",
+    "amount": "المبلغ",
+    "empty": "لا توجد حالات في هذه القائمة.",
+    "error": "تعذّر تحميل الحالات.",
+    "filters": {
+      "OPEN": "مفتوحة",
+      "IGNORED": "متجاهلة",
+      "RESOLVED": "معالجة"
+    },
+    "severity": {
+      "CRITICAL": "حرجة",
+      "HIGH": "مرتفعة",
+      "MEDIUM": "متوسطة",
+      "LOW": "منخفضة"
+    },
+    "help": "«تجاهل» = إنذار خاطئ ولن يُعاد. «تمت المعالجة» = صُحّحت؛ وتُعاد فتحها تلقائيًا إذا رُصدت مجددًا الليلة التالية.",
+    "types": {
+      "DUPLICATE_SUPPLIER_INVOICE": {
+        "title": "فاتورة مورد مكررة",
+        "detail": "{supplier}: {refs} — {amount} د.ت"
+      },
+      "INVOICE_TOTAL_MISMATCH": {
+        "title": "مجموع فاتورة غير متناسق",
+        "detail": "{ref}: دون احتساب الأداء {ht} + FODEC {fodec} + أ.ق.م {tva} + طابع {timbre} = {expected} ≠ المجموع {ttc} (الفارق {diff})"
+      },
+      "MISSING_TIMBRE": {
+        "title": "الطابع الجبائي مفقود",
+        "detail": "{ref} ({client}، {ttc} د.ت) صدرت دون معلوم الطابع"
+      },
+      "UNUSUAL_VAT_RATE": {
+        "title": "نسبة أداء على القيمة المضافة غير معتادة",
+        "detail": "{ref}: النسبة {rates} (النسب المقبولة: {allowed} %)"
+      },
+      "OVERDUE_INVOICE": {
+        "title": "فاتورة غير مدفوعة متأخرة",
+        "detail": "{ref} — {client}: {ttc} د.ت، تاريخ الاستحقاق {due}، تأخير {days} يومًا"
+      },
+      "NEGATIVE_STOCK": {
+        "title": "مخزون سالب",
+        "detail": "{product}: المخزون {stock} (المخازن: {warehouses})"
+      },
+      "SALE_BELOW_COST": {
+        "title": "بيع بأقل من التكلفة (CMUP)",
+        "detail": "{ref}: {product} بيع بـ {price} د.ت < التكلفة {cost} د.ت (خسارة {loss} د.ت)"
+      },
+      "SUPPLIER_AMOUNT_OUTLIER": {
+        "title": "مبلغ مورد غير معتاد",
+        "detail": "{ref} — {supplier}: {amount} د.ت مقابل معدل {average} د.ت (z = {z}، {n} فواتير)"
+      },
+      "DELIVERY_NOT_INVOICED": {
+        "title": "وصل تسليم غير مفوتر",
+        "detail": "{ref} — {client}: سُلّم منذ {days} يومًا، {ttc} د.ت غير مفوترة"
+      },
+      "RECEIPT_NOT_INVOICED": {
+        "title": "استلام دون فاتورة مورد",
+        "detail": "{ref} — {supplier}: استُلم منذ {days} يومًا دون فاتورة مورد مرتبطة ({amount} د.ت)"
+      },
+      "INVOICE_NUMBER_GAP": {
+        "title": "فجوة في ترقيم الفواتير",
+        "detail": "السلسلة {prefix}: أرقام مفقودة ({count}): {numbers}"
+      },
+      "FUTURE_DATED_INVOICE": {
+        "title": "فواتير بتاريخ مستقبلي",
+        "detail": "فواتير مؤرخة بعد اليوم ({count}، حتى {last}): {refs}"
+      }
+    },
+    "email": {
+      "subject_one": "نقطة واحدة للمراجعة هذا الصباح — {tenant}",
+      "subject_other": "{count} نقاط للمراجعة هذا الصباح — {tenant}",
+      "intro": "مرحبًا، رصد تحليل الليلة {count} نقطة للمراجعة في {tenant}.",
+      "top": "أهم 3 نقاط:",
+      "more": "… و{count} أخرى.",
+      "cta": "عرض كل النقاط",
+      "open": "فتح",
+      "footer": "بريد آلي من BelloSuite. لإيقافه: صفحة «نقاط للمراجعة» ← «إيقاف البريد الصباحي»."
+    }
   }
 }

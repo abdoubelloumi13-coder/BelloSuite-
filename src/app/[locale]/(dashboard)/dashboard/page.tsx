@@ -23,6 +23,7 @@ import { useDashboardKPIs } from '@/hooks/useDashboardKPIs'
 import { useTrendData } from '@/hooks/useTrendData'
 import { useSession } from '@/hooks/useSession'
 import { QuickActions } from '@/components/dashboard/QuickActions'
+import { AnomaliesWidget } from '@/components/dashboard/AnomaliesWidget'
 import { LineChartWrapper, BarChartWrapper } from '@/components/ui/charts'
 
 function formatCurrency(value: number): string {
@@ -192,6 +193,9 @@ export default function DashboardSummary() {
           color={kpis?.lowStockProducts ? 'red' : 'emerald'}
         />
       </div>
+
+      {/* Points à vérifier (anomalies détectées chaque nuit) */}
+      <AnomaliesWidget />
 
       {/* Quick Actions and More Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

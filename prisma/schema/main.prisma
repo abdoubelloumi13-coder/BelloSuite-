@@ -77,6 +77,8 @@ model Tenant {
   exportInvoices      ExportInvoice[]
   projects            Project[]
   projectTags         ProjectTag[]
+  anomalies           Anomaly[]
+  anomalyRuns         AnomalyRun[]
 }
 
 // ============================================
