@@ -25,10 +25,10 @@ describe('security headers', () => {
     const keys = securityHeaders({ isDev: false }).map((h) => h.key)
     expect(keys).toEqual(expect.arrayContaining(['Content-Security-Policy', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']))
   })
-  it('caméra autorisée pour le site seul (scan de documents), micro / géoloc / paiement refusés', () => {
+  it('caméra et micro autorisés pour le site seul (scan, dictée), géoloc / paiement refusés', () => {
     const pp = securityHeaders({ isDev: false }).find((h) => h.key === 'Permissions-Policy')!.value
     expect(pp).toContain('camera=(self)')
-    expect(pp).toContain('microphone=()')
+    expect(pp).toContain('microphone=(self)') // dictée vocale (Speech-to-Devis), même origine seulement
     expect(pp).toContain('geolocation=()')
     expect(pp).toContain('payment=()')
   })

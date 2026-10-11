@@ -785,6 +785,52 @@
         "warehouse_inactive": "Ce dépôt est archivé : choisissez un dépôt actif.",
         "duplicate_number": "Ce numéro de document est déjà utilisé.",
         "generic": "Impossible d'enregistrer le document. Réessayez."
+      },
+      "dictation": {
+        "button": "Dicter",
+        "button_title": "Dicter le document à la voix",
+        "title": "Dictée vocale",
+        "subtitle": "Dites le client, les articles, les quantités et les prix. Rien n'est enregistré sans votre confirmation.",
+        "language": "Langue de dictée",
+        "lang": {
+          "fr": "Français",
+          "ar": "العربية (تونس)",
+          "en": "English"
+        },
+        "start": "Démarrer",
+        "stop": "Arrêter",
+        "listening": "Écoute en cours…",
+        "unsupported": "La reconnaissance vocale n'est pas disponible dans ce navigateur (ex. Firefox). Tapez ou collez le texte ci-dessous.",
+        "permission_denied": "Accès au micro refusé. Autorisez le micro dans le navigateur ou tapez le texte.",
+        "speech_error": "La reconnaissance vocale s'est interrompue. Réessayez ou corrigez le texte.",
+        "transcript_label": "Texte dicté (modifiable)",
+        "transcript_placeholder": "Ex. : Devis pour Textiles Sfax, 3 rouleaux de tissu denim à 12,5 dinars, dix chemises, valable 30 jours",
+        "privacy": "La voix est transcrite par le service de reconnaissance de votre navigateur ; le texte n'est pas conservé par BelloSuite.",
+        "analyze": "Analyser",
+        "analyzing": "Analyse…",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "preview_title": "Vérifiez avant d'insérer",
+        "source_ai": "Analyse IA",
+        "source_local": "Analyse locale (sans IA)",
+        "client": "Client",
+        "client_unmatched": "« {name} » introuvable — choisissez le client dans la liste",
+        "no_client": "Aucun client reconnu",
+        "line_catalog": "Catalogue",
+        "line_free": "Ligne libre",
+        "unit_price": "PU HT dicté",
+        "catalog_price": "prix catalogue",
+        "discount_badge": "Remise {value} %",
+        "remove_discount": "Retirer la remise",
+        "validity": "Validité : {days} jours",
+        "notes": "Note",
+        "no_lines": "Aucune ligne reconnue. Corrigez le texte puis relancez l'analyse.",
+        "back": "Modifier le texte",
+        "insert": "Insérer dans le document",
+        "errors": {
+          "rate_limited": "Trop de dictées cette heure-ci. Réessayez plus tard.",
+          "generic": "Analyse impossible. Réessayez ou saisissez les lignes à la main."
+        }
       }
     },
     "RetenueSource": {
