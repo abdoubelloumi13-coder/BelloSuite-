@@ -67,6 +67,8 @@ export interface FiscalSearchDeps {
   fetchImpl?: FetchLike
   /** null = pas de recherche vectorielle. Par défaut : GEMINI_API_KEY de l'environnement. */
   embed?: EmbedConfig | null
+  /** Vecteur de requête déjà calculé (évite un second appel d'embedding pour la même question). */
+  queryVector?: number[] | null
 }
 
 export interface FiscalSearchResult {
@@ -184,6 +186,12 @@ export function mergeRrf(
     }))
 }
 
+/** Embedding d'une requête (tâche RETRIEVAL_QUERY), 1 nouvelle tentative max. */
+export async function embedQuery(q: string, cfg: EmbedConfig, fetchImpl?: FetchLike): Promise<number[]> {
+  const [vec] = await embedTexts([q.trim().slice(0, 2000)], cfg, { task: 'RETRIEVAL_QUERY', fetchImpl, retries: 1, backoffMs: 500 })
+  return vec
+}
+
 async function hasEmbeddings(db: RawDb): Promise<boolean> {
   const r = await db.$queryRawUnsafe<Array<{ ok: boolean }>>(
     `SELECT EXISTS (SELECT 1 FROM public.fiscal_chunks WHERE embedding IS NOT NULL) AS ok`,
@@ -203,9 +211,9 @@ export async function searchFiscalKb(query: string, deps: FiscalSearchDeps, opts
 
   const ftPromise = fullTextSearch(deps.db, q, opts, k)
   let vecRows: FiscalChunkRow[] = []
-  if (embedCfg && (await hasEmbeddings(deps.db))) {
+  if ((deps.queryVector?.length || embedCfg) && (await hasEmbeddings(deps.db))) {
     try {
-      const [vec] = await embedTexts([q], embedCfg, { task: 'RETRIEVAL_QUERY', fetchImpl: deps.fetchImpl, retries: 1, backoffMs: 500 })
+      const vec = deps.queryVector?.length ? deps.queryVector : (await embedQuery(q, embedCfg as EmbedConfig, deps.fetchImpl))
       vecRows = await vectorSearch(deps.db, vec, opts, k)
     } catch {
       vecRows = []
