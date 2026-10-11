@@ -10,7 +10,8 @@ import {
   ArrowRight,
   TrendingUp,
   Receipt,
-  Building
+  Building,
+  ScanLine
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
@@ -31,6 +32,12 @@ export function QuickActions({ userRole = 'USER' }: QuickActionsProps) {
   const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
 
   const actions: QuickAction[] = [
+    {
+      label: t('scan_document'),
+      href: '/commercial/scan',
+      icon: ScanLine,
+      color: 'teal'
+    },
     { 
       label: t('new_invoice'), 
       href: '/commercial/documents/new?type=INVOICE', 

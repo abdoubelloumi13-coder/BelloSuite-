@@ -15,6 +15,7 @@ import {
   Wrench,
   Factory,
   Lock,
+  ScanLine,
 } from 'lucide-react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
@@ -110,7 +111,7 @@ export default function Sidebar() {
         ) : (
           <>
             {sidebarItems.map((module) => {
-              const isActive = pathname === module.path || (module.path !== '/dashboard' && pathname.startsWith(module.path))
+              const isActive = (pathname === module.path || (module.path !== '/dashboard' && pathname.startsWith(module.path))) && !(module.key === 'commercial' && pathname.startsWith('/commercial/scan'))
               return (
                 <React.Fragment key={module.key}>
                 <Link href={module.path} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${isActive ? 'bg-teal-500/10 text-teal-400 shadow-[inset_0_0_12px_rgba(20,184,166,0.1)]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
@@ -118,6 +119,16 @@ export default function Sidebar() {
                   <module.icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-teal-400' : ''}`} />
                   {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t(module.tKey as any)}</span>}
                 </Link>
+                {module.key === 'commercial' && (() => {
+                  const scanActive = pathname === '/commercial/scan' || pathname.startsWith('/commercial/scan/')
+                  return (
+                    <Link href="/commercial/scan" title={t('Sidebar.scan_document')} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${scanActive ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
+                      {scanActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
+                      <ScanLine className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${scanActive ? 'text-teal-400' : ''}`} />
+                      {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.scan_document')}</span>}
+                    </Link>
+                  )
+                })()}
                 {module.key === 'stock' && isActive && !isCollapsed && (
                   <div className="mt-1 mb-2 ms-6 ps-3 border-s border-zinc-800 space-y-0.5">
                     {STOCK_NAV.filter(item => item.href !== '/stock').map(item => {

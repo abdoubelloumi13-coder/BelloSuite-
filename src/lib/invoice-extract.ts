@@ -30,7 +30,13 @@ export type InvoiceChecks = {
   /** écart TTC calculé − TTC lu */
   totalsGap: number | null
 }
+/** Nature de la pièce fournisseur : facture, bon de commande, devis, bon de livraison. */
+export type PurchaseDocKind = 'INVOICE' | 'ORDER' | 'QUOTE' | 'DELIVERY_NOTE'
+export const PURCHASE_DOC_KINDS: readonly PurchaseDocKind[] = ['INVOICE', 'ORDER', 'QUOTE', 'DELIVERY_NOTE']
+
 export type InvoiceExtraction = {
+  /** Type de document détecté (null = indéterminé, traité comme une facture). */
+  documentType: Field<PurchaseDocKind>
   supplierName: Field<string>
   matriculeFiscal: Field<string>
   invoiceNumber: Field<string>
@@ -231,12 +237,18 @@ function cleanName(s: string): string {
 
 // ─── N° de facture ──────────────────────────────────────────
 
-function findInvoiceNumber(lines: string[]): Field<string> {
+function findInvoiceNumber(lines: string[], kind: PurchaseDocKind | null = 'INVOICE'): Field<string> {
   const patterns: Array<[RegExp, number]> = [
     [/(?:facture|invoice|fact\.?)\s*(?:n\s*[°ºo?*]\.?|num[ée]ro|no\.?|#)\s*[:.\-]?\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.9],
     [/(?:n\s*[°º?*]|num[ée]ro)\s*(?:de\s+)?(?:la\s+)?facture\s*[:.\-]?\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.9],
     [/فاتورة\s*(?:عدد|رقم)\s*[:.\-]?\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.85],
     [/\bfacture\s*[:\-]\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.7],
+    // Bon de commande / devis / bon de livraison : même numéro de pièce (jamais pour une facture : ce serait sa référence de commande)
+    ...(kind === 'INVOICE' ? [] : ([
+    [/\b(?:bon\s+de\s+commande|commande|b\.?\s?c\.?|purchase\s+order|p\.?o\.?|devis|proforma|pro-forma|offre(?:\s+de\s+prix)?|quotation|quote|bon\s+de\s+livraison|b\.?\s?l\.?|delivery\s+note)\s*(?:n\s*[°ºo?*]\.?|num[ée]ro|no\.?|#)\s*[:.\-]?\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.85],
+    [/(?:أمر\s+(?:بال)?شراء|طلبية|عرض\s+سعر|وصل\s+(?:ال)?تسليم)\s*(?:عدد|رقم)\s*[:.\-]?\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.8],
+    [/\b(?:bon\s+de\s+commande|devis|bon\s+de\s+livraison)\s*[:\-]\s*([A-Z0-9][A-Z0-9/\-_.]{1,30})/i, 0.7],
+    ] as Array<[RegExp, number]>)),
   ]
   for (const [re, conf] of patterns) {
     for (const l of lines) {
@@ -245,6 +257,47 @@ function findInvoiceNumber(lines: string[]): Field<string> {
     }
   }
   return { value: null, confidence: 0 }
+}
+
+// ─── Type de document ───────────────────────────────────────
+
+/** Titres reconnus, par type ; le titre le plus haut dans la page l'emporte (« Facture » en tête prime sur « réf. bon de commande »). */
+const DOC_KIND_RES: Array<[PurchaseDocKind, RegExp]> = [
+  ['INVOICE', /\b(facture|invoice)\b(?!\s+(?:proforma|pro-forma))|فاتورة(?!\s+(?:أولية|مبدئية))/i],
+  ['ORDER', /\b(bon\s+de\s+commande|commande\s+fournisseur|purchase\s+order|b\.\s?c\.)|أمر\s+(?:بال)?شراء|طلبية|سند\s+طلب/i],
+  ['QUOTE', /\b(devis|proforma|pro-forma|offre\s+de\s+prix|quotation|quote)\b|عرض\s+(?:ال)?سعر|فاتورة\s+(?:أولية|مبدئية)/i],
+  ['DELIVERY_NOTE', /\b(bon\s+de\s+livraison|delivery\s+note|b\.\s?l\.)|وصل\s+(?:ال)?تسليم|وصل\s+(?:ال)?استلام/i],
+]
+/** Mentions de référence (« Réf. BC : … », « suivant devis n° … ») : ne désignent pas le type de la pièce. */
+const DOC_REF_CONTEXT_RE = /(r[ée]f\.?|r[ée]f[ée]rence|suivant|selon|votre|v\/|n\/|li[ée]e?\s+[àa]|vs\b|your|our)\s*(?:[:.\-]\s*)?(?:au\s+|à\s+|notre\s+|votre\s+)?$/i
+
+/**
+ * Détecte le type d'une pièce fournisseur à partir de son texte : facture, bon de commande, devis (proforma), bon de livraison.
+ * Heuristique : titre de pièce le plus haut (hors mentions de référence « réf. BC », « suivant devis ») ;
+ * « Facture » en tête prime (une facture cite souvent son BC / BL). Confiance plus forte en tête de document.
+ */
+export function detectDocumentType(text: string): Field<PurchaseDocKind> {
+  const lines = normalizeText(text).split('\n').map((l) => l.trim()).filter(Boolean)
+  if (!lines.length) return { value: null, confidence: 0 }
+  const headZone = Math.max(8, Math.ceil(lines.length / 3))
+  const found: Array<{ kind: PurchaseDocKind; index: number }> = []
+  for (const [kind, re] of DOC_KIND_RES) {
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(re)
+      if (!m || m.index === undefined) continue
+      const before = lines[i].slice(0, m.index)
+      if (DOC_REF_CONTEXT_RE.test(before)) continue
+      // « Facture » dans un pied (« arrêtée la présente facture ») ne compte pas comme titre si elle n'est pas en tête
+      if (kind === 'INVOICE' && /arr[êe]t[ée]e?|pr[ée]sente/i.test(before)) continue
+      found.push({ kind, index: i })
+      break
+    }
+  }
+  if (!found.length) return { value: null, confidence: 0 }
+  // Une facture cite souvent son BC / BL en en-tête : un titre « Facture » en tête l'emporte ; sinon le titre le plus haut.
+  const invoiceHead = found.find((f) => f.kind === 'INVOICE' && f.index < headZone)
+  const best = invoiceHead ?? found.reduce((a, b) => (b.index < a.index ? b : a))
+  return { value: best.kind, confidence: best.index < headZone ? 0.85 : 0.6 }
 }
 
 // ─── Date ───────────────────────────────────────────────────
@@ -506,7 +559,7 @@ export function finalizeExtraction(x: InvoiceExtraction): InvoiceExtraction {
 export function emptyExtraction(): InvoiceExtraction {
   const f = <T>(): Field<T> => ({ value: null, confidence: 0 })
   return {
-    supplierName: f(), matriculeFiscal: f(), invoiceNumber: f(), date: f(),
+    documentType: f(), supplierName: f(), matriculeFiscal: f(), invoiceNumber: f(), date: f(),
     subtotal: f(), fodec: f(), vat: [], vatTotal: f(), stamp: f(), total: f(),
     lines: [], checks: { totalsConsistent: null, linesMatchSubtotal: null, vatConsistent: null, totalsGap: null }, warnings: [],
   }
@@ -524,8 +577,9 @@ export function extractInvoice(text: string, opts: ExtractOptions = {}): Invoice
   const supplierMf = mfs.find((m) => !client.has(m.line)) ?? (mfs.length === 1 ? mfs[0] : null)
   if (supplierMf) r.matriculeFiscal = { value: supplierMf.mf, confidence: client.has(supplierMf.line) ? 0.5 : mfs.length > 1 ? 0.8 : 0.9 }
 
+  r.documentType = detectDocumentType(text)
   r.supplierName = findSupplierName(lines, client, opts)
-  r.invoiceNumber = findInvoiceNumber(lines)
+  r.invoiceNumber = findInvoiceNumber(lines, r.documentType.value ?? 'INVOICE')
   r.date = findDate(lines)
 
   const ht = labelled(lines, HT_RE, HT_EXCL)
@@ -551,6 +605,8 @@ export function extractInvoice(text: string, opts: ExtractOptions = {}): Invoice
 
 /** Résultat IA (déjà validé par zod côté serveur) — mêmes champs, valeurs brutes. */
 export type AiInvoice = {
+  /** « facture » | « bon_de_commande » | « devis » | « bon_de_livraison » (ou équivalent anglais) */
+  documentType?: string | null
   supplierName?: string | null
   matriculeFiscal?: string | null
   invoiceNumber?: string | null
@@ -565,6 +621,18 @@ export type AiInvoice = {
 }
 
 const AI_CONF = 0.6
+
+/** Type renvoyé par l'IA (libellé libre FR / EN / AR ou code) → PurchaseDocKind, null si inconnu. */
+export function normalizeDocKind(raw: string | null | undefined): PurchaseDocKind | null {
+  if (!raw) return null
+  const s = stripAccents(String(raw)).toLowerCase().replace(/[_\-]+/g, ' ').trim()
+  if ((PURCHASE_DOC_KINDS as readonly string[]).includes(s.toUpperCase().replace(/ /g, '_'))) return s.toUpperCase().replace(/ /g, '_') as PurchaseDocKind
+  if (/proforma|pro forma|devis|quot|offre|عرض/.test(s)) return 'QUOTE'
+  if (/commande|purchase order|^po$|^bc$|order|شراء|طلبية/.test(s)) return 'ORDER'
+  if (/livraison|delivery|^bl$|تسليم/.test(s)) return 'DELIVERY_NOTE'
+  if (/facture|invoice|فاتورة/.test(s)) return 'INVOICE'
+  return null
+}
 
 function mergeText(det: Field<string>, ai: string | null | undefined, valid: (s: string) => string | null): Field<string> {
   const a = ai ? valid(ai) : null
@@ -585,6 +653,12 @@ export function mergeAiExtraction(det: InvoiceExtraction, ai: AiInvoice | null |
   const base = finalizeExtraction(det)
   const out: InvoiceExtraction = JSON.parse(JSON.stringify(base))
 
+  const aiKind = normalizeDocKind(ai.documentType)
+  if (aiKind) {
+    if (base.documentType.value === null) out.documentType = { value: aiKind, confidence: AI_CONF }
+    else if (base.documentType.value === aiKind) out.documentType = { value: aiKind, confidence: Math.max(base.documentType.confidence, 0.95) }
+    else if (base.documentType.confidence < 0.8) out.documentType = { value: aiKind, confidence: 0.5 }
+  }
   out.supplierName = mergeText(base.supplierName, ai.supplierName, (s) => cleanName(s) || null)
   out.matriculeFiscal = mergeText(base.matriculeFiscal, ai.matriculeFiscal, normalizeMf)
   out.invoiceNumber = mergeText(base.invoiceNumber, ai.invoiceNumber, (s) => (/\d/.test(s) ? s.trim().slice(0, 40) : null))
