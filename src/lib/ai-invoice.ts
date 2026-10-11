@@ -126,6 +126,7 @@ function lenientArray<T extends z.ZodType>(item: T, max: number) {
 
 /** Schéma de la réponse IA (champs inconnus ignorés ; montant invalide → null ; ligne invalide → retirée seule). */
 export const aiInvoiceSchema = z.object({
+  documentType: optStr,
   supplierName: optStr,
   matriculeFiscal: optStr,
   invoiceNumber: optStr,
@@ -159,15 +160,20 @@ export function aiProvider(env: Record<string, string | undefined> = process.env
   return aiProviders(env)[0] ?? null
 }
 
-export const PROMPT = `Tu extrais les données d'une facture FOURNISSEUR tunisienne (texte OCR éventuellement bruité, et/ou image).
+export const PROMPT = `Tu extrais les données d'une pièce FOURNISSEUR tunisienne : facture, bon de commande, devis / proforma ou bon de livraison
+(texte OCR éventuellement bruité, et/ou image).
 Réponds UNIQUEMENT avec un objet JSON, sans texte autour, de la forme :
-{"supplierName":string|null,"matriculeFiscal":string|null,"invoiceNumber":string|null,"date":"YYYY-MM-DD"|null,
+{"documentType":"facture"|"bon_de_commande"|"devis"|"bon_de_livraison"|null,
+"supplierName":string|null,"matriculeFiscal":string|null,"invoiceNumber":string|null,"date":"YYYY-MM-DD"|null,
 "subtotal":number|null,"fodec":number|null,"vat":[{"rate":7|13|19,"base":number|null,"amount":number}],"vatTotal":number|null,
 "stamp":number|null,"total":number|null,"lines":[{"reference":string|null,"designation":string,"quantity":number,"unitPrice":number,"total":number}]}
-Règles : le fournisseur est l'ÉMETTEUR (pas le client) ; matricule fiscal au format 1234567X/A/M/000 ; montants en dinars,
+Règles : documentType = nature de la pièce d'après son titre (« Facture proforma » = devis) ; invoiceNumber = numéro de la pièce
+quel que soit son type (n° de facture, de BC, de devis ou de BL) ;
+le fournisseur est l'ÉMETTEUR (pas le client) ; matricule fiscal au format 1234567X/A/M/000 ; montants en dinars,
 nombres JSON SIMPLES (jamais de chaîne) avec point décimal et sans séparateur de milliers ni devise
 (« 7.344,609 DT » → 7344.609 ; « 1 250,000 » → 1250) ; subtotal = total HT ; fodec = FODEC 1 % s'il existe ;
-stamp = timbre fiscal (souvent 1) ; total = TTC / net à payer. N'invente rien : null si absent ou illisible.`
+stamp = timbre fiscal (souvent 1 sur une facture, généralement absent d'un bon de commande ou d'un devis : null alors) ;
+total = TTC / net à payer. N'invente rien : null si absent ou illisible.`
 
 // ─── Analyse de la réponse + diagnostics (forme seulement, jamais de contenu) ───
 
@@ -266,6 +272,7 @@ const S = (type: string, extra: Record<string, unknown> = {}) => ({ type, nullab
 export const GEMINI_RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
+    documentType: S('STRING', { description: 'facture | bon_de_commande | devis | bon_de_livraison' }),
     supplierName: S('STRING'), matriculeFiscal: S('STRING'), invoiceNumber: S('STRING'),
     date: S('STRING', { description: 'YYYY-MM-DD' }),
     subtotal: S('NUMBER'), fodec: S('NUMBER'), vatTotal: S('NUMBER'), stamp: S('NUMBER'), total: S('NUMBER'),

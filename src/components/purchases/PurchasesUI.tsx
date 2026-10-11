@@ -4,13 +4,15 @@
  * Achats fournisseurs : commandes, réceptions (seules à faire entrer du stock), factures (commerciales), retours.
  * Thème clair partagé avec le module stock (src/components/stock/ui.tsx), classes logiques pour le RTL.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname, useRouter } from '@/i18n/routing'
 import { Plus, Trash2, CheckCircle2, XCircle, PackageCheck, Undo2, FileText, Printer, Banknote, Pencil, Lock, Save } from 'lucide-react'
 import { StockPage, PageHeader, Card, Loading, EmptyState, Badge, Alert, Modal, Field, KpiCard, cls, useStockFormat, api } from '@/components/stock/ui'
 import { InvoiceImportPanel } from '@/components/purchases/InvoiceImport'
-import { matchSupplier, matchProduct, LOW_CONFIDENCE, round3, type InvoiceExtraction } from '@/lib/invoice-extract'
+import { round3, type InvoiceExtraction } from '@/lib/invoice-extract'
+import { mapExtractionToDraft } from '@/lib/scan-document'
+import { SCAN_QUERY_PARAM, takeScanHandoff } from '@/lib/scan-handoff'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -84,13 +86,16 @@ function useRefs() {
   const [suppliers, setSuppliers] = useState<Ref[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [loaded, setLoaded] = useState(false)
   useEffect(() => {
-    api<Ref[]>('/api/commercial/suppliers?activeOnly=true').then(r => r.ok && Array.isArray(r.data) && setSuppliers(r.data))
-    api<Warehouse[]>('/api/stock/warehouses').then(r => r.ok && Array.isArray(r.data) && setWarehouses(r.data.filter(w => w.isActive !== false)))
-    api<Product[]>('/api/stock/products').then(r => r.ok && Array.isArray(r.data) && setProducts(r.data))
+    Promise.all([
+      api<Ref[]>('/api/commercial/suppliers?activeOnly=true').then(r => r.ok && Array.isArray(r.data) && setSuppliers(r.data)),
+      api<Warehouse[]>('/api/stock/warehouses').then(r => r.ok && Array.isArray(r.data) && setWarehouses(r.data.filter(w => w.isActive !== false))),
+      api<Product[]>('/api/stock/products').then(r => r.ok && Array.isArray(r.data) && setProducts(r.data)),
+    ]).catch(() => {}).finally(() => setLoaded(true))
   }, [])
   const defaultWarehouse = warehouses.find(w => w.isDefault)?.id ?? warehouses[0]?.id ?? ''
-  return { suppliers, setSuppliers, warehouses, products, defaultWarehouse }
+  return { suppliers, setSuppliers, warehouses, products, defaultWarehouse, loaded }
 }
 
 /** Surlignage des champs à relire (confiance faible après import). */
@@ -108,6 +113,17 @@ export function PurchaseDocsList({ docType }: { docType: 'ORDER' | 'INVOICE' }) 
   const [status, setStatus] = useState('ALL')
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  /** Document scanné (page « Scanner un document ») à pré-remplir dans le formulaire de création */
+  const [scanned, setScanned] = useState<InvoiceExtraction | null>(null)
+  const router = useRouter()
+  const pathname = usePathname()
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has(SCAN_QUERY_PARAM)) return
+    const x = takeScanHandoff(window.sessionStorage, docType)
+    router.replace(pathname)
+    if (x) { setScanned(x); setCreating(true) }
+  }, [docType, pathname, router])
   const statuses = docType === 'ORDER' ? ['ALL', 'DRAFT', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'] : ['ALL', 'DRAFT', 'VALIDATED', 'PAID', 'CANCELLED']
 
   const load = useCallback(async () => {
@@ -160,7 +176,7 @@ export function PurchaseDocsList({ docType }: { docType: 'ORDER' | 'INVOICE' }) 
         )}
       </Card>
       {docType === 'INVOICE' && <p className="mt-3 text-xs text-zinc-500 text-start">{t('invoice_rule')}</p>}
-      <NewDocModal open={creating} docType={docType} onClose={() => setCreating(false)} />
+      <NewDocModal open={creating} docType={docType} initialExtraction={scanned} onClose={() => { setCreating(false); setScanned(null) }} />
     </StockPage>
   )
 }
@@ -220,11 +236,11 @@ function LinesEditor({ lines, setLines, products, priceLabel, allowFreeText = fa
   )
 }
 
-function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDER' | 'INVOICE'; onClose: () => void }) {
+function NewDocModal({ open, docType, onClose, initialExtraction = null }: { open: boolean; docType: 'ORDER' | 'INVOICE'; onClose: () => void; initialExtraction?: InvoiceExtraction | null }) {
   const t = useTranslations('Purchases')
   const f = useStockFormat()
   const router = useRouter()
-  const { suppliers, setSuppliers, warehouses, products, defaultWarehouse } = useRefs()
+  const { suppliers, setSuppliers, warehouses, products, defaultWarehouse, loaded } = useRefs()
   const isInvoice = docType === 'INVOICE'
   const [supplierId, setSupplierId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
@@ -251,47 +267,30 @@ function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDE
   const touch = (k: string) => low.has(k) && setLow(prev => { const s2 = new Set(prev); s2.delete(k); return s2 })
 
   function applyExtraction(x: InvoiceExtraction) {
-    const lowSet = new Set<string>()
-    const mark = (k: string, c: number, has: boolean) => { if (!has || c < LOW_CONFIDENCE) lowSet.add(k) }
-    // Fournisseur : MF puis nom
-    const m = matchSupplier(x, suppliers)
-    if (m) { setSupplierId(m.id); setNewSupplier(null); if (m.by === 'name' && m.score < 0.9) lowSet.add('supplier') }
-    else {
-      setSupplierId('')
-      lowSet.add('supplier')
-      setNewSupplier(x.supplierName.value ? { name: x.supplierName.value, matriculeFiscal: x.matriculeFiscal.value } : null)
-    }
-    if (x.invoiceNumber.value) setSupplierRef(x.invoiceNumber.value)
-    mark('ref', x.invoiceNumber.confidence, !!x.invoiceNumber.value)
-    if (x.date.value) setInvoiceDate(x.date.value)
-    mark('date', x.date.confidence, !!x.date.value)
-    // Taxes
-    setFodec(x.fodec.value ? String(x.fodec.value) : '')
-    if (x.fodec.value) mark('fodec', x.fodec.confidence, true)
-    setStamp(x.stamp.value ? String(x.stamp.value) : '')
-    mark('stamp', x.stamp.confidence, x.stamp.value !== null)
-    if (x.vat.length === 1) { setVat(String(x.vat[0].rate)); setVatAmount(x.vatTotal.value !== null ? String(x.vatTotal.value) : '') }
-    else if (x.vat.length > 1 || x.vatTotal.value !== null) setVatAmount(x.vatTotal.value !== null ? String(x.vatTotal.value) : String(x.vat.reduce((s2, v) => s2 + v.amount, 0)))
-    mark('vat', x.vatTotal.confidence, x.vatTotal.value !== null)
-    setVatBreakdown(x.vat.length > 1 ? x.vat.map(v => `TVA ${v.rate} % : ${f.money(v.amount)}`).join(' ; ') : '')
-    // Lignes : article reconnu (référence / nom) sinon texte libre ; à défaut une ligne « total HT »
-    const ls: EditLine[] = x.lines.map(l => {
-      const p = matchProduct(l, products)
-      const prod = p ? products.find(pp => pp.id === p.id) : undefined
-      return {
-        productId: prod?.id ?? '',
-        description: prod ? `${prod.code} — ${prod.name}` : [l.reference, l.designation].filter(Boolean).join(' '),
-        quantity: String(l.quantity), unitPrice: String(l.unitPrice),
-        low: l.confidence < LOW_CONFIDENCE,
-      }
-    })
-    if (!ls.length && x.subtotal.value !== null) {
-      ls.push({ productId: '', description: [t('ocr_global_line'), x.invoiceNumber.value].filter(Boolean).join(' '), quantity: '1', unitPrice: String(x.subtotal.value), low: true })
-    }
-    if (ls.length) setLines(ls)
-    if (x.checks.totalsConsistent === false) lowSet.add('totals')
-    setLow(lowSet)
+    const d = mapExtractionToDraft(x, docType, suppliers, products, { globalLineLabel: t(isInvoice ? 'ocr_global_line' : 'ocr_global_line_order') })
+    setSupplierId(d.supplierId)
+    setNewSupplier(d.supplierId ? null : d.newSupplier)
+    if (d.supplierRef) setSupplierRef(d.supplierRef)
+    if (d.date) setInvoiceDate(d.date)
+    if (isInvoice) {
+      setFodec(d.fodec ? String(d.fodec) : '')
+      setStamp(d.stamp ? String(d.stamp) : '')
+      if (d.vatRate !== null) setVat(String(d.vatRate))
+      setVatAmount(d.vatAmount !== null ? String(d.vatAmount) : '')
+      setVatBreakdown(d.vatBreakdown.length ? d.vatBreakdown.map(v => `TVA ${v.rate} % : ${f.money(v.amount)}`).join(' ; ') : '')
+    } else if (d.vatRate !== null) setVat(String(d.vatRate))
+    if (d.lines.length) setLines(d.lines)
+    setLow(new Set(d.low))
   }
+
+  // Document transmis par la page « Scanner un document » : appliqué une fois les référentiels chargés
+  const appliedScan = useRef<InvoiceExtraction | null>(null)
+  useEffect(() => {
+    if (!open || !initialExtraction || !loaded || appliedScan.current === initialExtraction) return
+    appliedScan.current = initialExtraction
+    applyExtraction(initialExtraction)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- appliquer une seule fois par extraction
+  }, [open, initialExtraction, loaded])
 
   async function createSupplier() {
     if (!newSupplier) return
@@ -313,10 +312,10 @@ function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDE
       body: JSON.stringify({
         type: docType, supplierId: supplierId || null, warehouseId: docType === 'ORDER' ? (warehouseId || defaultWarehouse || null) : null,
         expectedDate: expectedDate || null, supplierRef: supplierRef || null, taxAmount: tax,
-        date: isInvoice && invoiceDate ? invoiceDate : null, notes,
+        date: invoiceDate || null, notes,
         status: confirm ? (docType === 'ORDER' ? 'CONFIRMED' : 'VALIDATED') : 'DRAFT',
         items: lines
-          .filter(l => (l.productId || (isInvoice && l.description.trim())) && n(l.quantity) > 0)
+          .filter(l => (l.productId || l.description.trim()) && n(l.quantity) > 0)
           .map(l => ({ productId: l.productId || null, description: l.description.trim() || l.productId, quantity: n(l.quantity), unitPrice: n(l.unitPrice) })),
       }),
     })
@@ -333,7 +332,7 @@ function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDE
         <button className={cls.btnPrimary} disabled={busy || !supplierId} onClick={() => save(true)}><CheckCircle2 className="w-4 h-4" /> {t(docType === 'ORDER' ? 'save_confirm' : 'save_validate')}</button>
       </>}>
       {error && <Alert onClose={() => setError('')}>{error}</Alert>}
-      {isInvoice && <InvoiceImportPanel onExtracted={applyExtraction} />}
+      <InvoiceImportPanel onExtracted={applyExtraction} variant={isInvoice ? 'invoice' : 'order'} showSamples={isInvoice} />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         <Field label={t('supplier')}>
           <select className={`${cls.input} ${lowCls('supplier')}`} value={supplierId} onChange={e => { setSupplierId(e.target.value); touch('supplier') }}>
@@ -354,6 +353,8 @@ function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDE
               </select>
             </Field>
             <Field label={t('expected_date')}><input type="date" className={cls.input} value={expectedDate} onChange={e => setExpectedDate(e.target.value)} /></Field>
+            <Field label={t('supplier_doc_ref')}><input className={`${cls.input} ${lowCls('ref')}`} value={supplierRef} onChange={e => { setSupplierRef(e.target.value); touch('ref') }} /></Field>
+            <Field label={t('order_date')}><input type="date" className={`${cls.input} ${lowCls('date')}`} value={invoiceDate} onChange={e => { setInvoiceDate(e.target.value); touch('date') }} /></Field>
           </>
         ) : (
           <>
@@ -361,9 +362,10 @@ function NewDocModal({ open, docType, onClose }: { open: boolean; docType: 'ORDE
             <Field label={t('invoice_date')}><input type="date" className={`${cls.input} ${lowCls('date')}`} value={invoiceDate} onChange={e => { setInvoiceDate(e.target.value); touch('date') }} /></Field>
           </>
         )}
-        <Field label={t('vat_rate')}><input type="number" min="0" max="100" className={cls.input} value={vat} onChange={e => { setVat(e.target.value); setVatAmount(''); touch('vat') }} /></Field>
+        <Field label={t('vat_rate')}><input type="number" min="0" max="100" step="any" className={`${cls.input} ${!isInvoice ? lowCls('vat') : ''}`} value={vat} onChange={e => { setVat(e.target.value); setVatAmount(''); touch('vat') }} /></Field>
       </div>
-      <LinesEditor lines={lines} setLines={setLines} products={products} priceLabel={t('unit_price')} allowFreeText={isInvoice} />
+      <LinesEditor lines={lines} setLines={setLines} products={products} priceLabel={t('unit_price')} allowFreeText />
+      {!isInvoice && lines.some(l => !l.productId && l.description.trim()) && <p className="mt-2 text-xs text-amber-700 text-start">{t('order_free_text_hint')}</p>}
       <div className="mt-4 flex flex-col items-end gap-1 text-sm">
         <div>{t('subtotal')} : <span className="font-semibold tabular-nums">{f.money(subtotal)}</span></div>
         {isInvoice ? (

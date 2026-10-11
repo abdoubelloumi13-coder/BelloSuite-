@@ -7,7 +7,7 @@ import {
   Users, Truck, Package, FileText,
   TrendingUp, Clock, CheckCircle, AlertTriangle,
   ArrowRight, Plus, CreditCard, Receipt,
-  ArrowUpRight, ArrowDownRight, RefreshCw
+  ArrowUpRight, ArrowDownRight, RefreshCw, ScanLine
 } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 
@@ -70,6 +70,7 @@ export default function CommercialDashboard() {
     { key: 'invoice', label: t('doc_types.invoice'), icon: FileText, href: '/commercial/documents', color: 'teal', desc: t('doc_types.invoice_desc') },
     { key: 'supplier_order', label: t('doc_types.supplier_order'), icon: Package, href: '/commercial/documents/supplier-orders', color: 'amber', desc: t('doc_types.supplier_order_desc') },
     { key: 'supplier_receipt', label: t('doc_types.supplier_receipt'), icon: Truck, href: '/commercial/documents/supplier-receipts', color: 'teal', desc: t('doc_types.supplier_receipt_desc') },
+    { key: 'scan', label: t('doc_types.scan'), icon: ScanLine, href: '/commercial/scan', color: 'teal', desc: t('doc_types.scan_desc') },
   ]
 
   useEffect(() => {
