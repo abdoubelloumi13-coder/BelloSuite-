@@ -1,0 +1,62 @@
+// ============================================
+// CONTRÔLE — anomalies comptables / commerciales détectées chaque nuit
+// Tables créées par supabase/migrations/20261011050000_anomalies.sql (à exécuter à la main).
+// Détecteurs purs : src/lib/anomalies.ts — orchestration : src/services/anomalies.ts
+// ============================================
+
+model Anomaly {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Code du détecteur (DUPLICATE_SUPPLIER_INVOICE, INVOICE_TOTAL_MISMATCH, …)
+  type         String
+  /// CRITICAL | HIGH | MEDIUM | LOW
+  severity     String
+  /// 0–100 : sert au tri et au choix du top 3 de l'email matinal
+  score        Int       @default(0)
+  /// Clé stable (type + documents concernés) : une anomalie re-détectée met à jour la même ligne
+  fingerprint  String
+  /// SALES_INVOICE | DELIVERY_NOTE | SUPPLIER_INVOICE | SUPPLIER_ORDER | PRODUCT
+  documentKind String?
+  documentId   String?
+  documentRef  String?
+  amount       Decimal?
+  /// Paramètres du message i18n (Anomalies.types.<type>.detail)
+  details      Json      @default("{}")
+  /// OPEN | IGNORED | RESOLVED
+  status       String    @default("OPEN")
+  firstSeenAt  DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  resolvedAt   DateTime?
+  /// Utilisateur ayant ignoré / résolu (null = résolution automatique : plus détectée)
+  resolvedById String?
+  lastRunId    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, status, score])
+}
+
+model AnomalyRun {
+  id         String    @id @default(uuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// CRON | MANUAL
+  trigger    String    @default("CRON")
+  /// Jour (Africa/Tunis, AAAA-MM-JJ) pour les exécutions planifiées : 1 seule par tenant et par jour
+  cronDay    String?
+  /// RUNNING | DONE | ERROR
+  status     String    @default("RUNNING")
+  detected   Int       @default(0)
+  newCount   Int       @default(0)
+  openCount  Int       @default(0)
+  emailedTo  Int       @default(0)
+  mailer     String?
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@unique([tenantId, cronDay])
+  @@index([tenantId, startedAt])
+}

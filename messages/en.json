@@ -94,7 +94,8 @@
     "pos": "Point of sale",
     "avatar_alt": "Avatar",
     "scan_document": "Scan a document",
-    "fiscal_assistant": "Tax assistant"
+    "fiscal_assistant": "Tax assistant",
+    "anomalies": "Items to review"
   },
   "Common": {
     "dashboard": "Dashboard",
@@ -2503,5 +2504,102 @@
     "code_IRPP_IS": "Income & corporate tax code",
     "code_LF2026": "2026 Finance Act",
     "code_FODEC": "FODEC"
+  },
+  "Anomalies": {
+    "title": "Items to review",
+    "subtitle": "Accounting and sales anomalies detected every night over the last 30 days.",
+    "widget_title": "Items to review",
+    "widget_count": "{count} open item(s)",
+    "widget_empty": "No open anomalies. All good.",
+    "view_all": "View all",
+    "table_missing": "The anomaly tables do not exist yet (apply migration 20261011050000_anomalies.sql in Supabase).",
+    "run_now": "Analyse now",
+    "running": "Analysing…",
+    "run_done": "{count} open anomaly(ies) after analysis.",
+    "last_run": "Last analysis: {date}",
+    "never_run": "No analysis yet.",
+    "email_optout": "Stop the morning email",
+    "email_optout_saved": "Preference saved.",
+    "admins_only": "Administrators only.",
+    "open_document": "Open document",
+    "ignore": "Ignore",
+    "resolve": "Resolved",
+    "reopen": "Reopen",
+    "detected_on": "Detected on {date}",
+    "amount": "Amount",
+    "empty": "No anomalies in this list.",
+    "error": "Could not load anomalies.",
+    "filters": {
+      "OPEN": "Open",
+      "IGNORED": "Ignored",
+      "RESOLVED": "Resolved"
+    },
+    "severity": {
+      "CRITICAL": "Critical",
+      "HIGH": "High",
+      "MEDIUM": "Medium",
+      "LOW": "Low"
+    },
+    "help": "“Ignore” = false positive, never reported again. “Resolved” = fixed; reopened automatically if still detected the next night.",
+    "types": {
+      "DUPLICATE_SUPPLIER_INVOICE": {
+        "title": "Duplicate supplier invoice",
+        "detail": "{supplier}: {refs} — {amount} TND"
+      },
+      "INVOICE_TOTAL_MISMATCH": {
+        "title": "Inconsistent invoice total",
+        "detail": "{ref}: net {ht} + FODEC {fodec} + VAT {tva} + stamp {timbre} = {expected} ≠ total {ttc} (difference {diff})"
+      },
+      "MISSING_TIMBRE": {
+        "title": "Missing fiscal stamp",
+        "detail": "{ref} ({client}, {ttc} TND) issued without stamp duty"
+      },
+      "UNUSUAL_VAT_RATE": {
+        "title": "Unusual VAT rate",
+        "detail": "{ref}: rate {rates} (allowed: {allowed} %)"
+      },
+      "OVERDUE_INVOICE": {
+        "title": "Overdue unpaid invoice",
+        "detail": "{ref} — {client}: {ttc} TND, due {due}, {days} days late"
+      },
+      "NEGATIVE_STOCK": {
+        "title": "Negative stock",
+        "detail": "{product}: stock {stock} (warehouses: {warehouses})"
+      },
+      "SALE_BELOW_COST": {
+        "title": "Sale below cost (WAC)",
+        "detail": "{ref}: {product} sold at {price} TND < WAC {cost} TND (loss {loss} TND)"
+      },
+      "SUPPLIER_AMOUNT_OUTLIER": {
+        "title": "Unusual supplier amount",
+        "detail": "{ref} — {supplier}: {amount} TND vs {average} TND on average (z = {z}, {n} invoices)"
+      },
+      "DELIVERY_NOT_INVOICED": {
+        "title": "Delivery note not invoiced",
+        "detail": "{ref} — {client}: delivered {days} days ago, {ttc} TND not invoiced"
+      },
+      "RECEIPT_NOT_INVOICED": {
+        "title": "Receipt without supplier invoice",
+        "detail": "{ref} — {supplier}: received {days} days ago, no linked supplier invoice ({amount} TND)"
+      },
+      "INVOICE_NUMBER_GAP": {
+        "title": "Gap in invoice numbering",
+        "detail": "Series {prefix}: {count} missing number(s): {numbers}"
+      },
+      "FUTURE_DATED_INVOICE": {
+        "title": "Future-dated invoices",
+        "detail": "{count} invoice(s) dated after today (up to {last}): {refs}"
+      }
+    },
+    "email": {
+      "subject_one": "1 item to review this morning — {tenant}",
+      "subject_other": "{count} items to review this morning — {tenant}",
+      "intro": "Hello, last night's analysis found {count} item(s) to review in {tenant}.",
+      "top": "Top 3:",
+      "more": "… and {count} more.",
+      "cta": "See all items to review",
+      "open": "Open",
+      "footer": "Automatic BelloSuite email. To stop it: “Items to review” page → “Stop the morning email”."
+    }
   }
 }

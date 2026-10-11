@@ -94,7 +94,8 @@
     "pos": "Point de vente",
     "avatar_alt": "Avatar",
     "scan_document": "Scanner un document",
-    "fiscal_assistant": "Assistant fiscal"
+    "fiscal_assistant": "Assistant fiscal",
+    "anomalies": "Points à vérifier"
   },
   "Common": {
     "dashboard": "Tableau de Bord",
@@ -2503,5 +2504,102 @@
     "code_IRPP_IS": "Code IRPP / IS",
     "code_LF2026": "Loi de finances 2026",
     "code_FODEC": "FODEC"
+  },
+  "Anomalies": {
+    "title": "Points à vérifier",
+    "subtitle": "Anomalies comptables et commerciales détectées chaque nuit sur les 30 derniers jours.",
+    "widget_title": "Points à vérifier",
+    "widget_count": "{count} point(s) ouvert(s)",
+    "widget_empty": "Aucune anomalie ouverte. Tout est en ordre.",
+    "view_all": "Tout voir",
+    "table_missing": "Les tables des anomalies ne sont pas encore créées (migration 20261011050000_anomalies.sql à appliquer dans Supabase).",
+    "run_now": "Analyser maintenant",
+    "running": "Analyse en cours…",
+    "run_done": "{count} anomalie(s) ouverte(s) après analyse.",
+    "last_run": "Dernière analyse : {date}",
+    "never_run": "Aucune analyse pour l'instant.",
+    "email_optout": "Ne plus recevoir l'email matinal",
+    "email_optout_saved": "Préférence enregistrée.",
+    "admins_only": "Réservé aux administrateurs.",
+    "open_document": "Ouvrir le document",
+    "ignore": "Ignorer",
+    "resolve": "Résolu",
+    "reopen": "Rouvrir",
+    "detected_on": "Détectée le {date}",
+    "amount": "Montant",
+    "empty": "Aucune anomalie dans cette liste.",
+    "error": "Impossible de charger les anomalies.",
+    "filters": {
+      "OPEN": "Ouvertes",
+      "IGNORED": "Ignorées",
+      "RESOLVED": "Résolues"
+    },
+    "severity": {
+      "CRITICAL": "Critique",
+      "HIGH": "Élevée",
+      "MEDIUM": "Moyenne",
+      "LOW": "Faible"
+    },
+    "help": "« Ignorer » = faux positif, ne sera plus signalé. « Résolu » = corrigé ; rouvert automatiquement s'il est encore détecté la nuit suivante.",
+    "types": {
+      "DUPLICATE_SUPPLIER_INVOICE": {
+        "title": "Facture fournisseur en double",
+        "detail": "{supplier} : {refs} — {amount} TND"
+      },
+      "INVOICE_TOTAL_MISMATCH": {
+        "title": "Total de facture incohérent",
+        "detail": "{ref} : HT {ht} + FODEC {fodec} + TVA {tva} + timbre {timbre} = {expected} ≠ TTC {ttc} (écart {diff})"
+      },
+      "MISSING_TIMBRE": {
+        "title": "Timbre fiscal manquant",
+        "detail": "{ref} ({client}, {ttc} TND) émise sans droit de timbre"
+      },
+      "UNUSUAL_VAT_RATE": {
+        "title": "Taux de TVA inhabituel",
+        "detail": "{ref} : taux {rates} (taux admis : {allowed} %)"
+      },
+      "OVERDUE_INVOICE": {
+        "title": "Facture impayée en retard",
+        "detail": "{ref} — {client} : {ttc} TND, échéance {due}, {days} jours de retard"
+      },
+      "NEGATIVE_STOCK": {
+        "title": "Stock négatif",
+        "detail": "{product} : stock {stock} (dépôts : {warehouses})"
+      },
+      "SALE_BELOW_COST": {
+        "title": "Vente sous le coût (CMUP)",
+        "detail": "{ref} : {product} vendu {price} TND < CMUP {cost} TND (perte {loss} TND)"
+      },
+      "SUPPLIER_AMOUNT_OUTLIER": {
+        "title": "Montant fournisseur inhabituel",
+        "detail": "{ref} — {supplier} : {amount} TND contre {average} TND en moyenne (z = {z}, {n} factures)"
+      },
+      "DELIVERY_NOT_INVOICED": {
+        "title": "BL non facturé",
+        "detail": "{ref} — {client} : livré il y a {days} jours, {ttc} TND non facturés"
+      },
+      "RECEIPT_NOT_INVOICED": {
+        "title": "Réception sans facture fournisseur",
+        "detail": "{ref} — {supplier} : reçue il y a {days} jours, aucune facture fournisseur liée ({amount} TND)"
+      },
+      "INVOICE_NUMBER_GAP": {
+        "title": "Trou dans la numérotation des factures",
+        "detail": "Série {prefix} : {count} numéro(s) manquant(s) : {numbers}"
+      },
+      "FUTURE_DATED_INVOICE": {
+        "title": "Factures datées dans le futur",
+        "detail": "{count} facture(s) datée(s) après aujourd'hui (jusqu'au {last}) : {refs}"
+      }
+    },
+    "email": {
+      "subject_one": "1 point à vérifier ce matin — {tenant}",
+      "subject_other": "{count} points à vérifier ce matin — {tenant}",
+      "intro": "Bonjour, l'analyse de cette nuit a relevé {count} point(s) à vérifier dans {tenant}.",
+      "top": "Les 3 plus importants :",
+      "more": "… et {count} autre(s).",
+      "cta": "Voir tous les points à vérifier",
+      "open": "Ouvrir",
+      "footer": "Email automatique BelloSuite. Pour ne plus le recevoir : page « Points à vérifier » → « Ne plus recevoir l'email matinal »."
+    }
   }
 }

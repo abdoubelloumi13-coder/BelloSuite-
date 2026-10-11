@@ -17,6 +17,7 @@ import {
   Lock,
   ScanLine,
   Landmark,
+  ShieldAlert,
 } from 'lucide-react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
@@ -127,6 +128,16 @@ export default function Sidebar() {
                       {scanActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
                       <ScanLine className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${scanActive ? 'text-teal-400' : ''}`} />
                       {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.scan_document')}</span>}
+                    </Link>
+                  )
+                })()}
+                {module.key === 'dashboard' && (() => {
+                  const anActive = pathname === '/anomalies' || pathname.startsWith('/anomalies/')
+                  return (
+                    <Link href="/anomalies" title={t('Sidebar.anomalies')} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${anActive ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
+                      {anActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
+                      <ShieldAlert className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${anActive ? 'text-teal-400' : ''}`} />
+                      {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.anomalies')}</span>}
                     </Link>
                   )
                 })()}
