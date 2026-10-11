@@ -93,7 +93,8 @@
     "toggle": "Collapse / expand menu",
     "pos": "Point of sale",
     "avatar_alt": "Avatar",
-    "scan_document": "Scan a document"
+    "scan_document": "Scan a document",
+    "fiscal_assistant": "Tax assistant"
   },
   "Common": {
     "dashboard": "Dashboard",
@@ -245,7 +246,8 @@
       "new_employee": "New employee",
       "import": "Import",
       "estimate": "Quote",
-      "scan_document": "Scan a document"
+      "scan_document": "Scan a document",
+      "fiscal_assistant": "Tax assistant"
     }
   },
   "Stock": {
@@ -2454,5 +2456,52 @@
     "scan_create_order": "Create a purchase order",
     "scan_again": "Scan another document",
     "scan_handoff_failed": "Could not pass the document to the form (browser storage unavailable)."
+  },
+  "FiscalAssistant": {
+    "title": "Tax assistant",
+    "desc": "Questions about Tunisian taxation: answers drawn from the official texts (VAT, stamp duty, income/corporate tax, 2026 Finance Act, FODEC), with sources.",
+    "tab_assistant": "Assistant",
+    "tab_search": "Search the texts",
+    "placeholder": "Ask your question (French, Arabic or English)…",
+    "ask": "Ask",
+    "thinking": "Searching the texts…",
+    "suggested": "Suggested questions",
+    "suggest_vat_rates": "What VAT rates apply in 2026?",
+    "suggest_stamp": "How much is the stamp duty on an invoice?",
+    "suggest_fodec": "Does FODEC apply to textile products?",
+    "suggest_withholding": "What withholding tax rate applies to fees and rents?",
+    "suggest_export": "What tax regime applies to a fully exporting textile company?",
+    "sources": "Sources",
+    "outdated": "Earlier version",
+    "outdated_hint": "Earlier text: check the version in force.",
+    "arabic_text": "Arabic text",
+    "open_source": "Open the official text",
+    "excerpt": "Excerpt",
+    "close": "Close",
+    "article": "Article",
+    "version": "Version",
+    "code": "Text",
+    "error": "Unable to get an answer right now.",
+    "rate_limited": "Limit reached (20 questions per hour). Try again later.",
+    "retrieval_only": "AI assistant unavailable: relevant passages only.",
+    "empty_chat": "Ask a question or pick a suggestion.",
+    "you": "You",
+    "assistant": "Assistant",
+    "new_chat": "Clear",
+    "search_placeholder": "Search for an article, a rate, a concept…",
+    "search": "Search",
+    "current_only": "Current version only",
+    "all_codes": "All texts",
+    "no_results": "No article found.",
+    "results_count": "{count} result(s)",
+    "searching": "Searching…",
+    "match_vector": "semantic",
+    "match_fulltext": "keywords",
+    "privacy": "Your questions are not stored.",
+    "code_TVA": "VAT Code",
+    "code_DET": "Registration and stamp duties",
+    "code_IRPP_IS": "Income & corporate tax code",
+    "code_LF2026": "2026 Finance Act",
+    "code_FODEC": "FODEC"
   }
 }

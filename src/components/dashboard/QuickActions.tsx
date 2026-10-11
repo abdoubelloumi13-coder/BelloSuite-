@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Receipt,
   Building,
-  ScanLine
+  ScanLine,
+  Landmark
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
@@ -37,6 +38,12 @@ export function QuickActions({ userRole = 'USER' }: QuickActionsProps) {
       href: '/commercial/scan',
       icon: ScanLine,
       color: 'teal'
+    },
+    {
+      label: t('fiscal_assistant'),
+      href: '/assistant-fiscal',
+      icon: Landmark,
+      color: 'blue'
     },
     { 
       label: t('new_invoice'), 
