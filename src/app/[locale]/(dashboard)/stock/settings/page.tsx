@@ -117,15 +117,16 @@ export default function StockSettingsPage() {
                 if (await handle(api('/api/stock/units', { method: 'POST', body: JSON.stringify({ ...newUnit, decimals: Number(newUnit.decimals) }) }))) setNewUnit({ code: '', name: '', decimals: '0' })
               }}>
                 <input className={cls.input} value={newUnit.code} onChange={e => setNewUnit({ ...newUnit, code: e.target.value })} placeholder={t('code')} maxLength={20} />
-                <input className={cls.input} value={newUnit.name} onChange={e => setNewUnit({ ...newUnit, name: e.target.value })} placeholder={t('name')} maxLength={60} />
-                <select className={cls.input} value={newUnit.decimals} onChange={e => setNewUnit({ ...newUnit, decimals: e.target.value })} aria-label={t('decimals')}>
-                  {[0, 1, 2, 3].map(d => <option key={d} value={d}>{t('decimals_n', { count: d })}</option>)}
-                </select>
-                <button className={cls.btnPrimary} type="submit"><Plus className="w-4 h-4" /></button>
-              </form>
-            )}
-            {!units ? (error ? null : <Loading />) : (
-              <table className={cls.table}>
+                                <input className={cls.input} value={newUnit.name} onChange={e => setNewUnit({ ...newUnit, name: e.target.value })} placeholder={t('name')} maxLength={60} />
+                                <select className={cls.input} value={newUnit.decimals} onChange={e => setNewUnit({ ...newUnit, decimals: e.target.value })} aria-label={t('decimals')}>
+                                  {[0, 1, 2, 3].map(d => <option key={d} value={d}>{t('decimals_n', { count: d })}</option>)}
+                                </select>
+                                <button className={cls.btnPrimary} type="submit"><Plus className="w-4 h-4" /></button>
+                              </form>
+                            )}
+                            {!units ? (error ? null : <Loading />) : (
+                              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                                <table className={cls.table}>
                 <thead className="bg-zinc-50"><tr>
                   <th className={cls.th}>{t('code')}</th>
                   <th className={cls.th}>{t('name')}</th>

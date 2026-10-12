@@ -149,7 +149,8 @@ export default function ExportPage() {
       )}
 
       <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <table className='w-full text-start'>
+        <div className='overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0'>
+          <table className='w-full text-start'>
           <thead>
             <tr className='bg-stone-50 text-[10px] font-black text-stone-500 uppercase tracking-widest'>
               <th className='px-6 py-4'>{te('col_invoice')}</th>

@@ -147,7 +147,8 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
             </div>
 
             <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] overflow-hidden">
-              <table className="w-full">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full">
                 <thead>
                   <tr className="bg-zinc-800/30 border-b border-zinc-800/50">
                     <th className="px-6 py-4 text-start text-[10px] font-black uppercase tracking-widest text-zinc-500">{ts('company')}</th>
@@ -214,7 +215,8 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
             </div>
 
             <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] overflow-hidden">
-              <table className="w-full">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full">
                 <thead>
                   <tr className="bg-zinc-800/30 border-b border-zinc-800/50">
                     <th className="px-6 py-4 text-start text-[10px] font-black uppercase tracking-widest text-zinc-500">{ts('user')}</th>

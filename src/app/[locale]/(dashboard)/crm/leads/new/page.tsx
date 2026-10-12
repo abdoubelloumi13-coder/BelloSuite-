@@ -129,7 +129,7 @@ export default function NewLeadPage() {
         {error && <p className="text-sm font-bold text-red-600">{error}</p>}
 
         <button type="submit" disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black rounded-xl">
+          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 min-h-[44px] bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black rounded-xl">
           <Save className="w-4 h-4" /> {saving ? 'Enregistrement...' : 'Créer le lead'}
         </button>
       </form>

@@ -50,10 +50,10 @@ function KPICard({
   color: string
 }) {
   return (
-    <div className="bg-white rounded-[2rem] p-6 border border-stone-200 shadow-sm hover:shadow-xl transition-all">
+    <div className="bg-white rounded-[2rem] p-4 sm:p-6 border border-stone-200 shadow-sm hover:shadow-xl transition-all">
       <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-2xl bg-${color}-50 text-${color}-600`}>
-          <Icon className="w-6 h-6" />
+        <div className={`p-2.5 sm:p-3 rounded-2xl bg-${color}-50 text-${color}-600`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
         {trend && (
           <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
@@ -66,7 +66,7 @@ function KPICard({
           </div>
         )}
       </div>
-      <p className="text-2xl font-black text-stone-900">{value}</p>
+      <p className="text-xl sm:text-2xl font-black text-stone-900">{value}</p>
       <p className="text-sm font-semibold text-stone-500">{title}</p>
       {subtitle && <p className="text-xs text-stone-400 mt-1">{subtitle}</p>}
     </div>
@@ -160,7 +160,7 @@ export default function DashboardSummary() {
       </div>
 
       {/* KPI Cards with real data */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title={td('revenue')}
           value={loading ? '...' : formatCurrency(kpis?.totalRevenue || 0)}
@@ -230,7 +230,7 @@ export default function DashboardSummary() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
         {trends?.monthlyData && trends.monthlyData.length > 0 && (
           <div className="bg-white rounded-[2rem] p-6 border border-stone-200 shadow-sm">
             <h3 className="font-black text-stone-900 mb-4">{td('revenue_trend')}</h3>
@@ -294,27 +294,27 @@ export default function DashboardSummary() {
            </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {modules.map((mod) => (
             <Link 
               key={mod.name}
               href={mod.disabled ? '#' : mod.path}
-              className={`group bg-white rounded-[40px] p-8 border border-stone-200 shadow-sm hover:shadow-2xl transition-all duration-500 relative flex flex-col justify-between overflow-hidden ${
+              className={`group bg-white rounded-[40px] p-4 sm:p-6 lg:p-8 border border-stone-200 shadow-sm hover:shadow-2xl transition-all duration-500 relative flex flex-col justify-between overflow-hidden ${
                 mod.disabled ? 'opacity-60 grayscale' : 'hover:-translate-y-2'
               }`}
             >
               <div>
-                <div className={`w-16 h-16 rounded-3xl mb-6 flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-3xl mb-4 sm:mb-6 flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
                   mod.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
                   mod.color === 'amber' ? 'bg-amber-100 text-amber-600' :
                   mod.color === 'purple' ? 'bg-purple-100 text-purple-600' :
                   mod.color === 'blue' ? 'bg-blue-100 text-blue-600' :
                   mod.color === 'red' ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-600'
                 }`}>
-                  <mod.icon className="w-8 h-8" />
+                  <mod.icon className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
-                <h3 className="text-xl font-black text-stone-900 mb-2">{mod.name}</h3>
-                <p className="text-stone-500 text-sm font-medium line-clamp-2 mb-6">
+                <h3 className="text-lg sm:text-xl font-black text-stone-900 mb-2">{mod.name}</h3>
+                <p className="text-stone-500 text-sm font-medium line-clamp-2 mb-4 sm:mb-6">
                   {mod.description}
                 </p>
               </div>

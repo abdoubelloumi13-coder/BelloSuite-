@@ -158,7 +158,8 @@ export default function ProductsListPage() {
       </div>
 
       <div className="bg-white border border-zinc-200 rounded-[2rem] overflow-hidden">
-        <table className="w-full text-start border-collapse">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <table className="w-full text-start border-collapse">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50">
               <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-start">{t('Stock.product')}</th>

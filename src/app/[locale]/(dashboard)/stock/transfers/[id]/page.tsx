@@ -78,7 +78,8 @@ export default function TransferDetailPage() {
             </dl>
           </Card>
           <Card title={t('lines')} bodyClassName="p-0">
-            <table className={cls.table}>
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className={cls.table}>
               <thead className="bg-zinc-50"><tr>
                 <th className={cls.th}>{t('code')}</th>
                 <th className={cls.th}>{t('product')}</th>
@@ -94,7 +95,8 @@ export default function TransferDetailPage() {
                 ))}
               </tbody>
             </table>
-          </Card>
+          </div>
+        </Card>
           {tr.status === 'TRANSFERRED' && (
             <p className="no-print text-sm text-zinc-500 text-start">
               <Link href={`/stock/movements?type=TRANSFER`} className="text-teal-700 hover:underline">{t('see_generated_movements')}</Link>

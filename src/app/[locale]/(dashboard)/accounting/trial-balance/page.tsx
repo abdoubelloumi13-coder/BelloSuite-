@@ -83,7 +83,8 @@ export default function TrialBalancePage() {
       {/* Trial balance table */}
       {data && (
         <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[1.5rem] overflow-hidden">
-          <table className="w-full text-start">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full text-start">
             <thead>
               <tr className="bg-zinc-800/50">
                 <th className="px-5 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">{t('account_no')}</th>

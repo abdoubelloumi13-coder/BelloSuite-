@@ -91,7 +91,8 @@ export default function UsersManagementPage() {
 
         {/* Users Table */}
         <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[2.5rem] overflow-hidden backdrop-blur-xl shadow-2xl">
-          <table className="w-full border-collapse">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full border-collapse">
             <thead>
               <tr className="bg-zinc-800/30 text-start border-b border-zinc-800/50">
                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{t('user')}</th>

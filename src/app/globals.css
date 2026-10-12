@@ -5,10 +5,38 @@
 :root {
   --font-cairo: 'Cairo', sans-serif;
   --font-inter: 'Inter', sans-serif;
+  --font-ibm-plex-arabic: 'IBM Plex Sans Arabic', sans-serif;
+
+  /* Light theme (default) */
+  --bg-primary: #fafafa;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: #09090b;
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --danger: #dc2626;
+  --success: #059669;
+  --warning: #d97706;
+}
+
+.dark {
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --bg-sidebar: #09090b;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --accent: #14b8a6;
+  --accent-hover: #0d9488;
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100;
+  @apply bg-zinc-50 text-zinc-900;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 /* ─── Impression (feuilles de comptage, transferts, rapports stock) ─── */
