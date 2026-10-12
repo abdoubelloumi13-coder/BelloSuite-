@@ -28,6 +28,10 @@
         "title": "Commercial & Sales",
         "description": "Local and export invoicing, purchase orders, quotes, expense reports, payments and statements."
       },
+      "crm": {
+        "title": "CRM & Prospecting",
+        "description": "Lead pipeline, sales kanban, automated follow-ups, conversion to clients."
+      },
       "hr": {
         "title": "Human Resources",
         "description": "Employee management, contracts, administrative absences, professional qualification."

@@ -79,6 +79,8 @@ model Tenant {
   projectTags         ProjectTag[]
   anomalies           Anomaly[]
   anomalyRuns         AnomalyRun[]
+  leads               Lead[]
+  leadNotes           LeadNote[]
 }
 
 // ============================================

@@ -10,6 +10,7 @@ async function main() {
     { name: 'commercial', displayName: 'Module Commercial', description: 'Clients, fournisseurs, factures', icon: '💼', monthlyPrice: 149 },
     { name: 'accounting', displayName: 'Comptabilité', description: 'Plan comptable et écritures', icon: '💰', monthlyPrice: 199 },
     { name: 'hr', displayName: 'GRH & Paie', description: 'Gestion des employés et paie', icon: '👥', monthlyPrice: 179 },
+    { name: 'crm', displayName: 'CRM & Prospection', description: 'Pipeline de leads, suivi commercial', icon: '🎯', monthlyPrice: 79 },
     { name: 'gmao', displayName: 'GMAO', description: 'Gestion de la maintenance', icon: '🔧', monthlyPrice: 129 },
     { name: 'gpao', displayName: 'GPAO', description: 'Gestion de la production', icon: '🏭', monthlyPrice: 249 },
   ]

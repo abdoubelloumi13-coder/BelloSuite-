@@ -28,6 +28,10 @@
         "title": "Commercial & Ventes",
         "description": "Facturation locale et export, bons de commande, devis, notes de frais, paiements et relevés."
       },
+      "crm": {
+        "title": "CRM & Prospection",
+        "description": "Pipeline de leads, kanban commercial, relances automatiques, conversion en clients."
+      },
       "hr": {
         "title": "Ressources Humaines",
         "description": "Gestion des employés, contrats, absences administratives, qualification professionnelle."

@@ -18,6 +18,7 @@ import {
   ScanLine,
   Landmark,
   ShieldAlert,
+  Target,
 } from 'lucide-react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
@@ -27,6 +28,7 @@ const MODULE_REGISTRY: Record<string, { tKey: string; icon: any; path: string; a
   dashboard:   { tKey: 'Common.dashboard', icon: LayoutDashboard, path: '/dashboard', alwaysVisible: true },
   stock:       { tKey: 'Home.modules.stock.title', icon: Package, path: '/stock' },
   commercial:  { tKey: 'Home.modules.commercial.title', icon: ShoppingCart, path: '/commercial' },
+  crm:         { tKey: 'Home.modules.crm.title', icon: Target, path: '/crm' },
   accounting:  { tKey: 'Home.modules.accounting.title', icon: Wallet, path: '/accounting/chart' },
   hr:          { tKey: 'Home.modules.hr.title', icon: Users, path: '/hr' },
   pos:         { tKey: 'Sidebar.pos', icon: ShoppingCart, path: '/pos' },
@@ -34,7 +36,7 @@ const MODULE_REGISTRY: Record<string, { tKey: string; icon: any; path: string; a
   gpao:        { tKey: 'Home.modules.production.title', icon: Factory, path: '/gpao' },
 }
 
-const MODULE_ORDER = ['dashboard', 'stock', 'commercial', 'accounting', 'hr', 'pos', 'gmao', 'gpao']
+const MODULE_ORDER = ['dashboard', 'stock', 'commercial', 'crm', 'accounting', 'hr', 'pos', 'gmao', 'gpao']
 
 export default function Sidebar() {
   const t = useTranslations()

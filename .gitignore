@@ -15,3 +15,13 @@ yarn-error.log*
 dist/
 build/
 .cache/
+.vercel
+
+# Prisma/DB artifacts
+prisma/schema.prisma.bak
+prisma/schema_NEW.prisma
+supabase/DIAGNOSTIC_DB.sql
+supabase/MIGRATION_*.sql
+supabase/migrations/MIGRATION_TO_RUN.sql
+test-action.js
+test-jose.js
