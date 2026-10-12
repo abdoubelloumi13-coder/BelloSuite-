@@ -56,7 +56,7 @@ export async function getLeads(tenantId: string, filters?: { status?: string; se
   return prisma.lead.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { _count: { select: { notes: true } } },
+    include: { _count: { select: { leadNotes: true } } },
   })
 }
 
@@ -64,7 +64,7 @@ export async function getLeadById(id: string, tenantId: string) {
   const lead = await prisma.lead.findUnique({
     where: { id },
     include: {
-      notes: { orderBy: { createdAt: 'desc' }, take: 20 },
+      leadNotes: { orderBy: { createdAt: 'desc' }, take: 20 },
     },
   })
   if (!lead || lead.tenantId !== tenantId) {

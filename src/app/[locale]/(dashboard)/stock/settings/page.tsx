@@ -148,8 +148,9 @@ export default function StockSettingsPage() {
                   ))}
                 </tbody>
               </table>
-            )}
-          </Card>
+            </div>
+          )}
+        </Card>
         </div>
       </div>
     </StockPage>

@@ -116,7 +116,8 @@ export default function TrialBalancePage() {
             </tfoot>
           </table>
         </div>
-      )}
+      </div>
+    )}
 
       {!data && !loading && (
         <div className="text-center py-20 text-zinc-600">

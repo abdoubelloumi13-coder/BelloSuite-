@@ -96,21 +96,6 @@ export default function Sidebar() {
 
   const overlayClass = `fixed inset-0 bg-black/50 z-40 lg:hidden ${isMobileOpen ? 'block' : 'hidden'}`
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'DELETE' })
-    router.push('/login')
-  }
-
-  const sidebarItems = MODULE_ORDER.map(key => {
-    const config = MODULE_REGISTRY[key]
-    const isEnabled = config.alwaysVisible || enabledModuleNames.includes(key)
-    return { ...config, key, isEnabled }
-  }).filter(m => m.isEnabled || m.alwaysVisible === true)
-
-  const lockedItems = MODULE_ORDER
-    .filter(key => !MODULE_REGISTRY[key].alwaysVisible && !enabledModuleNames.includes(key))
-    .map(key => MODULE_REGISTRY[key])
-
   return (
     <>
       {/* Mobile overlay */}
