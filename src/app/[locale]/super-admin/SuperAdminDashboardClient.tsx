@@ -204,6 +204,7 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
               </table>
             </div>
           </div>
+        </div>
         )}
 
         {/* ============ USERS TAB ============ */}
@@ -269,6 +270,7 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
               </table>
             </div>
           </div>
+        </div>
         )}
 
         {/* ============ MODULES TAB ============ */}

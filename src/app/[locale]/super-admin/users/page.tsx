@@ -65,7 +65,7 @@ export default function UsersManagementPage() {
       <Header title={t('title')} subtitle={t('subtitle')} />
 
       <main className="max-w-7xl mx-auto px-8 mt-10">
-        
+       
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 bg-zinc-900/40 p-4 rounded-3xl border border-zinc-800/50 backdrop-blur-xl">
            <div className="flex items-center gap-4 flex-1 min-w-[300px]">
@@ -183,7 +183,7 @@ export default function UsersManagementPage() {
             </div>
           )}
         </div>
-
+      </div>
       </main>
     </div>
   )
