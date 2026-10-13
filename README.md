@@ -1,6 +1,6 @@
 # BelloSuite ERP
 
-BelloSuite est un système ERP modulaire SaaS conçu spécifiquement pour le marché tunisien (PMEs). 
+BelloSuite est un système ERP modulaire SaaS conçu spécifiquement pour le marché tunisien (PMEs).
 Il offre une gestion complète de l'entreprise via une architecture multi-tenant et des modules activables à la demande.
 
 ## Fonctionnalités (Modules)
@@ -61,3 +61,10 @@ L'application sera accessible sur `http://localhost:3000`.
 
 ## Contribuer
 Veuillez vous référer au fichier `CODING_STANDARDS.md` pour les règles de formatage et de contribution.
+
+## Statut du déploiement Vercel
+Dernière mise à jour: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+- Sidebar responsive mobile : ✅ Implémenté
+- Breakpoints Tailwind : ✅ xs (480px) & 3xl (1920px)
+- Tables responsives : ✅ overflow-x-auto wrappers
+- Module CRM : ✅ Intégré avec gestion des leads
