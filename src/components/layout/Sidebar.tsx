@@ -267,6 +267,7 @@ export default function Sidebar() {
           </button>
         )}
       </div>
+    </aside>
     </>
   )
 }
