@@ -123,7 +123,7 @@ export default function LeadDetailPage() {
       const r = await fetch(`/api/crm/leads/${params.id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, leadId: params.id, content: newNote.trim(), author: user?.name || user?.email || 'Admin' }),
+        body: JSON.stringify({ tenantId, leadId: params.id, content: newNote.trim(), author: session?.firstName || session?.email || 'Admin' }),
       })
       if (r.ok) {
         setNewNote('')
