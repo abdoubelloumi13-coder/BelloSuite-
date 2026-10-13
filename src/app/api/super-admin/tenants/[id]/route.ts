@@ -2,6 +2,7 @@ import { requireSuperAdmin } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logAudit, clientIp } from '@/lib/super-admin-audit'
+import { Prisma } from '@prisma/client'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdmin(req)
@@ -69,15 +70,27 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!tenant) return NextResponse.json({ error: 'Tenant introuvable' }, { status: 404 })
 
     if (mode === 'hard') {
-      // Suppression physique : on cascade sur les enfants via les relations.
-      // On supprime d'abord les users (relation Tenant -> users sans cascade auto).
-      await prisma.user.deleteMany({ where: { tenantId: id } })
-      await prisma.tenant.delete({ where: { id } })
-      await logAudit(auth.id, 'TENANT_DELETE_HARD', {
-        target: 'tenant', targetId: id, tenantId: id,
-        details: { name: tenant.name, subdomain: tenant.subdomain }, ip: clientIp(req),
-      })
-      return NextResponse.json({ success: true, mode: 'hard' })
+      try {
+        // Tentative de suppression en cascade explicite : users + tenant.
+        // Les autres tables (products, invoices, etc.) ont des FK vers tenantId
+        // sans onDelete: Cascade -> Prisma lancera P2003.
+        // On capture l'erreur pour la rendre compréhensible.
+        await prisma.user.deleteMany({ where: { tenantId: id } })
+        await prisma.tenant.delete({ where: { id } })
+        await logAudit(auth.id, 'TENANT_DELETE_HARD', {
+          target: 'tenant', targetId: id, tenantId: id,
+          details: { name: tenant.name, subdomain: tenant.subdomain }, ip: clientIp(req),
+        })
+        return NextResponse.json({ success: true, mode: 'hard' })
+      } catch (err: any) {
+        // Prisma P2003 = Foreign key constraint failed (d'autres tables enfant bloquent la suppression)
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+          return NextResponse.json({
+            error: 'Suppression impossible : des données liées existent encore (produits, factures, employés, etc.). Utilisez le mode « Suspendre » (soft delete) ou supprimez manuellement les données liées avant.'
+          }, { status: 409 })
+        }
+        throw err
+      }
     }
 
     // Soft : on désactive le tenant + ses users (les données restent, récupérables)

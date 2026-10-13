@@ -2027,6 +2027,7 @@
       "filter_action": "Filtrer par action",
       "filter_tenant": "Filtrer par tenant",
       "all_tenants": "Tous les tenants",
+      "show_inactive": "Afficher les suspendus",
       "showing": "Affichage de {from} à {to} sur {total}",
       "no_results": "Aucun résultat",
       "continue_typing": "Continuez à taper...",

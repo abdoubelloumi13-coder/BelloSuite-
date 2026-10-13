@@ -57,6 +57,9 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
   const [refreshing, setRefreshing] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  const [hideInactiveTenants, setHideInactiveTenants] = useState(true)
+  const [tenantDeleteMode, setTenantDeleteMode] = useState<'soft' | 'hard'>('soft')
+  const [userDeleteMode, setUserDeleteMode] = useState<'soft' | 'hard'>('soft')
 
   const refreshData = useCallback(async () => {
     setRefreshing(true)
@@ -102,26 +105,46 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
     setSelectedTenantForDetail(t)
   }
 
-  const handleDeleteTenant = async (tenantId: string, mode: 'soft' | 'hard' = 'soft') => {
-    await fetch(`/api/super-admin/tenants/${tenantId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode })
-    })
-    setDeleteTenantOpen(false)
-    setTenantToDelete(null)
-    refreshData()
+  const handleDeleteTenant = async (tenantId: string) => {
+    try {
+      const res = await fetch(`/api/super-admin/tenants/${tenantId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: tenantDeleteMode })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Erreur lors de la suppression')
+        return
+      }
+      setDeleteTenantOpen(false)
+      setTenantToDelete(null)
+      refreshData()
+    } catch (e) {
+      console.error(e)
+      alert('Erreur réseau')
+    }
   }
 
-  const handleDeleteUser = async (userId: string, mode: 'soft' | 'hard' = 'soft') => {
-    await fetch(`/api/super-admin/users/${userId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode })
-    })
-    setDeleteUserOpen(false)
-    setUserToDelete(null)
-    refreshData()
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/super-admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: userDeleteMode })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Erreur lors de la suppression')
+        return
+      }
+      setDeleteUserOpen(false)
+      setUserToDelete(null)
+      refreshData()
+    } catch (e) {
+      console.error(e)
+      alert('Erreur réseau')
+    }
   }
 
   const handleImpersonate = async (userId: string) => {
@@ -146,8 +169,9 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
   }
 
   const filteredTenants = tenants.filter((t: any) =>
-    t.name?.toLowerCase().includes(search.toLowerCase()) ||
+    (t.name?.toLowerCase().includes(search.toLowerCase()) ||
     t.subdomain?.toLowerCase().includes(search.toLowerCase())
+  ) && (!hideInactiveTenants || t.isActive !== false)
   )
 
   const filteredUsers = users.filter((u: any) =>
@@ -229,9 +253,15 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
         {/* ============ TENANTS TAB ============ */}
         {activeTab === 'tenants' && (
           <div className="space-y-4">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input type="text" placeholder={ts('search_client')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl ps-11 pe-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-all" value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="flex items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input type="text" placeholder={ts('search_client')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl ps-11 pe-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-all" value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 ml-4 text-sm font-bold text-zinc-400 hover:text-white cursor-pointer whitespace-nowrap">
+                <input type="checkbox" checked={!hideInactiveTenants} onChange={e => setHideInactiveTenants(!e.target.checked)} className="accent-emerald-500" />
+                <span>{ts('show_inactive')}</span>
+              </label>
             </div>
 
             <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] overflow-hidden">
@@ -448,22 +478,22 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
 
       {/* Delete tenant confirmation modal */}
       {isDeleteTenantOpen && tenantToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setDeleteTenantOpen(false); setTenantToDelete(null) }}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-8 py-6 border-b border-zinc-800">
               <h3 className="text-xl font-black text-white">{ts('delete_tenant_title', { name: tenantToDelete.name })}</h3>
               <p className="text-sm text-zinc-500 mt-1">{ts('delete_tenant_warning')}</p>
             </div>
-            <div className="px-8 py-6 space-y-4">
-              <label className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                <input type="radio" name="tenant-mode" defaultChecked className="mt-1 accent-amber-500" />
+            <div className="px-8 py-6 space-y-3">
+              <label className={`flex items-start gap-3 p-4 rounded-2xl cursor-pointer transition-colors ${tenantDeleteMode === 'soft' ? 'bg-amber-500/10 border border-amber-500/40' : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'}`}>
+                <input type="radio" name="tenant-mode" checked={tenantDeleteMode === 'soft'} onChange={() => setTenantDeleteMode('soft')} className="mt-1 accent-amber-500" />
                 <div>
                   <p className="font-bold text-amber-400 text-sm">{ts('delete_mode_soft')}</p>
                   <p className="text-xs text-zinc-500 mt-1">{ts('delete_mode_soft_desc')}</p>
                 </div>
               </label>
-              <label className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                <input type="radio" name="tenant-mode" className="mt-1 accent-red-500" id="tenant-mode-hard" />
+              <label className={`flex items-start gap-3 p-4 rounded-2xl cursor-pointer transition-colors ${tenantDeleteMode === 'hard' ? 'bg-red-500/10 border border-red-500/40' : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'}`}>
+                <input type="radio" name="tenant-mode" checked={tenantDeleteMode === 'hard'} onChange={() => setTenantDeleteMode('hard')} className="mt-1 accent-red-500" />
                 <div>
                   <p className="font-bold text-red-400 text-sm">{ts('delete_mode_hard')}</p>
                   <p className="text-xs text-zinc-500 mt-1">{ts('delete_mode_hard_desc')}</p>
@@ -475,11 +505,11 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
               <button onClick={() => { setDeleteTenantOpen(false); setTenantToDelete(null) }} className="px-6 py-2.5 rounded-xl font-bold text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition-colors">
                 {ts('cancel')}
               </button>
-              <button onClick={() => handleDeleteTenant(tenantToDelete.id, 'soft')} className="px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-amber-500 hover:bg-amber-400 transition-colors">
-                {ts('delete_soft_btn')}
-              </button>
-              <button onClick={() => handleDeleteTenant(tenantToDelete.id, 'hard')} className="px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-colors">
-                {ts('delete_hard_btn')}
+              <button
+                onClick={() => handleDeleteTenant(tenantToDelete.id)}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-colors ${tenantDeleteMode === 'soft' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-red-600 hover:bg-red-500'}`}
+              >
+                {tenantDeleteMode === 'soft' ? ts('delete_soft_btn') : ts('delete_hard_btn')}
               </button>
             </div>
           </div>
@@ -488,22 +518,22 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
 
       {/* Delete user confirmation modal */}
       {isDeleteUserOpen && userToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setDeleteUserOpen(false); setUserToDelete(null) }}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-8 py-6 border-b border-zinc-800">
               <h3 className="text-xl font-black text-white">{ts('delete_user_title', { email: userToDelete.email })}</h3>
               <p className="text-sm text-zinc-500 mt-1">{ts('delete_user_warning')}</p>
             </div>
-            <div className="px-8 py-6 space-y-4">
-              <label className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                <input type="radio" name="user-mode" defaultChecked className="mt-1 accent-amber-500" />
+            <div className="px-8 py-6 space-y-3">
+              <label className={`flex items-start gap-3 p-4 rounded-2xl cursor-pointer transition-colors ${userDeleteMode === 'soft' ? 'bg-amber-500/10 border border-amber-500/40' : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'}`}>
+                <input type="radio" name="user-mode" checked={userDeleteMode === 'soft'} onChange={() => setUserDeleteMode('soft')} className="mt-1 accent-amber-500" />
                 <div>
                   <p className="font-bold text-amber-400 text-sm">{ts('delete_mode_soft')}</p>
                   <p className="text-xs text-zinc-500 mt-1">{ts('delete_mode_soft_desc')}</p>
                 </div>
               </label>
-              <label className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                <input type="radio" name="user-mode" className="mt-1 accent-red-500" />
+              <label className={`flex items-start gap-3 p-4 rounded-2xl cursor-pointer transition-colors ${userDeleteMode === 'hard' ? 'bg-red-500/10 border border-red-500/40' : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'}`}>
+                <input type="radio" name="user-mode" checked={userDeleteMode === 'hard'} onChange={() => setUserDeleteMode('hard')} className="mt-1 accent-red-500" />
                 <div>
                   <p className="font-bold text-red-400 text-sm">{ts('delete_mode_hard')}</p>
                   <p className="text-xs text-zinc-500 mt-1">{ts('delete_mode_hard_desc')}</p>
@@ -514,11 +544,11 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
               <button onClick={() => { setDeleteUserOpen(false); setUserToDelete(null) }} className="px-6 py-2.5 rounded-xl font-bold text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition-colors">
                 {ts('cancel')}
               </button>
-              <button onClick={() => handleDeleteUser(userToDelete.id, 'soft')} className="px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-amber-500 hover:bg-amber-400 transition-colors">
-                {ts('delete_soft_btn')}
-              </button>
-              <button onClick={() => handleDeleteUser(userToDelete.id, 'hard')} className="px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-colors">
-                {ts('delete_hard_btn')}
+              <button
+                onClick={() => handleDeleteUser(userToDelete.id)}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-colors ${userDeleteMode === 'soft' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-red-600 hover:bg-red-500'}`}
+              >
+                {userDeleteMode === 'soft' ? ts('delete_soft_btn') : ts('delete_hard_btn')}
               </button>
             </div>
           </div>
