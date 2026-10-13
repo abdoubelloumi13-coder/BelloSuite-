@@ -267,7 +267,7 @@ export default function LedgerPage() {
                       </table>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )
           })}
