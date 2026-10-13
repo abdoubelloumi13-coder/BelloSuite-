@@ -13,6 +13,7 @@ const DEFAULT_UNITS = [
   { code: 'm2', name: 'Mètre carré', decimals: 2 },
   { code: 'l', name: 'Litre', decimals: 3 },
   { code: 'box', name: 'Boîte', decimals: 0 },
+  { code: 'ft', name: 'Pied', decimals: 2 },
 ]
 
 export async function GET(req: NextRequest) {
