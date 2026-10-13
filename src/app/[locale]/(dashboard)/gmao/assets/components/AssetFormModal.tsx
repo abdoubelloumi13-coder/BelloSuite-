@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Save, Settings, Tag, Calendar, DollarSign, Loader2, Calculator } from "lucide-react";
 import { useTranslations } from 'next-intl'
+import SmartInput from '@/components/ui/SmartInput'
+import type { Suggestion } from '@/components/ui/SmartInput'
 
 interface AssetFormModalProps {
   onClose: () => void;
@@ -14,6 +16,33 @@ export function AssetFormModal({ onClose, onSave, tenantId }: AssetFormModalProp
   const t = useTranslations('GMAO.assets.form')
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assets, setAssets] = useState<any[]>([]);
+
+  // Saisie intelligente : catégories et lieux déjà utilisés sur les actifs existants
+  useEffect(() => {
+    fetch(`/api/gmao/assets?tenantId=${tenantId}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((list: any[]) => setAssets(Array.isArray(list) ? list : []))
+      .catch(() => {});
+  }, [tenantId]);
+
+  const categorySuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of assets) {
+      const c = (a.category || '').trim();
+      if (c) counts.set(c, (counts.get(c) || 0) + 1);
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }));
+  }, [assets]);
+
+  const locationSuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of assets) {
+      const l = (a.location || '').trim();
+      if (l) counts.set(l, (counts.get(l) || 0) + 1);
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }));
+  }, [assets]);
 
    const [formData, setFormData] = useState({
      code: "",
@@ -110,11 +139,23 @@ export function AssetFormModal({ onClose, onSave, tenantId }: AssetFormModalProp
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-stone-700">{t('category')}</label>
-                  <input name="category" value={formData.category} onChange={handleChange} className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all" placeholder={t('category_placeholder')} />
+                  <SmartInput
+                    name="category"
+                    value={formData.category}
+                    onChange={v => setFormData(prev => ({ ...prev, category: v }))}
+                    suggestions={categorySuggestions}
+                    placeholder={t('category_placeholder')}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-stone-700">{t('location')}</label>
-                  <input name="location" value={formData.location} onChange={handleChange} className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all" placeholder={t('location_placeholder')} />
+                  <SmartInput
+                    name="location"
+                    value={formData.location}
+                    onChange={v => setFormData(prev => ({ ...prev, location: v }))}
+                    suggestions={locationSuggestions}
+                    placeholder={t('location_placeholder')}
+                  />
                 </div>
               </div>
             </div>

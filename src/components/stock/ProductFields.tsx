@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronUp, Check } from 'lucide-react'
+import SmartInput from '@/components/ui/SmartInput'
 
 type Unit = { id?: string; code: string; name: string; decimals?: number; productCount?: number }
 type Warehouse = { id: string; code: string; name: string; isDefault?: boolean }
@@ -28,10 +29,12 @@ export function useStockReferentials() {
 
 export function CategoryInput({ value, onChange, className, categories }: { value: string; onChange: (v: string) => void; className: string; categories: string[] }) {
   return (
-    <>
-      <input list="stock-categories" value={value} onChange={e => onChange(e.target.value)} className={className} autoComplete="off" />
-      <datalist id="stock-categories">{categories.map(c => <option key={c} value={c} />)}</datalist>
-    </>
+    <SmartInput
+      value={value}
+      onChange={onChange}
+      suggestions={categories}
+      className={className}
+    />
   )
 }
 

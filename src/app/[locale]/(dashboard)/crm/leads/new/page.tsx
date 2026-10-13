@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from "next/navigation"
 import { UserPlus, Save } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
-// Input/Select are inline <input>/<select> elements (no shared UI component)
+import SmartInput from '@/components/ui/SmartInput'
+import type { Suggestion } from '@/components/ui/SmartInput'
 
 const SECTORS = [
   { value: 'GARAGE', label: 'Garage / Auto' },
@@ -25,17 +26,65 @@ const SOURCES = [
   { value: 'OTHER', label: 'Autre' },
 ]
 
+// Grandes villes de Tunisie (base de suggestions — la saisie libre reste possible)
+const TUNISIA_CITIES = [
+  'Tunis', 'Ariana', 'La Marsa', 'Ben Arous', 'Sfax', 'Sousse', 'Kairouan', 'Nabeul',
+  'Bizerte', 'Monastir', 'Mahdia', 'Béja', 'Jendouba', 'Kasserine', 'Gabès', 'Médenine',
+  'Zaghouan', 'Le Kef', 'Siliana', 'Kef', 'Gafsa', 'Tozeur', 'Gabès', 'Djerba', 'Tabarka',
+]
+
 export default function NewLeadPage() {
   const { tenantId } = useSession()
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [existingLeads, setExistingLeads] = useState<any[]>([])
   const [form, setForm] = useState({
     name: '', company: '', email: '', phone: '', address: '', city: '',
     sector: 'AUTRE', source: 'OTHER', estimatedValue: '', nextFollowUp: '',
   })
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  // Saisie intelligente : entreprises, villes, contacts déjà saisis dans le CRM
+  useEffect(() => {
+    if (!tenantId) return
+    fetch(`/api/crm/leads?tenantId=${tenantId}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((list: any[]) => setExistingLeads(Array.isArray(list) ? list : []))
+      .catch(() => {})
+  }, [tenantId])
+
+  const companySuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const l of existingLeads) {
+      const c = (l.company || '').trim()
+      if (c) counts.set(c, (counts.get(c) || 0) + 1)
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }))
+  }, [existingLeads])
+
+  const citySuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const l of existingLeads) {
+      const c = (l.city || '').trim()
+      if (c) counts.set(c, (counts.get(c) || 0) + 1)
+    }
+    for (const c of TUNISIA_CITIES) {
+      const k = c
+      counts.set(k, counts.get(k) ?? 0)
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }))
+  }, [existingLeads])
+
+  const nameSuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const l of existingLeads) {
+      const n = (l.name || '').trim()
+      if (n) counts.set(n, (counts.get(n) || 0) + 1)
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }))
+  }, [existingLeads])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,12 +121,12 @@ export default function NewLeadPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-black text-stone-600 mb-1.5 block">Nom du contact *</label>
-            <input value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Ex : Ahmed Ben Salah"
+            <SmartInput required value={form.name} onChange={v => set('name', v)} suggestions={nameSuggestions} placeholder="Ex : Ahmed Ben Salah"
               className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
           </div>
           <div>
             <label className="text-xs font-black text-stone-600 mb-1.5 block">Entreprise</label>
-            <input value={form.company} onChange={e => set('company', e.target.value)} placeholder="Ex : Garage El Fath"
+            <SmartInput value={form.company} onChange={v => set('company', v)} suggestions={companySuggestions} placeholder="Ex : Garage El Fath"
               className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
           </div>
           <div>
@@ -92,7 +141,7 @@ export default function NewLeadPage() {
           </div>
           <div>
             <label className="text-xs font-black text-stone-600 mb-1.5 block">Ville</label>
-            <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Tunis, Sfax..."
+            <SmartInput value={form.city} onChange={v => set('city', v)} suggestions={citySuggestions} placeholder="Tunis, Sfax..."
               className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
           </div>
           <div>

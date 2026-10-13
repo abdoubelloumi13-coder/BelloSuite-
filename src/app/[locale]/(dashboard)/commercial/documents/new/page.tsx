@@ -9,6 +9,8 @@ import { Link } from '@/i18n/routing'
 import { useSession } from '@/hooks/useSession'
 import { findShortages, aggregateQuantities } from '@/lib/delivery-note-logic'
 import DictateQuoteDialog from '@/components/commercial/DictateQuoteDialog'
+import SmartInput from '@/components/ui/SmartInput'
+import type { Suggestion } from '@/components/ui/SmartInput'
 import type { DictatedQuote } from '@/lib/dictate-quote'
 
 type WarehouseOpt = { id: string; code: string; name: string; isDefault?: boolean }
@@ -90,6 +92,15 @@ export default function NewInvoicePage() {
   }, [isDeliveryNote, requestedByProduct, invoiceData.items, allowNegative, products, warehouseId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const productName = (id: string) => products.find(p => p.id === id)?.name || id
+
+  // Saisie intelligente : suggestions de désignation issues des produits + lignes déjà saisies
+  const descriptionSuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>()
+    const add = (v: string) => { const s = v.trim(); if (s) counts.set(s, (counts.get(s) || 0) + 1) }
+    for (const p of products) add(p.name)
+    for (const it of invoiceData.items) add(it.description)
+    return [...counts.entries()].map(([value, count]) => ({ value, count }))
+  }, [products, invoiceData.items])
 
   const fmtQty = (n: number) => n.toLocaleString(locale === 'ar' ? 'ar-TN' : locale === 'en' ? 'en-GB' : 'fr-TN', { maximumFractionDigits: 3 })
 
@@ -397,14 +408,15 @@ export default function NewInvoicePage() {
                             })()}
                          </div>
                          <div className="col-span-12 md:col-span-8 space-y-1">
-                            <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">{t('items.description')}</label>
-                            <input 
-                              value={item.description}
-                              onChange={e => handleItemChange(index, 'description', e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-teal-500 transition-all font-bold"
-                              placeholder={t('items.designation')}
-                            />
-                         </div>
+                                                     <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">{t('items.description')}</label>
+                                                     <SmartInput
+                                                       value={item.description}
+                                                       onChange={v => handleItemChange(index, 'description', v)}
+                                                       suggestions={descriptionSuggestions}
+                                                       placeholder={t('items.designation')}
+                                                       className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-teal-500 transition-all font-bold"
+                                                     />
+                                                  </div>
                       </div>
 
                       <div className="grid grid-cols-12 gap-4 items-end">

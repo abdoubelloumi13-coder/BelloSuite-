@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Save, User as UserIcon, Briefcase, Loader2 } from "lucide-react";
 import { useTranslations } from 'next-intl'
+import SmartInput from '@/components/ui/SmartInput'
+import type { Suggestion } from '@/components/ui/SmartInput'
 
 interface EmployeeFormModalProps {
   onClose: () => void;
@@ -14,6 +16,33 @@ export function EmployeeFormModal({ onClose, onSave, tenantId }: EmployeeFormMod
   const t = useTranslations('HR.employees.form')
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
+
+  // Saisie intelligente : postes et départements déjà utilisés
+  useEffect(() => {
+    fetch(`/api/hr/employees?tenantId=${tenantId}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((list: any[]) => setEmployees(Array.isArray(list) ? list : []))
+      .catch(() => {});
+  }, [tenantId]);
+
+  const posteSuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of employees) {
+      const p = (e.poste || '').trim();
+      if (p) counts.set(p, (counts.get(p) || 0) + 1);
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }));
+  }, [employees]);
+
+  const departementSuggestions: Suggestion[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of employees) {
+      const d = (e.departement || '').trim();
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+    return [...counts.entries()].map(([value, count]) => ({ value, count }));
+  }, [employees]);
 
   const [formData, setFormData] = useState({
     employeeNumber: "",
@@ -134,11 +163,23 @@ export function EmployeeFormModal({ onClose, onSave, tenantId }: EmployeeFormMod
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-stone-700">{t('position')}</label>
-                  <input name="poste" value={formData.poste} onChange={handleChange} className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" />
+                  <SmartInput
+                    name="poste"
+                    value={formData.poste}
+                    onChange={v => setFormData(prev => ({ ...prev, poste: v }))}
+                    suggestions={posteSuggestions}
+                    placeholder={t('position_placeholder') || ''}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-stone-700">{t('department')}</label>
-                  <input name="departement" value={formData.departement} onChange={handleChange} className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" />
+                  <SmartInput
+                    name="departement"
+                    value={formData.departement}
+                    onChange={v => setFormData(prev => ({ ...prev, departement: v }))}
+                    suggestions={departementSuggestions}
+                    placeholder={t('department_placeholder') || ''}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-stone-700">{t('contract_type')}</label>
