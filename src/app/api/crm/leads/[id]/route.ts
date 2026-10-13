@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
-import { getLeadById, updateLead, deleteLead, createLeadNote, createLeadNoteSchema, getLeadNotes } from '@/services/leads'
+import { getLeadById, updateLead, deleteLead, createLeadNote, createLeadNoteSchema, getLeadNotes, updateLeadSchema } from '@/services/leads'
 
 // GET /api/crm/leads/[id]?tenantId=
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

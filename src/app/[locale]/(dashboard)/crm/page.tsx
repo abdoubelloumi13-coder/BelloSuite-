@@ -66,7 +66,7 @@ const SECTOR_BADGE: Record<string, string> = {
 }
 
 export default function CrmPipelinePage() {
-  const { tenantId, user } = useSession()
+  const { tenantId, session } = useSession()
   const [leads, setLeads] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

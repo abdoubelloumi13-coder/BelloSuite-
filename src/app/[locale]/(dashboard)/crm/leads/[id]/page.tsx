@@ -39,7 +39,7 @@ const STATUS_STYLE: Record<string, string> = {
 export default function LeadDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { tenantId, user } = useSession()
+  const { tenantId, session } = useSession()
   const [lead, setLead] = useState<any>(null)
   const [notes, setNotes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,7 +76,7 @@ export default function LeadDetailPage() {
 
   useEffect(() => { load() }, [load])
 
-  const set = (k: string, v: string) => { setForm(f => ({ ...f, [k]: v })); setFormDirty(true) }
+  const set = (k: string, v: string) => { setForm((f: any) => ({ ...f, [k]: v })); setFormDirty(true) }
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
