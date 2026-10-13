@@ -1,0 +1,35 @@
+// ============================================
+// MODULE: SUPER ADMIN (plateforme)
+// ============================================
+
+/// Journal d'audit : chaque action sensible d'un super admin est tracée
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation("AuditAdmin", fields: [adminId], references: [id])
+  action     String   // ex: TENANT_DELETE, USER_DEACTIVATE, IMPERSONATE_START...
+  target     String?  // type de cible : tenant, user, module...
+  targetId   String?
+  tenantId   String?  // tenant concerné (si action sur un tenant)
+  details    Json?    // payload JSON (avant/après, IP...)
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([action, createdAt])
+}
+
+/// Notes internes sur un tenant (support, incidents, relances)
+model TenantNote {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("TenantNoteAuthor", fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+}

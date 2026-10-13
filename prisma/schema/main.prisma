@@ -81,6 +81,7 @@ model Tenant {
   anomalyRuns         AnomalyRun[]
   leads               Lead[]
   leadNotes           LeadNote[]
+  tenantNotes         TenantNote[]
 }
 
 // ============================================
@@ -99,6 +100,9 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  auditLogs      AuditLog[]   @relation("AuditAdmin")
+  tenantNotes    TenantNote[] @relation("TenantNoteAuthor")
 }
 
 enum UserRole {
