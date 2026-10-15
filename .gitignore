@@ -25,3 +25,4 @@ supabase/MIGRATION_*.sql
 supabase/migrations/MIGRATION_TO_RUN.sql
 test-action.js
 test-jose.js
+.env.vercel-test
