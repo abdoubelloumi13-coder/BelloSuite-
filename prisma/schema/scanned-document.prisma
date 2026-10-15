@@ -1,0 +1,50 @@
+// ============================================
+// SCANNED DOCUMENTS — Index de recherche full-text
+// ============================================
+
+model ScannedDocument {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Métadonnées document
+  fileName        String
+  fileType        String   // pdf, jpeg, png, webp
+  fileSize        Int
+  fileHash        String   // SHA256 pour déduplication
+
+  // Extraction OCR
+  extractedText   String   @db.Text
+  documentKind    String?  // INVOICE, ORDER, QUOTE, DELIVERY_NOTE, etc.
+  supplierName    String?
+  supplierMf      String?
+  reference       String?
+  date            DateTime?
+  totalAmount     Decimal? @db.Decimal(15, 3)
+  currency        String   @default("TND")
+
+  // Lignes extraites (JSON)
+  lines           Json?
+
+  // Confiance
+  avgConfidence   Float?
+  lowConfidence   Boolean  @default(false)
+
+  // Source
+  source          String   @default("SCAN") // SCAN, IMPORT, EMAIL
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, supplierName])
+  @@index([tenantId, reference])
+  @@index([tenantId, date])
+  @@index([tenantId, documentKind])
+  @@index([fileHash])
+}
+
+// Index full-text (PostgreSQL) — migration SQL nécessaire
+// CREATE EXTENSION IF NOT EXISTS pg_trgm;
+// CREATE INDEX ON "ScannedDocument" USING GIN (to_tsvector('french', "extractedText"));
+// CREATE INDEX ON "ScannedDocument" USING GIN ("extractedText" gin_trgm_ops);

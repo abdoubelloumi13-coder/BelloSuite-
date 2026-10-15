@@ -2606,7 +2606,23 @@
     "scan_create_invoice": "Créer une facture fournisseur",
     "scan_create_order": "Créer un bon de commande",
     "scan_again": "Scanner un autre document",
-    "scan_handoff_failed": "Impossible de transmettre le document au formulaire (stockage du navigateur indisponible)."
+    "scan_handoff_failed": "Impossible de transmettre le document au formulaire (stockage du navigateur indisponible).",
+    "scan_search": {
+      "title": "Recherche dans les documents scannés",
+      "placeholder": "Rechercher par mot-clé, fournisseur, référence, montant…",
+      "all_docs": "Tous les documents",
+      "supplier_filter": "Filtrer par fournisseur",
+      "sort_date_desc": "Plus récents d'abord",
+      "sort_date_asc": "Plus anciens d'abord",
+      "sort_amount_desc": "Montants décroissants",
+      "sort_amount_asc": "Montants croissants",
+      "sort_relevance": "Par pertinence",
+      "clear": "Effacer les filtres",
+      "no_results": "Aucun document scanné ne correspond à votre recherche",
+      "search_error": "Erreur de recherche",
+      "semantic_search": "Recherche sémantique (IA)",
+      "result_count": "{count} résultat(s)"
+    }
   },
   "FiscalAssistant": {
     "title": "Assistant fiscal",

@@ -153,6 +153,7 @@ export function aiProviders(env: Record<string, string | undefined> = process.en
   const out: AiProvider[] = []
   if (env.GEMINI_API_KEY) out.push({ name: 'gemini', key: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL })
   if (env.GROQ_API_KEY) out.push({ name: 'groq', key: env.GROQ_API_KEY, model: env.GROQ_MODEL || DEFAULT_GROQ_MODEL })
+  if (env.PARSEFLOW_API_KEY) out.push({ name: 'parseflow', key: env.PARSEFLOW_API_KEY, model: env.PARSEFLOW_MODEL || 'parseflow-default' })
   return out
 }
 
@@ -415,3 +416,52 @@ export async function extractWithAi(providers: AiProvider[], text: string, image
   const b = best as { provider: AiProvider['name']; result: AiInvoice } | null
   return b ? { provider: b.provider, result: b.result, warnings: [...warnings] } : null
 }
+
+
+/** Mapping ParseFlow vers AiInvoice (champs non présents → null). */
+function mapParseFlowResult(raw: any): AiInvoice {
+  const get = (k: string) => (raw[k] ?? null)
+  const lines_raw = raw?.lines ?? []
+  const lines = lines_raw.map((l: any) => ({
+    designation: l?.designation ?? null,
+    quantity: typeof l?.quantity === 'number' && !isNaN(l?.quantity) ? l.quantity : null,
+    unitPrice: typeof l?.unitPrice === 'number' && !isNaN(l?.unitPrice) ? l.unitPrice : null,
+    total: typeof l?.total === 'number' && !isNaN(l?.total) ? l.total : null,
+  }))
+  return {
+    documentType: raw?.document_type ?? null,
+    supplierName: get('vendor_name') ?? get('supplierName') ?? null,
+    matriculeFiscal: raw?.matricule_fiscal ?? raw?.matriculeFiscal ?? null,
+    invoiceNumber: raw?.invoice_number ?? raw?.invoiceNumber ?? null,
+    date: typeof raw?.date === 'string' ? raw.date.replace(/\//g, '-') ?? null : null,
+    subtotal: typeof raw?.subtotal === 'number' && !isNaN(raw?.subtotal) ? raw.subtotal : null,
+    fodec: typeof raw?.fodec === 'number' && !isNaN(raw?.fodec) ? raw.fodec : null,
+    vatTotal: typeof raw?.vat_total === 'number' && !isNaN(raw?.vat_total) ? raw.vat_total : null,
+    stamp: typeof raw?.stamp === 'number' && !isNaN(raw?.stamp) ? raw.stamp : null,
+    total: typeof raw?.total_amount === 'number' && !isNaN(raw?.total_amount) ? raw.total_amount : typeof raw?.total === 'number' && !isNaN(raw.total) ? raw.total : null,
+    lines,
+  
+/** Appel ParseFlow (gratuit, 100 docs/mois, sans carte) */
+export async function callParseFlow(image?: string | null, text?: string): Promise<AiInvoice | null> {
+  const key = process.env.PARSEFLOW_API_KEY
+  if (!key) return null
+  const url = 'https://parseflow.dev/api/v1/extract'
+  const formData = new FormData()
+  if (image) {
+    const [mime, data] = image.split(';base64,')
+    const blob = await (await fetch(image)).arrayBuffer()
+    formData.append('file', new Blob([blob], {type: mime || 'application/pdf'}))
+  } else if (text) {
+    // ParseFlow accepte aussi du texte brut (PDF/DOCX)
+    formData.append('file', new Blob([text], {type: 'text/plain'}))
+  }
+  formData.append('document_type', 'invoice')
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'X-API-Key': key },
+    body: formData,
+  })
+  if (!res.ok) return null
+  const raw = await res.json()
+  return mapParseFlowResult(raw)
+

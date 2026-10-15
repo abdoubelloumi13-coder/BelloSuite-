@@ -82,6 +82,7 @@ model Tenant {
   leads               Lead[]
   leadNotes           LeadNote[]
   tenantNotes         TenantNote[]
+  scannedDocuments    ScannedDocument[]
 }
 
 // ============================================

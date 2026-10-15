@@ -37,6 +37,7 @@ export default function ScanDocumentPage() {
       <PageHeader title={t('scan_title')} description={t('scan_desc')} />
       {error && <Alert onClose={() => setError('')}>{error}</Alert>}
       <div className="max-w-3xl">
+        <ScanSearchPanel />
         <InvoiceImportPanel key={panelKey} variant="scan" onExtracted={setX} />
         {s && (
           <Card title={t('scan_result_title')}>
