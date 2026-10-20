@@ -14,6 +14,7 @@ import { InvoiceImportPanel } from '@/components/purchases/InvoiceImport'
 import type { InvoiceExtraction } from '@/lib/invoice-extract'
 import { summarizeExtraction, type PurchaseTarget } from '@/lib/scan-document'
 import { saveScanHandoff, scanTargetHref } from '@/lib/scan-handoff'
+import { ScanSearchPanel } from '@/components/scan/ScanSearchPanel'
 
 export default function ScanDocumentPage() {
   const t = useTranslations('Purchases')

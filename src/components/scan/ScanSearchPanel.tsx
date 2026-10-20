@@ -208,7 +208,7 @@ function DocCard({ doc, semantic }: { doc: Doc; semantic: boolean }) {
               {doc.totalAmount !== null && (
                 <span className="flex items-center gap-1">
                   <Euro className="w-3 h-3" />
-                  {f.formatCurrency(doc.totalAmount)}
+                  {f.money(doc.totalAmount)}
                 </span>
               )}
             </div>
