@@ -34,7 +34,7 @@ export function PurchaseReviewPanel({ extraction, onReview }: { extraction: Invo
 
   if (!review) return null
   const S = statusUi[review.status]
-  const Entry = ({ lines }: { lines: PurchaseReview['entry']['lines'] }) => (
+  const renderEntry = (lines: PurchaseReview['entry']['lines']) => (
     <table className={cls.table + ' mt-2'}>
       <thead><tr><th className={cls.th}>{t('account')}</th><th className={cls.th + ' text-end'}>{t('debit')}</th><th className={cls.th + ' text-end'}>{t('credit')}</th></tr></thead>
       <tbody className="divide-y divide-zinc-100">
@@ -66,9 +66,9 @@ export function PurchaseReviewPanel({ extraction, onReview }: { extraction: Invo
       </div>
       <details className="mt-4 text-start">
         <summary className="cursor-pointer text-sm font-semibold text-zinc-700">{t('review_entry')}</summary>
-        <Entry lines={review.entry.lines} />
+        {renderEntry(review.entry.lines)}
         <div className="mt-3 text-sm font-semibold text-zinc-700">{t('review_payment')}</div>
-        <Entry lines={review.payment.lines} />
+        {renderEntry(review.payment.lines)}
       </details>
     </Card>
   )
