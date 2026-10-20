@@ -4,13 +4,12 @@
  * Génère la Note d'Honoraires conforme au modèle tunisien :
  *   - En-tête avec émetteur + client
  *   - Tableau des prestations
- *   - Calcul RS 1.5% + IRPP catégoriel 15% (honoraires)
+ *   - Retenue à la source sur honoraires : 3 % du TTC (10 % au forfait d'assiette)
  *   - Totaux: HT, TTC, RS, Net à payer
  *   - Pied de page avec mentions légales
  *
  * Taux honoraires (LF 2026):
- *   - RS = 1.5% du TTC (art. 52bis CGI) → utilise calculateRetenueSource()
- *   - IRPP catégoriel = 15% du HT (honoraires) → utilise calculateIRCPHonitaires()
+ *   - RS calculée par calculateRetenueSource() (art. 52 Code IRPP/IS)
  *   - Net à payer = TTC - RS
  */
 
@@ -54,8 +53,11 @@ export interface NoteHonoraireOptions {
   totalTTC: number;       // HT + FODEC + TVA + Timbre
 
   // Retenue à la source
-  rsAmount: number;       // = calculateRetenueSource(totalTTC, subtotalHT)
-  irppAmount: number;     // = calculateIRCPHonitaires(subtotalHT)
+  rsAmount: number;       // = calculateRetenueSource(totalTTC)
+  /** Taux RS appliqué (0.03 ou 0.10), pour l'affichage */
+  rsRate?: number;
+  /** @deprecated toujours 0, n'est plus affiché */
+  irppAmount?: number;
 
   // Notes
   notes?: string;
@@ -230,7 +232,7 @@ export function generateNoteHonorairesPDF(opts: NoteHonoraireOptions): jsPDF {
   doc.setFillColor(255, 250, 238); // amber-50
   doc.setDrawColor(252, 211, 77);  // amber-300
   doc.setLineWidth(0.5);
-  doc.roundedRect(totalsX - 2, y, 72, 20, 2, 2, 'FD');
+  doc.roundedRect(totalsX - 2, y, 72, 12, 2, 2, 'FD');
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
@@ -238,28 +240,17 @@ export function generateNoteHonorairesPDF(opts: NoteHonoraireOptions): jsPDF {
   doc.text('RETENUE À LA SOURCE', totalsX, y + 5);
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
-  doc.text('Art. 52bis CGI — 1.5% du TTC', totalsX, y + 9);
+  const rsPct = `${((opts.rsRate ?? 0.03) * 100).toLocaleString('fr-FR')}%`;
+  doc.text(`Art. 52 Code IRPP/IS — ${rsPct} du TTC`, totalsX, y + 9);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text(`-${fmt(opts.rsAmount)} DT`, valX, y + 7, { align: 'right' });
   y += 12;
 
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(120, 81, 9);
-  doc.text('IRPP HONORAIRES', totalsX, y + 5);
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Art. 52 CGI — 15% du HT (catégoriel)', totalsX, y + 9);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(180, 60, 20);
-  doc.text(`-${fmt(opts.irppAmount)} DT`, valX, y + 7, { align: 'right' });
-  y += 14;
+  y += 2;
 
   // Net à payer
   const netAPayer = opts.totalTTC - opts.rsAmount;
-  const netApresIRPP = netAPayer - opts.irppAmount;
   doc.setFillColor(15, 51, 51);
   doc.roundedRect(totalsX - 2, y, 72, 12, 2, 2, 'F');
   doc.setFontSize(8);
@@ -267,7 +258,7 @@ export function generateNoteHonorairesPDF(opts: NoteHonoraireOptions): jsPDF {
   doc.setTextColor(255, 255, 255);
   doc.text('NET À PAYER', totalsX, y + 5);
   doc.setFontSize(11);
-  doc.text(fmt(netApresIRPP > 0 ? netApresIRPP : netAPayer) + ' DT', valX, y + 8, { align: 'right' });
+  doc.text(fmt(netAPayer) + ' DT', valX, y + 8, { align: 'right' });
   y += 18;
 
   // ── Mentions légales ──────────────────────────────────────
@@ -278,8 +269,8 @@ export function generateNoteHonorairesPDF(opts: NoteHonoraireOptions): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(140, 135, 130);
   const mentions = [
-    'Note d\'honoraires établie conforméement aux articles 52 et 52bis du Code des Impôts sur les Revenus (CGI).',
-    'La retenue à la source (1.5%) est applicable sur le montant TTC. L\'IRPP catégoriel (15%) est à la charge du bénéficiaire.',
+    'Retenue à la source sur honoraires (art. 52 du Code de l\'IRPP et de l\'IS) : 3% (régime réel, personnes morales) ou 10% (forfait d\'assiette), sur le montant TTC.',
+    'Le certificat de retenue est établi par le payeur sur la plateforme TEJ.',
     'Le montant net est à régler par virement bancaire. Merci de mentionner le numéro de la présente note.',
   ];
   mentions.forEach(m => {

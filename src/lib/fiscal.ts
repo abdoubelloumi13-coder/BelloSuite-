@@ -103,38 +103,34 @@ export function calculateInvoiceTotals(lines: LineItem[]): InvoiceTotals {
 }
 
 // ============================================================
-// RETENUE À LA SOURCE — Services & Honoraires (Tunisie)
-// Taux officiel: 1.5% du TTC (Art. 52bis CF)
-// Plafond: 20% du HT (pour certains prestataires)
+// RETENUE À LA SOURCE — Honoraires (Tunisie, taux 2026)
+// Art. 52 Code IRPP/IS : 3 % (PM et BNC au régime réel), 10 % (BNC au forfait d'assiette),
+// appliqués au montant TTC payé. Pas de plafond. Voir src/lib/retenue-source.ts.
 // ============================================================
 
-export const RS_RATE = 0.015 // 1.5%
-export const RS_MAX_RATIO = 0.20 // Plafond 20% du HT
+/** Taux RS honoraires — régime réel / personne morale */
+export const RS_RATE = 0.03
+/** Taux RS honoraires — BNC au forfait d'assiette */
+export const RS_RATE_FORFAIT = 0.10
 
 /**
- * Calcule la Retenue à la Source pour les prestations de services.
- * Utilisée principalement pour les notes d'honoraires et jetons de présence.
- *
- * @param totalTTC - Montant TTC de la prestation
- * @param totalHT  - Montant HT (pour contrôle du plafond)
- * @returns Montant RS en TND
+ * Retenue à la source sur des honoraires.
+ * @param totalTTC - Montant TTC payé
+ * @param _totalHT - conservé pour compatibilité (ignoré)
+ * @param forfait  - true si le bénéficiaire est au forfait d'assiette (10 %)
  */
-export function calculateRetenueSource(totalTTC: number, totalHT: number): number {
+export function calculateRetenueSource(totalTTC: number, _totalHT?: number, forfait = false): number {
   if (totalTTC <= 0) return 0
-  const rsRaw = totalTTC * RS_RATE
-  const rsCapped = Math.min(rsRaw, totalHT * RS_MAX_RATIO)
-  return Math.round(rsCapped * 1000) / 1000
+  return Math.round(totalTTC * (forfait ? RS_RATE_FORFAIT : RS_RATE) * 1000) / 1000
 }
 
 /**
- * Calcule l'IRPP catégoriel pour les honoraires (revenus catégoriels).
- * Taux fixe 15% sur le montant HT (barème catégoriel).
- *
- * @param totalHT - Montant HT des honoraires
- * @returns Montant IRPP catégoriel
+ * @deprecated L'« IRPP catégoriel de 15 % sur honoraires » n'existe pas : l'impôt du
+ * bénéficiaire est réglé via la retenue à la source puis sa déclaration annuelle.
+ * Renvoie toujours 0.
  */
-export function calculateIRCPHonitaires(totalHT: number): number {
-  return Math.round(totalHT * 0.15 * 1000) / 1000
+export function calculateIRCPHonitaires(_totalHT: number): number {
+  return 0
 }
 
 // ============================================================

@@ -2,21 +2,21 @@ import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateNoteHonorairesPDF } from '@/lib/note-honoraires';
-import { calculateRetenueSource, calculateIRCPHonitaires } from '@/lib/fiscal';
+import { calculateRetenueSource } from '@/lib/fiscal';
 
 /**
  * POST /api/commercial/invoices/[id]/note-honoraires-pdf
- * Body: { tenantId }
+ * Body: { tenantId, forfait? }  (forfait = true : émetteur BNC au forfait d'assiette → RS 10 %)
  *
  * Génère un PDF Note d'Honoraires pour une facture de type HONORAIRES.
- * Calcule automatiquement RS 1.5% et IRPP 15%.
+ * Calcule la retenue à la source sur honoraires : 3 % du TTC (10 % au forfait).
  * Retourne le PDF en attachment.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { tenantId: requestedTenantId } = body;
+    const { tenantId: requestedTenantId, forfait = false } = body;
     const ctx = await requireTenant(req, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
     const tenantId = ctx.tenantId
@@ -28,9 +28,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-    // Calcul RS + IRPP
-    const rsAmount = calculateRetenueSource(Number(invoice.totalTTC), Number(invoice.subtotalHT));
-    const irppAmount = calculateIRCPHonitaires(Number(invoice.subtotalHT));
+    // Retenue à la source sur honoraires (art. 52 Code IRPP/IS)
+    const rsRate = forfait ? 0.10 : 0.03;
+    const rsAmount = calculateRetenueSource(Number(invoice.totalTTC), Number(invoice.subtotalHT), !!forfait);
+    const irppAmount = 0;
 
     const items = invoice.items.map((item: any) => ({
       description: item.description,
@@ -59,6 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       timbreFiscal: Number(invoice.timbreFiscal || 1),
       totalTTC: Number(invoice.totalTTC),
       rsAmount,
+      rsRate,
       irppAmount,
       notes: invoice.notes || undefined,
     });

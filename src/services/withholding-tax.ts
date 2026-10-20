@@ -12,9 +12,15 @@ export const createWithholdingTaxSchema = z.object({
   beneficiaryName: z.string().min(1, 'nom du bénéficiaire requis'),
   beneficiaryTin: z.string().optional().nullable(),
   beneficiaryType: z.nativeEnum(BeneficiaryType).default(BeneficiaryType.INDIVIDU),
+  beneficiaryRegime: z.enum(['IS_20', 'IS_10', 'STANDARD', 'FORFAIT', 'HOTEL']).optional().nullable(),
+  beneficiaryEmail: z.string().email().optional().nullable().or(z.literal('')),
+  beneficiaryPhone: z.string().optional().nullable(),
+  beneficiaryAddress: z.string().optional().nullable(),
+  vatRate: z.coerce.number().min(0).max(100).optional().nullable(),
   serviceType: z.nativeEnum(ServiceType).default(ServiceType.PRESTATION_SERVICE),
   serviceDescription: z.string().optional().nullable(),
-  grossAmount: z.coerce.number().positive('montant brut doit être positif'),
+  /** Montant TTC payé : base de la retenue */
+  grossAmount: z.coerce.number().positive('montant TTC doit être positif'),
   periodMonth: z.coerce.number().min(1).max(12),
   periodYear: z.coerce.number().min(2020),
   invoiceId: z.string().optional().nullable(),
@@ -56,7 +62,7 @@ export async function createWithholdingTax(data: CreateWithholdingTaxData) {
     montantBrut: grossAmount,
     serviceType: serviceType as any,
     beneficiaryType: beneficiaryType as any,
-    soumisAbattement: true,
+    regime: (data.beneficiaryRegime as any) ?? null,
   })
 
   return prisma.$transaction(async (tx) => {
@@ -77,6 +83,7 @@ export async function createWithholdingTax(data: CreateWithholdingTaxData) {
     return tx.withholdingTax.create({
       data: {
         ...data,
+        beneficiaryEmail: data.beneficiaryEmail || null,
         rate: calc.taux,
         taxAmount: calc.montantRS,
         netAmount: calc.montantNet,
@@ -124,8 +131,12 @@ export async function generateFromInvoice(invoiceId: string, tenantId: string) {
     beneficiaryName: invoice.client?.name || 'Client inconnu',
     beneficiaryTin: invoice.client?.matriculeFiscal,
     beneficiaryType: BeneficiaryType.SOCIETE, // Default, can be refined
+    beneficiaryEmail: invoice.client?.email || null,
+    beneficiaryPhone: invoice.client?.phone || null,
+    beneficiaryAddress: [invoice.client?.address, invoice.client?.city].filter(Boolean).join(', ') || null,
     serviceType: invoice.type === 'INVOICE_HONORARY' ? ServiceType.HONORAIRES : ServiceType.PRESTATION_SERVICE,
-    grossAmount: Number(invoice.subtotalHT),
+    // La retenue s'applique au montant TTC payé (TVA comprise)
+    grossAmount: Number(invoice.totalTTC),
     periodMonth: invoice.date.getMonth() + 1,
     periodYear: invoice.date.getFullYear(),
   })
@@ -156,12 +167,12 @@ export async function updateWithholdingTax(id: string, tenantId: string, rawData
     montantTEEJ: Number(existing.teeJAmount),
   }
 
-  if (data.grossAmount !== undefined || data.serviceType !== undefined || data.beneficiaryType !== undefined) {
+  if (data.grossAmount !== undefined || data.serviceType !== undefined || data.beneficiaryType !== undefined || data.beneficiaryRegime !== undefined) {
     const res = calculerRS({
       montantBrut: data.grossAmount ?? Number(existing.grossAmount),
       serviceType: data.serviceType ?? (existing.serviceType as any),
       beneficiaryType: data.beneficiaryType ?? (existing.beneficiaryType as any),
-      soumisAbattement: true,
+      regime: (data.beneficiaryRegime ?? existing.beneficiaryRegime) as any,
     })
     calc = {
       taux: res.taux,

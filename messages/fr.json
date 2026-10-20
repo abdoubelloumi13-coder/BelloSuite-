@@ -892,13 +892,13 @@
           "title": "Type de Prestation",
           "label": "Nature de la prestation *",
           "rate_prefix": "Taux: ",
-          "amount_label": "Montant Brut HT (TND) *",
+          "amount_label": "Montant payé TTC (TND) *",
           "amount_placeholder": "0.000"
         },
         "preview": {
           "title": "Aperçu du calcul",
           "rate_applied": "Taux RS appliqué:",
-          "gross_ht": "Montant brut HT:",
+          "gross_ht": "Montant payé TTC :",
           "tax_amount": "Montant RS:",
           "net_amount": "Montant net:",
           "teej_amount": "Montant TEEJ (81%):"
@@ -928,14 +928,29 @@
         "submitting": "Enregistrement...",
         "cancel": "Annuler",
         "service_types": {
-          "PRESTATION_SERVICE": "Prestations de services",
-          "HONORAIRES": "Honoraires",
+          "PRESTATION_SERVICE": "Achats de biens et services (≥ 1 000 DT TTC)",
+          "HONORAIRES": "Honoraires, commissions, courtages",
           "LOYERS": "Loyers",
           "DIVIDENDES": "Dividendes",
           "INTERETS": "Intérêts",
-          "ROYALTIES": "Royalties",
-          "REMUNERATION": "Rémunérations",
-          "AUTRE": "Autre"
+          "ROYALTIES": "Artistes, créateurs, droits d'auteur",
+          "REMUNERATION": "Rémunérations liées à la performance",
+          "AUTRE": "Autres acquisitions (≥ 1 000 DT TTC)"
+        },
+        "regime": {
+          "label": "Régime fiscal du bénéficiaire",
+          "IS_20": "Société à l'IS 20 %",
+          "IS_10": "Société à l'IS 10 % / déduction des 2/3",
+          "STANDARD": "Régime réel / autre taux d'IS",
+          "FORFAIT": "Forfait d'assiette (BNC)",
+          "HOTEL": "Loyer d'hôtel"
+        },
+        "contact": {
+          "title": "Coordonnées (obligatoires pour TEJ)",
+          "email_label": "Email",
+          "phone_label": "Téléphone",
+          "address_label": "Adresse",
+          "vat_label": "Taux de TVA (%)"
         }
       }
     },

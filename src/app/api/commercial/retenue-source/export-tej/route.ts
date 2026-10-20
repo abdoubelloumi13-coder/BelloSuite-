@@ -1,9 +1,9 @@
 import { requireTenant, requireSession, resolveTenantContext } from '@/lib/api-auth'
 import { NextResponse } from 'next/server';
-import { exportTEJ } from '@/lib/tej-generator';
+import { exportTEJ, TEJValidationError } from '@/lib/tej-generator';
 
 // GET /api/commercial/retenue-source/export-tej?tenantId=&periodYear=&periodMonth=
-//   → télécharge le fichier XML TEJ prêt pour la plateforme https://www.tej.gov.tn
+//   → télécharge le fichier XML TEJ prêt pour la plateforme https://tej.finances.gov.tn
 //
 // POST /api/commercial/retenue-source/export-tej
 //   body: { tenantId, periodYear, periodMonth, withholdingTaxIds? }
@@ -38,6 +38,9 @@ export async function GET(req: Request) {
       },
     });
   } catch (e: any) {
+    if (e instanceof TEJValidationError) {
+      return NextResponse.json({ error: e.message, issues: e.issues }, { status: 422 });
+    }
     return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 });
   }
 }
@@ -56,8 +59,11 @@ export async function POST(req: Request) {
     }
     const result = await exportTEJ({ tenantId, periodYear: Number(periodYear),
       periodMonth: Number(periodMonth), withholdingTaxIds });
-    return NextResponse.json({ ...result, tejUrl: 'https://www.tej.gov.tn' });
+    return NextResponse.json({ ...result, tejUrl: 'https://tej.finances.gov.tn' });
   } catch (e: any) {
+    if (e instanceof TEJValidationError) {
+      return NextResponse.json({ error: e.message, issues: e.issues }, { status: 422 });
+    }
     return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 });
   }
 }

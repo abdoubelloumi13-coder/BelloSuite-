@@ -1,7 +1,8 @@
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { calculerRS, type RSInput } from '@/lib/retenue-source';
+import { calculerRS, type BeneficiaryRegime, type ServiceType } from '@/lib/retenue-source';
+import { categorieFromMatricule } from '@/lib/tej-generator';
 
 /**
  * POST /api/commercial/invoices/[id]/generer-rs
@@ -10,7 +11,8 @@ import { calculerRS, type RSInput } from '@/lib/retenue-source';
  * Accessible depuis le bouton "Générer RS" dans le détail facture.
  *
  * Body:
- *   serviceType     (optional, défaut = PRESTATION_SERVICE)
+ *   serviceType       (optional, défaut = PRESTATION_SERVICE)
+ *   beneficiaryRegime (optional : IS_20 | IS_10 | STANDARD | FORFAIT | HOTEL)
  *   periodYear      (optional)
  *   periodMonth     (optional)
  *   notes           (optional)
@@ -23,6 +25,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const body = await req.json();
     const {
       serviceType = 'PRESTATION_SERVICE',
+      beneficiaryRegime,
       periodYear = new Date().getFullYear(),
       periodMonth = new Date().getMonth() + 1,
       notes,
@@ -46,28 +49,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }, { status: 409 });
     }
 
-    // Vérifier montant RS
-    if (Number(invoice.rsAmount) <= 0) {
-      return NextResponse.json({
-        error: 'Cette facture n a pas de montant de retenue à la source (rsAmount = 0)',
-        hint: 'Editez la facture et définissez le montant RS avant de continuer',
-      }, { status: 400 });
-    }
-
     const client = invoice.client;
     const beneficiaryType =
-      client.matriculeFiscal && client.matriculeFiscal.length === 7
+      client.matriculeFiscal && categorieFromMatricule(client.matriculeFiscal, 'PP') === 'PM'
         ? 'SOCIETE' as const
         : 'INDIVIDU' as const;
 
-    // Calcul à partir du rsAmount (montant de la retenue)
-    const taxAmount = Number(invoice.rsAmount);
-    const rate = (serviceType === 'HONORAIRES' || serviceType === 'PRESTATION_SERVICE')
-      ? (beneficiaryType === 'SOCIETE' ? 0.075 : 0.15)
-      : 0;
-    const grossAmount = rate > 0 ? taxAmount / rate : taxAmount;
-    const totalHT = Number(invoice.subtotalHT);
-    const teeJAmount = totalHT - taxAmount;
+    // La retenue s'applique au montant TTC payé (art. 52 Code IRPP/IS, taux 2026)
+    const grossAmount = Number(invoice.totalTTC ?? 0);
+    const calc = calculerRS({
+      montantBrut: grossAmount,
+      serviceType: serviceType as ServiceType,
+      beneficiaryType,
+      regime: (beneficiaryRegime as BeneficiaryRegime) ?? null,
+    });
+    if (calc.taux === 0) {
+      return NextResponse.json({ error: `Pas de retenue à la source : ${calc.label}` }, { status: 400 });
+    }
+    const rate = calc.taux;
+    const taxAmount = calc.montantRS;
 
     const rs = await prisma.withholdingTax.create({
       data: {
@@ -77,13 +77,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         beneficiaryName: client.name,
         beneficiaryAddress: [client.address, client.city].filter(Boolean).join(', ') || undefined,
         beneficiaryType,
+        beneficiaryRegime: beneficiaryRegime ?? null,
+        beneficiaryEmail: client.email ?? null,
+        beneficiaryPhone: client.phone ?? null,
         serviceType: serviceType as any,
         serviceDescription: `Facture ${invoice.number} — ${invoice.type}`,
         grossAmount,
         rate,
         taxAmount,
-        netAmount: Number(invoice.totalTTC ?? 0) - taxAmount,
-        teeJAmount,
+        netAmount: calc.montantNet,
+        teeJAmount: calc.montantNet,
         periodYear: Number(periodYear),
         periodMonth: Number(periodMonth),
         tejStatus: 'DRAFT',
@@ -98,10 +101,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       summary: {
         facture: invoice.number,
         client: client.name,
-        brutHT: grossAmount.toFixed(3),
+        montantTTC: grossAmount.toFixed(3),
         taux: `${(rate * 100).toFixed(2)}%`,
         montantRS: taxAmount.toFixed(3),
-        netVerse: teeJAmount.toFixed(3),
+        netVerse: calc.montantNet.toFixed(3),
         periode: `${periodMonth}/${periodYear}`,
       },
     }, { status: 201 });

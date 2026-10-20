@@ -515,11 +515,18 @@ model WithholdingTax {
   beneficiaryName    String
   beneficiaryAddress String?
   beneficiaryType    BeneficiaryType @default(INDIVIDU)
+  /// Régime fiscal du bénéficiaire (IS_20 | IS_10 | STANDARD | FORFAIT | HOTEL) — fixe le taux RS
+  beneficiaryRegime  String?
+  beneficiaryEmail   String?
+  beneficiaryPhone   String?
 
   serviceType        ServiceType @default(PRESTATION_SERVICE)
   serviceDescription String?
 
+  /// Montant TTC payé (base de la retenue)
   grossAmount Decimal @default(0)
+  /// Taux de TVA de l'opération (%), pour la ventilation HT/TVA du fichier TEJ
+  vatRate     Decimal?
   rate        Decimal @default(0)
   taxAmount   Decimal @default(0)
   netAmount   Decimal @default(0)

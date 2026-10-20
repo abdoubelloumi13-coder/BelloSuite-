@@ -892,13 +892,13 @@
           "title": "Service Type",
           "label": "Nature of service *",
           "rate_prefix": "Rate: ",
-          "amount_label": "Gross Amount HT (TND) *",
+          "amount_label": "Amount paid incl. VAT (TND) *",
           "amount_placeholder": "0.000"
         },
         "preview": {
           "title": "Calculation Preview",
           "rate_applied": "Applied RS Rate:",
-          "gross_ht": "Gross Amount HT:",
+          "gross_ht": "Amount paid incl. VAT:",
           "tax_amount": "RS Amount:",
           "net_amount": "Net Amount:",
           "teej_amount": "TEEJ Amount (81%):"
@@ -928,14 +928,29 @@
         "submitting": "Saving...",
         "cancel": "Cancel",
         "service_types": {
-          "PRESTATION_SERVICE": "Services",
-          "HONORAIRES": "Fees",
-          "LOYERS": "Rents",
-          "DIVIDENDES": "Dividendes",
-          "INTERETS": "Interests",
-          "ROYALTIES": "Royalties",
-          "REMUNERATION": "Remuneration",
-          "AUTRE": "Other"
+          "PRESTATION_SERVICE": "Purchases of goods and services (≥ 1,000 TND incl. VAT)",
+          "HONORAIRES": "Fees, commissions, brokerage",
+          "LOYERS": "Rent",
+          "DIVIDENDES": "Dividends",
+          "INTERETS": "Interest",
+          "ROYALTIES": "Artists, creators, copyright",
+          "REMUNERATION": "Performance-based pay",
+          "AUTRE": "Other purchases (≥ 1,000 TND incl. VAT)"
+        },
+        "regime": {
+          "label": "Beneficiary's tax regime",
+          "IS_20": "Company, 20% corporate tax",
+          "IS_10": "Company, 10% tax / two-thirds deduction",
+          "STANDARD": "Real regime / other corporate tax rate",
+          "FORFAIT": "Flat-rate (BNC)",
+          "HOTEL": "Hotel rent"
+        },
+        "contact": {
+          "title": "Contact details (required for TEJ)",
+          "email_label": "Email",
+          "phone_label": "Phone",
+          "address_label": "Address",
+          "vat_label": "VAT rate (%)"
         }
       }
     },

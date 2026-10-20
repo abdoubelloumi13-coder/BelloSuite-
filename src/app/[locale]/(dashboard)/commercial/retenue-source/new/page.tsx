@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { useSession } from '@/hooks/useSession';
 import { ChevronLeft, Save, X, Info, Calculator, DollarSign, Calendar, User, FileText, RefreshCw, XCircle } from 'lucide-react';
+import { calculerRS, getRSRule, type BeneficiaryRegime, type BeneficiaryType, type ServiceType } from '@/lib/retenue-source';
+
+const REGIMES: BeneficiaryRegime[] = ['IS_20', 'IS_10', 'STANDARD', 'FORFAIT', 'HOTEL'];
+const pct = (taux: number) => `${(taux * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`;
 
 export default function NewRetenueSourcePage() {
   const tc = useTranslations('Common.errors')
@@ -13,16 +17,7 @@ export default function NewRetenueSourcePage() {
   const locale = useLocale();
   const router = useRouter();
   
-  const SERVICE_TYPES = [
-    { value: 'PRESTATION_SERVICE', label: t('service_types.PRESTATION_SERVICE'), taux: tc('rate_15_company') },
-    { value: 'HONORAIRES', label: t('service_types.HONORAIRES'), taux: tc('rate_15_company') },
-    { value: 'LOYERS', label: t('service_types.LOYERS'), taux: tc('rate_5_company') },
-    { value: 'DIVIDENDES', label: t('service_types.DIVIDENDES'), taux: '5%' },
-    { value: 'INTERETS', label: t('service_types.INTERETS'), taux: '20%' },
-    { value: 'ROYALTIES', label: t('service_types.ROYALTIES'), taux: tc('rate_15_company') },
-    { value: 'REMUNERATION', label: t('service_types.REMUNERATION'), taux: '19%' },
-    { value: 'AUTRE', label: t('service_types.AUTRE'), taux: '—' },
-  ];
+  const SERVICE_TYPE_VALUES: ServiceType[] = ['PRESTATION_SERVICE', 'HONORAIRES', 'LOYERS', 'DIVIDENDES', 'INTERETS', 'ROYALTIES', 'REMUNERATION', 'AUTRE'];
 
   const BENEFICIARY_TYPES = [
     { value: 'INDIVIDU', label: t('beneficiary.type_individu') },
@@ -33,8 +28,13 @@ export default function NewRetenueSourcePage() {
     beneficiaryName: '',
     beneficiaryTin: '',
     beneficiaryType: 'INDIVIDU',
+    beneficiaryRegime: 'STANDARD' as BeneficiaryRegime,
+    beneficiaryEmail: '',
+    beneficiaryPhone: '',
+    beneficiaryAddress: '',
     serviceType: 'PRESTATION_SERVICE',
     grossAmount: '',
+    vatRate: '19',
     periodMonth: String(new Date().getMonth() + 1).padStart(2, '0'),
     periodYear: String(new Date().getFullYear()),
     paymentDate: '',
@@ -53,38 +53,29 @@ export default function NewRetenueSourcePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const SERVICE_TYPES = SERVICE_TYPE_VALUES.map((value) => ({
+    value,
+    label: t(`service_types.${value}`),
+    taux: pct(getRSRule(value, form.beneficiaryType as BeneficiaryType, form.beneficiaryRegime).taux),
+  }));
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType);
 
   function calculateRS() {
     const montant = parseFloat(form.grossAmount);
     if (!montant || !form.serviceType) return null;
 
-    const rates: Record<string, number> = { 
-      PRESTATION_SERVICE: 0.15, 
-      HONORAIRES: 0.15, 
-      LOYERS: 0.05, 
-      DIVIDENDES: 0.05, 
-      INTERETS: 0.20, 
-      ROYALTIES: 0.15, 
-      REMUNERATION: 0.19, 
-      AUTRE: 0 
-    };
-
-    let taux = rates[form.serviceType] || 0;
-    if (form.beneficiaryType === 'SOCIETE' && ['PRESTATION_SERVICE', 'HONORAIRES', 'ROYALTIES'].includes(form.serviceType)) {
-      taux = taux * 0.5;
-    }
-
-    const taxAmount = Number((montant * taux).toFixed(3));
-    const netAmount = Number((montant - taxAmount).toFixed(3));
-    const teeJAmount = Number((montant * 0.81).toFixed(3));
-
-    return { taux, taxAmount, netAmount, teeJAmount };
+    const r = calculerRS({
+      montantBrut: montant,
+      serviceType: form.serviceType as ServiceType,
+      beneficiaryType: form.beneficiaryType as BeneficiaryType,
+      regime: form.beneficiaryRegime,
+    });
+    return { taux: r.taux, taxAmount: r.montantRS, netAmount: r.montantNet, label: r.label };
   }
 
   useEffect(() => {
     setPreview(calculateRS());
-  }, [form.grossAmount, form.serviceType, form.beneficiaryType]);
+  }, [form.grossAmount, form.serviceType, form.beneficiaryType, form.beneficiaryRegime]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -234,6 +225,63 @@ export default function NewRetenueSourcePage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('regime.label')}</label>
+              <select
+                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all cursor-pointer shadow-inner"
+                value={form.beneficiaryRegime}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiaryRegime: e.target.value as BeneficiaryRegime }))}
+              >
+                {REGIMES.map((r) => (
+                  <option key={r} value={r}>{t(`regime.${r}`)}</option>
+                ))}
+              </select>
+              {preview?.label && (
+                <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 px-1 tracking-tighter mt-1">{preview.label}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('contact.vat_label')}</label>
+              <select
+                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all cursor-pointer shadow-inner"
+                value={form.vatRate}
+                onChange={(e) => setForm((f) => ({ ...f, vatRate: e.target.value }))}
+              >
+                {['0', '7', '13', '19'].map((v) => (
+                  <option key={v} value={v}>{v} %</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('contact.title')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="email"
+                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 shadow-inner"
+                placeholder={t('contact.email_label')}
+                value={form.beneficiaryEmail}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiaryEmail: e.target.value }))}
+              />
+              <input
+                type="tel"
+                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 shadow-inner"
+                placeholder={t('contact.phone_label')}
+                value={form.beneficiaryPhone}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiaryPhone: e.target.value }))}
+              />
+              <input
+                type="text"
+                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 shadow-inner"
+                placeholder={t('contact.address_label')}
+                value={form.beneficiaryAddress}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiaryAddress: e.target.value }))}
+              />
+            </div>
+          </div>
+
           {/* Calcul Preview */}
           {preview && parseFloat(form.grossAmount) > 0 && (
             <div className="bg-stone-900 dark:bg-zinc-950 border border-stone-800 dark:border-zinc-800 rounded-[2rem] p-8 space-y-6 shadow-2xl">
@@ -250,7 +298,7 @@ export default function NewRetenueSourcePage() {
                 </div>
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">{t('preview.rate_applied')}</p>
-                  <p className="text-lg font-black text-white font-mono">{(preview.taux * 100).toFixed(1)}%</p>
+                  <p className="text-lg font-black text-white font-mono">{pct(preview.taux)}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">{t('preview.tax_amount')}</p>

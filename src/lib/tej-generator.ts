@@ -1,22 +1,24 @@
 /**
  * src/lib/tej-generator.ts
  * ──────────────────────
- * Génère le fichier XML TEJ (Déclaration Électronique des Retenues à la Source)
- * conforme au format officiel tunisien.
+ * Fichier XML de dépôt des certificats de retenue à la source sur la plateforme TEJ
+ * (https://tej.finances.gov.tn), conforme au cahier des charges technique
+ * « Dépôt de fichier des certificats de retenues à la source » CCT-RS-V2 (juin 2024)
+ * et au schéma TEJDeclarationRS_v1.0.xsd.
  *
- * En 2026, la plateforme TEJ (tej.gov.tn) impose la déclaration électronique
- * pour tous les assujettis sujets à la retenue à la source (art. 52-54 CGI).
+ * Structure :
+ *   <DeclarationsRS VersionSchema="1.0">
+ *     <Declarant> TypeIdentifiant=1, Identifiant=7 chiffres+clé, CategorieContribuable=PM|PP
+ *     <ReferenceDeclaration> ActeDepot (0 initial / 1 rectificatif), AnneeDepot, MoisDepot
+ *     <AjouterCertificats> <Certificat> Beneficiaire, DatePayement (JJ/MM/AAAA),
+ *        Ref_certif_chez_declarant, ListeOperations/Operation[@IdTypeOperation], TotalPayement
  *
- * Format: XML UTF-8, encapsulé dans un élément racine <TEJ>
- * Références:
- *   - Art. 52 CGI : Prestation de services / Honoraires
- *   - Art. 53 CGI : Loyers
- *   - Art. 54 CGI : Dividendes, intérêts, royalties
- *   - LF 2026 : nouveaux taux et obligations
+ * Montants en millimes entiers. Nom de fichier : [MF]-[AAAA]-[MM]-[acte].xml.
+ * Le CCT interdit accents, « & », « -- », « /* », commentaires XML : le texte est normalisé.
  */
 
 import { prisma } from '@/lib/db';
-import { SERVICE_TYPE_COEFFICIENTS, SERVICE_TYPE_LABELS } from './retenue-source';
+import { getRSRule, tejMatricule, type BeneficiaryRegime, type BeneficiaryType, type ServiceType } from './retenue-source';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,33 +28,45 @@ export interface TEJExportOptions {
   periodMonth: number;
   /** IDs spécifiques à exporter. Défaut = tous DRAFT / EXPORTED de la période */
   withholdingTaxIds?: string[];
+  /** 0 = dépôt initial (défaut), 1 = rectificatif */
+  acteDepot?: 0 | 1;
 }
 
-export interface TEJLine {
-  numero: number;
-  /** NOIX = Matricule Fiscal du bénéficiaire (9 chiffres) */
-  noixBenef: string;
-  /** Dénomination / Raison sociale ou Nom complet */
-  denomBenef: string;
-  /** Code service TEJ (2 lettres) */
-  natServ: string;
-  /** Montant Brut HT en TND */
-  mtBrutHT: number;
-  /** Taux RS appliqué en % (ex: 15.00 pour 15%) */
-  txRS: number;
-  /** Montant de la Retenue à la Source en TND */
-  mtRS: number;
-  /** Montant Net versé (brut - RS) en TND */
-  mtNet: number;
-  /** Date de paiement effectif (YYYY-MM-DD) */
-  datPaie: string;
-  /** Référence facture / document */
-  refDoc?: string;
+export type TEJBeneficiaryId =
+  | { kind: 'MF'; identifiant: string; categorie: 'PM' | 'PP' }
+  | { kind: 'CIN'; identifiant: string; dateNaissance: string };
+
+export interface TEJCertificate {
+  ref: string;
+  beneficiaire: {
+    id: TEJBeneficiaryId;
+    resident: boolean;
+    nom: string;
+    adresse: string;
+    activite?: string;
+    email: string;
+    tel: string;
+  };
+  /** JJ/MM/AAAA */
+  datePayement: string;
+  operation: {
+    idTypeOperation: string;
+    anneeFacturation: number;
+    montantHT: number;
+    tauxRS: number; // en %, ex. 1.5
+    tauxTVA?: number;
+    montantTVA?: number;
+    montantTTC: number;
+    montantRS: number;
+    montantNetServi: number;
+  };
 }
 
-/**
- * Résultat de l'export TEJ.
- */
+export interface TEJDeclarant {
+  identifiant: string; // 7 chiffres + clé
+  categorie: 'PM' | 'PP';
+}
+
 export interface TEJExportResult {
   xml: string;
   filename: string;
@@ -62,277 +76,315 @@ export interface TEJExportResult {
   totalBrut: number;
 }
 
-// ─── Validation NOIX (Matricule Fiscal Tunisien) ─────────────────────────────
+/** Ligne d'un enregistrement qui ne peut pas partir dans le fichier, et pourquoi. */
+export interface TEJValidationIssue {
+  id: string;
+  beneficiary: string;
+  missing: string[];
+}
 
-/**
- * Valide le format du matricule fiscal tunisien (NOIX / MF).
- * Format officiel : 9 chiffres (KKKKKKKKK)
- */
+export class TEJValidationError extends Error {
+  issues: TEJValidationIssue[];
+  constructor(issues: TEJValidationIssue[]) {
+    super(
+      'Certificats incomplets pour TEJ : ' +
+        issues.map((i) => `${i.beneficiary} (${i.missing.join(', ')})`).join(' ; '),
+    );
+    this.issues = issues;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Valide un matricule fiscal (7 chiffres + clé, suffixes tolérés). */
 export function isValidNOIX(noix: string): boolean {
-  if (!noix || typeof noix !== 'string') return false;
-  const cleaned = noix.replace(/[\s\-]/g, '');
-  return /^\d{9}$/.test(cleaned);
+  return tejMatricule(noix) !== null;
 }
 
-/**
- * Normalise un NOIX en 9 chiffres (sans espaces, sans tirets).
- */
+/** Normalise un matricule pour TEJ : « 1234567A ». */
 export function normalizeNOIX(noix: string): string {
-  return (noix || '').replace(/[\s\-]/g, '').toUpperCase();
+  return tejMatricule(noix) ?? (noix || '').replace(/[\s\-/]/g, '').toUpperCase();
 }
 
-// ─── Mapping Types Services → Codes TEJ ─────────────────────────────────────
+/** Catégorie TEJ déduite du code catégorie du matricule (…/M/… = personne morale). */
+export function categorieFromMatricule(mf: string | null | undefined, fallback: 'PM' | 'PP' = 'PM'): 'PM' | 'PP' {
+  const m = (mf || '').toUpperCase().replace(/[\s/.\-]/g, '');
+  const match = m.match(/^\d{7}[A-Z][A-Z]([A-Z])\d{3}$/);
+  if (!match) return fallback;
+  return match[1] === 'M' ? 'PM' : 'PP';
+}
 
-/** Code TEJ officiel par type de service */
-export const TEJ_SERVICE_CODES: Record<string, string> = {
-  PRESTATION_SERVICE: 'PS',
-  HONORAIRES:         'HO',
-  LOYERS:             'LO',
-  DIVIDENDES:         'DI',
-  INTERETS:           'IN',
-  ROYALTIES:          'RO',
-  REMUNERATION:       'RE',
-  AUTRE:              'AU',
-};
-
-/** Inverse: code TEJ → serviceType */
-export const TEJ_CODE_TO_SERVICE: Record<string, string> = Object.fromEntries(
-  Object.entries(TEJ_SERVICE_CODES).map(([k, v]) => [v, k])
-);
-
-// ─── XML Helpers ─────────────────────────────────────────────────────────────
-
-/**
- * Échappe les caractères spéciaux pour le contenu XML.
- */
-function escapeXml(str: string | null | undefined): string {
+/** Texte compatible CCT : sans accents ni caractères interdits, échappé XML. */
+export function tejText(str: string | null | undefined): string {
   if (!str) return '';
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' et ')
+    .replace(/[;*]/g, ' ')
+    .replace(/--+/g, '-')
+    .replace(/</g, '')
+    .replace(/>/g, '')
+    .replace(/"/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export const toMillimes = (dt: number) => Math.round(dt * 1000);
+
+export function formatDateTEJ(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
+function rate2(n: number): string {
+  return (Math.round(n * 100) / 100).toFixed(2);
 }
 
 // ─── Construction du XML ─────────────────────────────────────────────────────
 
-/**
- * Génère la déclaration XML TEJ complète.
- *
- * Structure officielle:
- * <?xml version="1.0" encoding="UTF-8"?>
- * <TEJ xmlns="http://tej.dgi.gov.tn">
- *   <EnTete>
- *     <NOIXDeclarant>...</NOIXDeclarant>
- *     <DenomDeclarant>...</DenomDeclarant>
- *     <Periode mois="MM" annee="YYYY"/>
- *     <NbRetenues>000123</NbRetenues>
- *     <TotalRS>12345.678</TotalRS>
- *   </EnTete>
- *   <Retenues>
- *     <Retenue>
- *       <Nume>000001</Nume>
- *       <NOIXBenef>...</NOIXBenef>
- *       <DenomBenef>...</DenomBenef>
- *       <NatServ>PS</NatServ>
- *       <MtBrutHT>10000.000</MtBrutHT>
- *       <TxRS>15.00</TxRS>
- *       <MtRS>1500.000</MtRS>
- *       <MtNet>8500.000</MtNet>
- *       <DatPaie>2026-04-15</DatPaie>
- *     </Retenue>
- *   </Retenues>
- *   <Signature>
- *     <Logiciel>BelloSuite</Logiciel>
- *     <Version>1.0.0</Version>
- *     <DateGeneration>2026-04-13T17:30:00</DateGeneration>
- *   </Signature>
- * </TEJ>
- */
+function beneficiaryIdXml(id: TEJBeneficiaryId): string {
+  if (id.kind === 'MF') {
+    return `<MatriculeFiscal><TypeIdentifiant>1</TypeIdentifiant><Identifiant>${id.identifiant}</Identifiant><CategorieContribuable>${id.categorie}</CategorieContribuable></MatriculeFiscal>`;
+  }
+  return `<CIN><TypeIdentifiant>2</TypeIdentifiant><Identifiant>${id.identifiant}</Identifiant><DateNaissance>${id.dateNaissance}</DateNaissance><CategorieContribuable>PP</CategorieContribuable></CIN>`;
+}
+
+function certificateXml(c: TEJCertificate): string {
+  const o = c.operation;
+  const b = c.beneficiaire;
+  const tva = o.tauxTVA !== undefined && o.montantTVA !== undefined;
+  return [
+    '    <Certificat>',
+    '      <Beneficiaire>',
+    `        <IdTaxpayer>${beneficiaryIdXml(b.id)}</IdTaxpayer>`,
+    `        <Resident>${b.resident ? 1 : 0}</Resident>`,
+    `        <NometprenonOuRaisonsociale>${tejText(b.nom)}</NometprenonOuRaisonsociale>`,
+    `        <Adresse>${tejText(b.adresse)}</Adresse>`,
+    b.activite ? `        <Activite>${tejText(b.activite)}</Activite>` : '',
+    '        <InfosContact>',
+    `          <AdresseMail>${b.email.trim()}</AdresseMail>`,
+    `          <NumTel>${tejText(b.tel)}</NumTel>`,
+    '        </InfosContact>',
+    '      </Beneficiaire>',
+    `      <DatePayement>${c.datePayement}</DatePayement>`,
+    `      <Ref_certif_chez_declarant>${tejText(c.ref)}</Ref_certif_chez_declarant>`,
+    '      <ListeOperations>',
+    `        <Operation IdTypeOperation="${o.idTypeOperation}">`,
+    `          <AnneeFacturation>${o.anneeFacturation}</AnneeFacturation>`,
+    '          <CNPC>0</CNPC>',
+    '          <P_Charge>0</P_Charge>',
+    `          <MontantHT>${toMillimes(o.montantHT)}</MontantHT>`,
+    `          <TauxRS>${rate2(o.tauxRS)}</TauxRS>`,
+    tva ? `          <TauxTVA>${rate2(o.tauxTVA!)}</TauxTVA>` : '',
+    tva ? `          <MontantTVA>${toMillimes(o.montantTVA!)}</MontantTVA>` : '',
+    `          <MontantTTC>${toMillimes(o.montantTTC)}</MontantTTC>`,
+    `          <MontantRS>${toMillimes(o.montantRS)}</MontantRS>`,
+    `          <MontantNetServi>${toMillimes(o.montantNetServi)}</MontantNetServi>`,
+    '        </Operation>',
+    '      </ListeOperations>',
+    '      <TotalPayement>',
+    `        <TotalMontantHT>${toMillimes(o.montantHT)}</TotalMontantHT>`,
+    tva ? `        <TotalMontantTVA>${toMillimes(o.montantTVA!)}</TotalMontantTVA>` : '',
+    `        <TotalMontantTTC>${toMillimes(o.montantTTC)}</TotalMontantTTC>`,
+    `        <TotalMontantRS>${toMillimes(o.montantRS)}</TotalMontantRS>`,
+    `        <TotalMontantNetServi>${toMillimes(o.montantNetServi)}</TotalMontantNetServi>`,
+    '      </TotalPayement>',
+    '    </Certificat>',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** Génère le XML DeclarationsRS (fonction pure, testable). */
 export function generateTEJXml(
-  tenantMatricule: string,
-  tenantName: string,
+  declarant: TEJDeclarant,
   periodYear: number,
   periodMonth: number,
-  lines: TEJLine[],
-  totalRS: number
+  certificates: TEJCertificate[],
+  acteDepot: 0 | 1 = 0,
 ): string {
   const mm = String(periodMonth).padStart(2, '0');
-  const yyyy = String(periodYear);
-  const now = new Date().toISOString();
-  const nb = String(lines.length).padStart(6, '0');
-  const totalRSFmt = totalRS.toFixed(3);
-
-  const retenueLines = lines
-    .map((l, i) => {
-      const n = String(i + 1).padStart(6, '0');
-      return [
-        `      <Retenue>`,
-        `        <Nume>${n}</Nume>`,
-        `        <NOIXBenef>${escapeXml(l.noixBenef)}</NOIXBenef>`,
-        `        <DenomBenef>${escapeXml(l.denomBenef)}</DenomBenef>`,
-        `        <NatServ>${escapeXml(l.natServ)}</NatServ>`,
-        `        <MtBrutHT>${l.mtBrutHT.toFixed(3)}</MtBrutHT>`,
-        `        <TxRS>${l.txRS.toFixed(2)}</TxRS>`,
-        `        <MtRS>${l.mtRS.toFixed(3)}</MtRS>`,
-        `        <MtNet>${l.mtNet.toFixed(3)}</MtNet>`,
-        `        <DatPaie>${l.datPaie}</DatPaie>`,
-        l.refDoc ? `        <RefDoc>${escapeXml(l.refDoc)}</RefDoc>` : '',
-        `      </Retenue>`,
-      ]
-        .filter(Boolean)
-        .join('\n');
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  ╔══════════════════════════════════════════════════════════════╗
-  ║  TEJ - Déclaration Électronique des Retenues à la Source     ║
-  ║  Généré par BelloSuite — https://bellosuite.com              ║
-  ║  Déclarant: ${escapeXml(tenantName).padEnd(50)}║
-  ║  Matricule Fiscal: ${escapeXml(tenantMatricule).padEnd(46)}║
-  ║  Période: ${mm}/${yyyy}                                           ║
-  ║  Généré le: ${now.padEnd(45)}║
-  ╚══════════════════════════════════════════════════════════════╝
--->
-<TEJ xmlns="http://tej.dgi.gov.tn">
-  <EnTete>
-    <NOIXDeclarant>${escapeXml(tenantMatricule)}</NOIXDeclarant>
-    <DenomDeclarant>${escapeXml(tenantName)}</DenomDeclarant>
-    <Periode mois="${mm}" annee="${yyyy}"/>
-    <NbRetenues>${nb}</NbRetenues>
-    <TotalRS>${totalRSFmt}</TotalRS>
-  </EnTete>
-  <Retenues>
-${retenueLines}
-  </Retenues>
-  <Signature>
-    <Logiciel>BelloSuite</Logiciel>
-    <Version>1.0.0</Version>
-    <DateGeneration>${now}</DateGeneration>
-  </Signature>
-</TEJ>`;
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<DeclarationsRS xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="TEJDeclarationRS_v1.0.xsd" VersionSchema="1.0">',
+    '  <Declarant>',
+    '    <TypeIdentifiant>1</TypeIdentifiant>',
+    `    <Identifiant>${declarant.identifiant}</Identifiant>`,
+    `    <CategorieContribuable>${declarant.categorie}</CategorieContribuable>`,
+    '  </Declarant>',
+    '  <ReferenceDeclaration>',
+    `    <ActeDepot>${acteDepot}</ActeDepot>`,
+    `    <AnneeDepot>${periodYear}</AnneeDepot>`,
+    `    <MoisDepot>${mm}</MoisDepot>`,
+    '  </ReferenceDeclaration>',
+    '  <AjouterCertificats>',
+    ...certificates.map(certificateXml),
+    '  </AjouterCertificats>',
+    '</DeclarationsRS>',
+    '',
+  ].join('\n');
 }
 
-// ─── Conversion record → TEJLine ─────────────────────────────────────────────
+/** Nom de fichier imposé : [MF]-[AAAA]-[MM]-[acte].xml */
+export function tejFilename(identifiant: string, year: number, month: number, acte: 0 | 1 = 0): string {
+  return `${identifiant}-${year}-${String(month).padStart(2, '0')}-${acte}.xml`;
+}
 
-type WithholdingTaxRecord = Awaited<ReturnType<typeof prisma.withholdingTax.findMany>>[number];
+// ─── Conversion record → certificat ──────────────────────────────────────────
+
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+export interface WithholdingRecordLike {
+  id: string;
+  tejId: string | null;
+  beneficiaryTin: string | null;
+  beneficiaryName: string;
+  beneficiaryAddress: string | null;
+  beneficiaryType: string;
+  beneficiaryRegime?: string | null;
+  beneficiaryEmail?: string | null;
+  beneficiaryPhone?: string | null;
+  serviceType: string;
+  serviceDescription?: string | null;
+  grossAmount: unknown;
+  vatRate?: unknown;
+  taxAmount: unknown;
+  rate: unknown;
+  paymentDate: Date | null;
+  periodYear: number;
+  invoice?: { number: string; date: Date; subtotalHT: unknown; totalTTC: unknown } | null;
+}
 
 /**
- * Convertit un enregistrement WithholdingTax (Prisma) en TEJLine.
+ * Convertit un enregistrement en certificat TEJ. Renvoie la liste des champs manquants
+ * au lieu d'inventer des valeurs : TEJ rejette tout fichier incomplet.
  */
-async function toTEJLine(record: WithholdingTaxRecord, index: number): Promise<TEJLine> {
-  const noixBenef = record.beneficiaryTin
-    ? normalizeNOIX(record.beneficiaryTin)
-    : 'XXXXXXXXX'; // inconnu (individus sans MF)
+export function recordToCertificate(r: WithholdingRecordLike): { cert?: TEJCertificate; missing: string[] } {
+  const missing: string[] = [];
+  const mf = tejMatricule(r.beneficiaryTin);
+  const cin = (r.beneficiaryTin || '').replace(/\D/g, '');
+  let id: TEJBeneficiaryId | null = null;
+  if (mf) id = { kind: 'MF', identifiant: mf, categorie: categorieFromMatricule(r.beneficiaryTin, r.beneficiaryType === 'SOCIETE' ? 'PM' : 'PP') };
+  else if (cin.length === 8) missing.push('date de naissance (bénéficiaire identifié par CIN)');
+  else missing.push('matricule fiscal');
 
-  const rateNum = Number(record.rate);
-  const natServ = TEJ_SERVICE_CODES[record.serviceType] || 'AU';
-  const datPaie = record.paymentDate
-    ? new Date(record.paymentDate).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0];
+  const email = (r.beneficiaryEmail || '').trim();
+  if (!EMAIL_RE.test(email)) missing.push('email');
+  if (!r.beneficiaryPhone) missing.push('téléphone');
+  if (!r.beneficiaryAddress) missing.push('adresse');
+  if (!r.paymentDate) missing.push('date de paiement');
 
-  const invoice = record.invoiceId
-    ? await prisma.invoice.findUnique({ where: { id: record.invoiceId }, select: { number: true } })
-    : null;
+  const rule = getRSRule(
+    r.serviceType as ServiceType,
+    r.beneficiaryType as BeneficiaryType,
+    (r.beneficiaryRegime as BeneficiaryRegime) ?? null,
+  );
+  if (!rule.tejCode) missing.push('nature de paiement sans code TEJ');
 
-  return {
-    numero: index + 1,
-    noixBenef,
-    denomBenef: record.beneficiaryName,
-    natServ,
-    mtBrutHT: Number(record.grossAmount),
-    txRS: rateNum * 100, // 0.15 → 15.00
-    mtRS: Number(record.taxAmount),
-    mtNet: Number(record.netAmount),
-    datPaie,
-    refDoc: invoice?.number,
-  };
-}
+  if (missing.length || !id) return { missing };
 
-// ─── Fetch lines ─────────────────────────────────────────────────────────────
-
-async function fetchTEJLines(
-  tenantId: string,
-  periodYear: number,
-  periodMonth: number,
-  ids?: string[]
-): Promise<{ lines: TEJLine[]; records: WithholdingTaxRecord[] }> {
-  const where: any = {
-    tenantId,
-    periodYear,
-    periodMonth,
-    tejStatus: { in: ['DRAFT', 'EXPORTED'] },
-  };
-  if (ids?.length) where.id = { in: ids };
-
-  const records = await prisma.withholdingTax.findMany({
-    where,
-    orderBy: { createdAt: 'asc' },
-  });
-
-  const lines: TEJLine[] = [];
-  for (let i = 0; i < records.length; i++) {
-    lines.push(await toTEJLine(records[i], i));
+  const ttc = Number(r.grossAmount);
+  let ht = ttc;
+  let tauxTVA: number | undefined;
+  let montantTVA: number | undefined;
+  const vat = r.vatRate !== null && r.vatRate !== undefined ? Number(r.vatRate) : null;
+  if (r.invoice && Number(r.invoice.totalTTC) > 0) {
+    // Ventilation proportionnelle à la facture liée
+    const ratio = Number(r.invoice.subtotalHT) / Number(r.invoice.totalTTC);
+    ht = Math.round(ttc * ratio * 1000) / 1000;
+    montantTVA = Math.round((ttc - ht) * 1000) / 1000;
+    tauxTVA = ht > 0 ? Math.round((montantTVA / ht) * 100) : 0;
+  } else if (vat !== null) {
+    ht = Math.round((ttc / (1 + vat / 100)) * 1000) / 1000;
+    montantTVA = Math.round((ttc - ht) * 1000) / 1000;
+    tauxTVA = vat;
   }
-
-  return { lines, records };
+  const montantRS = Number(r.taxAmount);
+  return {
+    missing,
+    cert: {
+      ref: r.tejId || r.id,
+      beneficiaire: {
+        id,
+        resident: true,
+        nom: r.beneficiaryName,
+        adresse: r.beneficiaryAddress!,
+        activite: r.serviceDescription || undefined,
+        email,
+        tel: r.beneficiaryPhone!,
+      },
+      datePayement: formatDateTEJ(r.paymentDate!),
+      operation: {
+        idTypeOperation: rule.tejCode!,
+        anneeFacturation: r.invoice ? r.invoice.date.getUTCFullYear() : r.periodYear,
+        montantHT: ht,
+        tauxRS: Number(r.rate) * 100,
+        tauxTVA,
+        montantTVA,
+        montantTTC: ttc,
+        montantRS,
+        montantNetServi: Math.round((ttc - montantRS) * 1000) / 1000,
+      },
+    },
+  };
 }
 
 // ─── Export principal ────────────────────────────────────────────────────────
 
 /**
- * Exporte les RS d'une période en XML TEJ.
- * Met à jour le statut de chaque RS en EXPORTED après génération.
- *
- * @throws 'Tenant not found' | 'Tenant missing matriculeFiscal'
- *         | 'Aucune retenue à exporter'
+ * Exporte les RS d'une période au format de dépôt TEJ et passe les RS en EXPORTED.
+ * @throws TEJValidationError si des certificats sont incomplets (rien n'est exporté).
  */
 export async function exportTEJ(options: TEJExportOptions): Promise<TEJExportResult> {
-  const { tenantId, periodYear, periodMonth, withholdingTaxIds } = options;
+  const { tenantId, periodYear, periodMonth, withholdingTaxIds, acteDepot = 0 } = options;
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error('Tenant not found');
-  if (!tenant.matriculeFiscal) throw new Error('Tenant missing matriculeFiscal');
+  const identifiant = tejMatricule(tenant.matriculeFiscal);
+  if (!identifiant) throw new Error('Matricule fiscal de l\'entreprise absent ou invalide (7 chiffres + clé)');
 
-  const { lines, records } = await fetchTEJLines(
-    tenantId,
-    periodYear,
-    periodMonth,
-    withholdingTaxIds
-  );
+  const where: any = { tenantId, periodYear, periodMonth, tejStatus: { in: ['DRAFT', 'EXPORTED'] } };
+  if (withholdingTaxIds?.length) where.id = { in: withholdingTaxIds };
 
-  if (lines.length === 0) {
-    throw new Error(
-      'Aucune retenue à exporter pour cette période. Vérifiez que des RS sont en statut DRAFT ou EXPORTED.'
-    );
+  const records = await prisma.withholdingTax.findMany({
+    where,
+    orderBy: { createdAt: 'asc' },
+    include: { invoice: { select: { number: true, date: true, subtotalHT: true, totalTTC: true } } },
+  });
+
+  if (records.length === 0) {
+    throw new Error('Aucune retenue à exporter pour cette période. Vérifiez que des RS sont en statut DRAFT ou EXPORTED.');
   }
 
-  const totalRS = lines.reduce((s, l) => s + l.mtRS, 0);
-  const totalBrut = lines.reduce((s, l) => s + l.mtBrutHT, 0);
+  const certificates: TEJCertificate[] = [];
+  const issues: TEJValidationIssue[] = [];
+  for (const r of records) {
+    const { cert, missing } = recordToCertificate(r as unknown as WithholdingRecordLike);
+    if (cert) certificates.push(cert);
+    else issues.push({ id: r.id, beneficiary: r.beneficiaryName, missing });
+  }
+  if (issues.length) throw new TEJValidationError(issues);
 
-  const xml = generateTEJXml(
-    tenant.matriculeFiscal,
-    tenant.name,
-    periodYear,
-    periodMonth,
-    lines,
-    totalRS
-  );
+  const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+  const categorie =
+    settings.tejCategorie === 'PP' || settings.tejCategorie === 'PM'
+      ? (settings.tejCategorie as 'PM' | 'PP')
+      : categorieFromMatricule(tenant.matriculeFiscal, 'PM');
 
-  const mm = String(periodMonth).padStart(2, '0');
-  const filename = `TEJ_${tenant.matriculeFiscal}_${periodYear}${mm}.xml`;
-
-  const idsToUpdate = withholdingTaxIds || records.map((r) => r.id);
+  const xml = generateTEJXml({ identifiant, categorie }, periodYear, periodMonth, certificates, acteDepot);
+  const filename = tejFilename(identifiant, periodYear, periodMonth, acteDepot);
+  const ids = records.map((r) => r.id);
 
   await prisma.withholdingTax.updateMany({
-    where: { id: { in: idsToUpdate } },
+    where: { id: { in: ids }, tenantId },
     data: { tejStatus: 'EXPORTED', exportedAt: new Date() },
   });
 
-  return { xml, filename, count: lines.length, ids: idsToUpdate, totalRS, totalBrut };
+  const totalRS = certificates.reduce((s, c) => s + c.operation.montantRS, 0);
+  const totalBrut = certificates.reduce((s, c) => s + c.operation.montantTTC, 0);
+  return { xml, filename, count: certificates.length, ids, totalRS, totalBrut };
 }
 
 // ─── Résumé période ──────────────────────────────────────────────────────────
