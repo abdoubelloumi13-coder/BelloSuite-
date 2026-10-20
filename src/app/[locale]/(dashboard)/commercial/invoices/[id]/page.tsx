@@ -134,7 +134,9 @@ export default function InvoiceDetailPage() {
 
   const exportTEIF = () => {
     if (!invoice) return
-    const xml = generateTEIFXml({
+    let xml: string
+    try {
+    xml = generateTEIFXml({
       invoiceNumber: invoice.number,
       type: invoice.type,
       issueDate: new Date(invoice.date).toISOString().split('T')[0],
@@ -162,6 +164,10 @@ export default function InvoiceDetailPage() {
         vatSummary: invoice.vatSummary || {},
       },
     })
+    } catch (e: any) {
+      alert(e?.errors ? e.errors.join('\n') : (e?.message || 'TEIF'))
+      return
+    }
     const blob = new Blob([xml], { type: 'application/xml' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

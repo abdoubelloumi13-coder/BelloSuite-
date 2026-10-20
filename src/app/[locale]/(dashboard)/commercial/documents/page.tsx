@@ -33,24 +33,26 @@ export default function InvoicesPage() {
   }
 
   const exportTEIF = (inv: any) => {
-    const xml = generateTEIF({
+    let xml: string
+    try {
+    xml = generateTEIF({
       invoiceNumber: inv.number,
       type: inv.type,
       issueDate: new Date(inv.date).toISOString().split('T')[0],
       tenant: {
         name: inv.tenant.name,
-        matriculeFiscal: inv.tenant.matriculeFiscal || '---',
+        matriculeFiscal: inv.tenant.matriculeFiscal || '',
         address: inv.tenant.address || '',
         city: inv.tenant.city || '',
         zipCode: inv.tenant.zipCode || '',
       },
       client: {
         name: inv.client.name,
-        matriculeFiscal: inv.client.matriculeFiscal || '---',
+        matriculeFiscal: inv.client.matriculeFiscal || '',
         address: inv.client.address || '',
         city: inv.client.city || '',
       },
-      items: inv.items,
+      items: inv.items ?? [],
       totals: {
         subtotalHT: Number(inv.subtotalHT),
         totalFodec: Number(inv.totalFodec),
@@ -60,6 +62,10 @@ export default function InvoicesPage() {
         vatSummary: inv.vatSummary as any,
       }
     })
+    } catch (e: any) {
+      alert(e?.errors ? e.errors.join('\n') : (e?.message || 'TEIF'))
+      return
+    }
 
     const blob = new Blob([xml], { type: 'application/xml' })
     const url = URL.createObjectURL(blob)

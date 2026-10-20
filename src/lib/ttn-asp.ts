@@ -3,9 +3,10 @@
  * =========================================
  * Submits TEIF invoices through a TTN-approved ASP provider.
  *
- * Supported providers:
- *   - ttnhub    : https://ttnhub.tn
- *   - efacturetn: https://efacturetn.com
+ * ⚠️ Les adresses d'API ci-dessous (ttnhub, efacturetn) n'ont PAS été vérifiées auprès
+ * des prestataires : elles sont désactivées tant que TTN_ASP_VERIFIED !== 'true'.
+ * Le TEIF généré n'est pas signé : un dépôt réel exige la signature XAdES-B (SigFrs)
+ * avec un certificat TunTrust, soit chez l'ASP, soit par BelloSuite.
  *
  * Regulatory references:
  *   - LF 2026 Art.53 — mandatory e-invoicing
@@ -129,8 +130,18 @@ export async function submitToTTN(
     return { success: false, errorCode: 'CONFIG_DISABLED', errorMessage: 'ASP configuration is not active' }
   }
 
+  if (process.env.TTN_ASP_VERIFIED !== 'true') {
+    return {
+      success: false,
+      errorCode: 'ASP_NOT_VERIFIED',
+      errorMessage: "Dépôt TTN désactivé : intégration prestataire non vérifiée. Exportez le TEIF et déposez-le via votre prestataire ou El Fatoora.",
+    }
+  }
+
   // Generate TEIF XML
-  const teifXml = generateTEIFXml({
+  let teifXml: string
+  try {
+  teifXml = generateTEIFXml({
     invoiceNumber: invoice.number,
     type: invoice.type,
     issueDate: new Date(invoice.date).toISOString().split('T')[0],
@@ -159,6 +170,9 @@ export async function submitToTTN(
       vatSummary: invoice.vatSummary || {},
     },
   })
+  } catch (e: any) {
+    return { success: false, errorCode: 'TEIF_INVALID', errorMessage: e?.message || 'TEIF invalide' }
+  }
 
   // Submit based on provider
   switch (config.provider) {
