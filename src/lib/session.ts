@@ -19,6 +19,13 @@ export interface SessionPayload {
   role: string
   tenantId: string | null
   firstName: string
+  /**
+   * Cabinet comptable : présent quand un collaborateur de cabinet travaille dans le dossier d'un client.
+   * `tenantId` est alors celui du client et `homeTenantId` celui de son propre compte (null s'il n'en a pas).
+   * L'accès du cabinet est revérifié en base à chaque requête (voir api-auth / firm-access).
+   */
+  firmId?: string | null
+  homeTenantId?: string | null
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {
@@ -41,6 +48,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
       role: payload.role as string,
       tenantId: (payload.tenantId as string | null) || null,
       firstName: (payload.firstName as string) || '',
+      ...(payload.firmId ? { firmId: payload.firmId as string, homeTenantId: (payload.homeTenantId as string | null) || null } : {}),
     }
   } catch {
     return null

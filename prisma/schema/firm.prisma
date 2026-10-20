@@ -1,0 +1,68 @@
+// ============================================
+// CABINETS COMPTABLES — espace multi-clients
+// ============================================
+// Un cabinet (AccountingFirm) regroupe des collaborateurs (FirmMember) et accède aux entreprises
+// clientes (Tenant) via FirmClientAccess. L'accès est accordé par l'entreprise (code d'invitation
+// à usage unique, haché) ou créé par le cabinet quand il ouvre lui-même le dossier du client.
+// L'entreprise peut révoquer l'accès à tout moment ; la révocation est vérifiée à chaque requête.
+
+model AccountingFirm {
+  id              String   @id @default(uuid())
+  name            String
+  matriculeFiscal String?
+  email           String?
+  phone           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members  FirmMember[]
+  accesses FirmClientAccess[]
+}
+
+model FirmMember {
+  id        String         @id @default(uuid())
+  firmId    String
+  firm      AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// OWNER | STAFF
+  role      String         @default("STAFF")
+  createdAt DateTime       @default(now())
+
+  @@unique([firmId, userId])
+  @@index([userId])
+}
+
+model FirmClientAccess {
+  id          String         @id @default(uuid())
+  firmId      String
+  firm        AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// ACTIVE | REVOKED
+  status      String         @default("ACTIVE")
+  /// INVITE (code donné par l'entreprise) | CREATED (dossier ouvert par le cabinet)
+  origin      String         @default("INVITE")
+  grantedById String?
+  revokedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([firmId, tenantId])
+  @@index([tenantId])
+}
+
+/// Code d'invitation émis par une entreprise pour son cabinet (haché SHA-256, usage unique, 7 jours).
+model FirmInvite {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  codeHash    String    @unique
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedByFirm  String?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+}

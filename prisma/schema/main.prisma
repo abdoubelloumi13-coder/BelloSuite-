@@ -30,6 +30,8 @@ model Tenant {
   updatedAt       DateTime @updatedAt
 
   users               User[]
+  firmAccesses        FirmClientAccess[]
+  firmInvites         FirmInvite[]
   modules             TenantModule[]
   products            Product[]
   clients             Client[]
@@ -104,6 +106,7 @@ model User {
 
   auditLogs      AuditLog[]   @relation("AuditAdmin")
   tenantNotes    TenantNote[] @relation("TenantNoteAuthor")
+  firmMemberships FirmMember[]
 }
 
 enum UserRole {

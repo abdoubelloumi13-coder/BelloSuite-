@@ -15,6 +15,7 @@ import type { InvoiceExtraction } from '@/lib/invoice-extract'
 import { summarizeExtraction, type PurchaseTarget } from '@/lib/scan-document'
 import { saveScanHandoff, scanTargetHref } from '@/lib/scan-handoff'
 import { ScanSearchPanel } from '@/components/scan/ScanSearchPanel'
+import { PurchaseReviewPanel } from '@/components/scan/PurchaseReviewPanel'
 
 export default function ScanDocumentPage() {
   const t = useTranslations('Purchases')
@@ -58,6 +59,7 @@ export default function ScanDocumentPage() {
             </div>
           </Card>
         )}
+        {x && s?.kind !== 'ORDER' && s?.kind !== 'QUOTE' && <PurchaseReviewPanel extraction={x} />}
       </div>
     </StockPage>
   )

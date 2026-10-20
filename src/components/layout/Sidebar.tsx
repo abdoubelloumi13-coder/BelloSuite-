@@ -20,8 +20,7 @@ import {
   ShieldAlert,
   Target,
   Menu,
-  X,
-} from 'lucide-react'
+  X, Briefcase } from 'lucide-react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 import { STOCK_NAV } from '@/components/stock/ui'
@@ -189,6 +188,16 @@ export default function Sidebar() {
                       {anActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
                       <ShieldAlert className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${anActive ? 'text-teal-400' : ''}`} />
                       {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.anomalies')}</span>}
+                    </Link>
+                  )
+                })()}
+                {module.key === 'dashboard' && (() => {
+                  const fiActive = pathname === '/cabinet' || pathname.startsWith('/cabinet/')
+                  return (
+                    <Link href="/cabinet" title={t('Sidebar.firm_space')} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${fiActive ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
+                      {fiActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
+                      <Briefcase className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${fiActive ? 'text-teal-400' : ''}`} />
+                      {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.firm_space')}</span>}
                     </Link>
                   )
                 })()}

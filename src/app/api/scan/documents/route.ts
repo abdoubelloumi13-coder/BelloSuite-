@@ -25,6 +25,8 @@ export async function GET(req: Request) {
     const where: any = { tenantId: auth.tenantId }
 
     if (kind) where.documentKind = kind
+    const reviewStatus = sp.get('reviewStatus')
+    if (reviewStatus && ['TO_REVIEW', 'PROCESSED', 'REJECTED'].includes(reviewStatus)) where.reviewStatus = reviewStatus
     if (supplier) where.supplierName = { contains: supplier, mode: 'insensitive' }
     if (dateFrom || dateTo) {
       where.date = {}
@@ -77,6 +79,8 @@ export async function GET(req: Request) {
           extractedText: true,
           avgConfidence: true,
           lowConfidence: true,
+          reviewStatus: true,
+          purchaseId: true,
           createdAt: true,
         },
       }),

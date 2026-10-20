@@ -91,6 +91,11 @@ export async function requireTenant(
   if (session instanceof NextResponse) return session
   const ctx = resolveTenantContext(session, requestedTenantId)
   if ('error' in ctx) return jsonError(ctx.error, ctx.status)
+  // Collaborateur de cabinet dans le dossier d'un client : accès revérifié en base (révocation immédiate)
+  if (session.firmId && session.tenantId !== (session.homeTenantId ?? null)) {
+    const { firmSessionStillValid } = await import('./firm-access')
+    if (!(await firmSessionStillValid(session))) return jsonError('Accès du cabinet révoqué', 403)
+  }
   return ctx
 }
 

@@ -30,6 +30,14 @@ model ScannedDocument {
   avgConfidence   Float?
   lowConfidence   Boolean  @default(false)
 
+  // Revue (pièces à traiter, vues aussi par le cabinet)
+  /// TO_REVIEW | PROCESSED | REJECTED
+  reviewStatus    String    @default("TO_REVIEW")
+  /// Facture fournisseur (PurchaseOrder type INVOICE) créée depuis ce document
+  purchaseId      String?
+  reviewedAt      DateTime?
+  reviewedBy      String?
+
   // Source
   source          String   @default("SCAN") // SCAN, IMPORT, EMAIL
   createdBy       String
@@ -42,6 +50,7 @@ model ScannedDocument {
   @@index([tenantId, date])
   @@index([tenantId, documentKind])
   @@index([fileHash])
+  @@index([tenantId, reviewStatus])
 }
 
 // Index full-text (PostgreSQL) — migration SQL nécessaire
