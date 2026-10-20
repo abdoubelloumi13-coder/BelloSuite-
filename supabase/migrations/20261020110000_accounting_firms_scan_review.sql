@@ -52,3 +52,9 @@ ALTER TABLE "ScannedDocument" ADD COLUMN IF NOT EXISTS "purchaseId" TEXT;
 ALTER TABLE "ScannedDocument" ADD COLUMN IF NOT EXISTS "reviewedAt" TIMESTAMP(3);
 ALTER TABLE "ScannedDocument" ADD COLUMN IF NOT EXISTS "reviewedBy" TEXT;
 CREATE INDEX IF NOT EXISTS "ScannedDocument_tenantId_reviewStatus_idx" ON "ScannedDocument"("tenantId", "reviewStatus");
+
+-- Accès uniquement côté serveur (Prisma) : bloquer l'API publique Supabase
+ALTER TABLE "AccountingFirm" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "FirmMember" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "FirmClientAccess" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "FirmInvite" ENABLE ROW LEVEL SECURITY;
