@@ -4,7 +4,7 @@ import {
   signTeifXml, verifyTeifSignature, LocalTestSigner, DigiGoMockSigner, DigiGoMockServer,
   DigiGoMockError, TTN_SIGNATURE_POLICY, testCertificateDetails,
 } from '@/lib/einvoice/xades-signer'
-import { parseXml, findElements, isDs, NS_XADES, excC14n } from '@/lib/einvoice/xml-dsig'
+import { parseXml, XmlParseError, findElements, isDs, NS_XADES, excC14n } from '@/lib/einvoice/xml-dsig'
 import { TEST_SIGNER_CERT_PEM } from '@/lib/einvoice/test-certs/test-chain'
 
 const base: TEIFData = {
@@ -117,6 +117,14 @@ describe('Signature XAdES-B TEIF (simulation)', () => {
     await expect(signTeifXml(signed, new LocalTestSigner())).rejects.toThrow(/déjà signé/)
     await expect(signTeifXml('<TEIF><a></TEIF>', new LocalTestSigner())).rejects.toThrow()
     expect(verifyTeifSignature(teif).valid).toBe(false)
+  })
+
+  test('parseXml strict : balises non appariées, attributs sans guillemets, entités inconnues → XmlParseError', () => {
+    for (const bad of ['<TEIF><a></TEIF>', '<a></b>', '<TEIF a=1/>', '<a>&foo;</a>', '<TEIF/><x/>', '', '   ']) {
+      expect(() => parseXml(bad)).toThrow(XmlParseError)
+    }
+    expect(parseXml('<TEIF><a b="1">x</a></TEIF>').documentElement.localName).toBe('TEIF')
+    expect(verifyTeifSignature('<TEIF><a></TEIF>').errors[0]).toMatch(/XML mal formé/)
   })
 
   test('DigiGo simulé : flux chain → authorize (OTP) → token → signHash', async () => {

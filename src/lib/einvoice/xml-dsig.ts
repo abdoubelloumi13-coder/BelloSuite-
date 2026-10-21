@@ -22,14 +22,23 @@ export class XmlParseError extends Error {
   }
 }
 
-/** Parse strict : toute erreur ou erreur fatale du parseur lève XmlParseError. */
+/**
+ * Parse strict : toute anomalie signalée par le parseur lève XmlParseError.
+ * @xmldom/xmldom 0.8 est permissif : une balise fermante non appariée
+ * (`<TEIF><a></TEIF>`) ou un attribut sans guillemets n'est signalé qu'en
+ * « warning » et le document est réparé silencieusement. Pour un document fiscal
+ * signé, on refuse donc aussi les avertissements (comme un parseur XML conforme).
+ */
 export function parseXml(xml: string): Document {
+  if (typeof xml !== 'string' || !xml.trim()) throw new XmlParseError(['document vide'])
   const errors: string[] = []
+  const clean = (level: string, m: unknown) => `${level}: ${String(m).replace(/^\[xmldom [a-z]+\]\s*/i, '').split('\n')[0].trim()}`
   const parser = new DOMParser({
+    locator: {},
     errorHandler: {
-      warning: () => undefined,
-      error: (m: string) => { errors.push(String(m)) },
-      fatalError: (m: string) => { errors.push(String(m)) },
+      warning: (m: string) => { errors.push(clean('avertissement', m)) },
+      error: (m: string) => { errors.push(clean('erreur', m)) },
+      fatalError: (m: string) => { errors.push(clean('erreur fatale', m)) },
     },
   })
   let doc: Document | undefined
@@ -38,7 +47,8 @@ export function parseXml(xml: string): Document {
   } catch (e) {
     errors.push(e instanceof Error ? e.message : String(e))
   }
-  if (errors.length || !doc || !doc.documentElement) throw new XmlParseError(errors.length ? errors : ['document vide'])
+  if (errors.length || !doc || !doc.documentElement) throw new XmlParseError(errors.length ? errors : ['élément racine absent'])
+  if (findElements(doc, el => el.localName === 'parsererror').length) throw new XmlParseError(['parsererror'])
   return doc
 }
 
