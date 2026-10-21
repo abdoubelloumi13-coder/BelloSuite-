@@ -2039,7 +2039,40 @@
       "priority_high": "🔴 Haute",
       "assignee": "Assigné",
       "cancel": "Annuler",
-      "create": "Créer"
+      "create": "Créer",
+      "load_error": "Impossible de charger le tableau.",
+      "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+      "title_required": "Le titre est obligatoire."
+    },
+    "load_error": "Impossible de charger les projets.",
+    "form": {
+      "title": "Nouveau projet",
+      "subtitle": "Un tableau Kanban (À faire, En cours, Terminé) est créé automatiquement.",
+      "back": "Retour aux projets",
+      "name": "Nom du projet",
+      "name_placeholder": "Ex. : Déploiement ERP siège",
+      "name_required": "Le nom du projet est obligatoire.",
+      "name_taken": "Un projet porte déjà ce nom.",
+      "network_error": "Connexion au serveur impossible. Vérifiez votre connexion internet.",
+      "description": "Description",
+      "description_placeholder": "Objectif, périmètre, client…",
+      "status": "Statut",
+      "priority": "Priorité",
+      "end_date": "Échéance",
+      "color": "Couleur",
+      "cancel": "Annuler",
+      "submit": "Créer le projet",
+      "statuses": {
+        "DRAFT": "Brouillon",
+        "ACTIVE": "Actif",
+        "ON_HOLD": "En pause"
+      },
+      "priorities": {
+        "LOW": "Basse",
+        "MEDIUM": "Moyenne",
+        "HIGH": "Haute",
+        "URGENT": "Urgente"
+      }
     }
   },
   "Onboarding": {

@@ -2039,7 +2039,40 @@
       "priority_high": "🔴 High",
       "assignee": "Assignee",
       "cancel": "Cancel",
-      "create": "Create"
+      "create": "Create",
+      "load_error": "Could not load the board.",
+      "save_error": "Could not save. Check your connection.",
+      "title_required": "Title is required."
+    },
+    "load_error": "Could not load projects.",
+    "form": {
+      "title": "New project",
+      "subtitle": "A Kanban board (To do, In progress, Done) is created automatically.",
+      "back": "Back to projects",
+      "name": "Project name",
+      "name_placeholder": "e.g. Head office ERP rollout",
+      "name_required": "Project name is required.",
+      "name_taken": "A project with this name already exists.",
+      "network_error": "Cannot reach the server. Check your internet connection.",
+      "description": "Description",
+      "description_placeholder": "Goal, scope, client…",
+      "status": "Status",
+      "priority": "Priority",
+      "end_date": "Due date",
+      "color": "Colour",
+      "cancel": "Cancel",
+      "submit": "Create project",
+      "statuses": {
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "ON_HOLD": "On hold"
+      },
+      "priorities": {
+        "LOW": "Low",
+        "MEDIUM": "Medium",
+        "HIGH": "High",
+        "URGENT": "Urgent"
+      }
     }
   },
   "Onboarding": {
