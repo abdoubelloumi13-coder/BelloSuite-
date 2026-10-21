@@ -3234,5 +3234,11 @@
     "non_conforming_title": "Facture non conforme TEIF — signature impossible",
     "non_conforming_detail": "Corrigez les points ci-dessous, puis revenez sur cette facture pour la signer.",
     "sign_disabled_hint": "Signature désactivée : la facture n'est pas conforme TEIF (voir ci-dessous)"
+  },
+  "Legal": {
+    "terms": "Conditions d'utilisation",
+    "privacy": "Confidentialité",
+    "french_only": "Ce document est disponible en français uniquement ; la version française fait foi.",
+    "contact": "Une question ?"
   }
 }

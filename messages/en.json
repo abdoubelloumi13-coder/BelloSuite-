@@ -3234,5 +3234,11 @@
     "non_conforming_title": "Invoice not TEIF-compliant — signing unavailable",
     "non_conforming_detail": "Fix the points below, then come back to this invoice to sign it.",
     "sign_disabled_hint": "Signing disabled: the invoice is not TEIF-compliant (see below)"
+  },
+  "Legal": {
+    "terms": "Terms of use",
+    "privacy": "Privacy",
+    "french_only": "This document is available in French only; the French version is authoritative.",
+    "contact": "Any questions?"
   }
 }

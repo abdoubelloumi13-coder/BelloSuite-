@@ -207,9 +207,9 @@ export default function RegisterPage() {
 
         <p className="text-center text-zinc-600 text-[10px] mt-6 leading-relaxed">
           {t('terms_note')}{' '}
-          <a href="/terms" className="text-zinc-500 hover:text-teal-400 underline">{t('terms')}</a>
+          <Link href="/terms" className="text-zinc-500 hover:text-teal-400 underline">{t('terms')}</Link>
           {' '}{t('and')}{' '}
-          <a href="/privacy" className="text-zinc-500 hover:text-teal-400 underline">{t('privacy')}</a>
+          <Link href="/privacy" className="text-zinc-500 hover:text-teal-400 underline">{t('privacy')}</Link>
         </p>
       </div>
     </div>

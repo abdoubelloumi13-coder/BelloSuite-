@@ -23,6 +23,7 @@ const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL || 'belloumi.karim.profe
 
 export default function Home() {
   const t = useTranslations('Landing')
+  const tl = useTranslations('Legal')
   const locale = useLocale()
   // Lien démo en <a> classique : la route API pose le cookie puis redirige vers le tableau de bord.
   // (Un <Link> client ne suit pas proprement une redirection vers une route API.)
@@ -269,7 +270,11 @@ export default function Home() {
             <Layers className="w-5 h-5 text-amber-500" /> BelloSuite
           </div>
           <p>{t('footer.rights')}</p>
-          <a href={mailto} className="hover:text-white">{t('footer.contact')}</a>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/terms" className="hover:text-white">{tl('terms')}</Link>
+            <Link href="/privacy" className="hover:text-white">{tl('privacy')}</Link>
+            <a href={mailto} className="hover:text-white">{t('footer.contact')}</a>
+          </div>
         </div>
       </footer>
     </div>
