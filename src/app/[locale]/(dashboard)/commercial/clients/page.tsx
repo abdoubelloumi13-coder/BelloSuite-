@@ -53,10 +53,13 @@ export default function ClientsPage() {
     }
   }
 
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.matriculeFiscal?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredClients = clients.filter((c: any) => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    const qMf = q.replace(/[\s/.\-]/g, '')
+    return [c.name, c.code, c.email, c.city, c.phone].some((x: any) => String(x || '').toLowerCase().includes(q))
+      || (qMf.length > 0 && String(c.matriculeFiscal || '').toLowerCase().replace(/[\s/.\-]/g, '').includes(qMf))
+  })
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto min-h-screen bg-transparent pt-0 text-start">

@@ -1,3 +1,4 @@
+import { normalizeFiscalId } from '@/lib/matricule'
 import { requireTenant, requireSession, resolveTenantContext } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
             address: String(get('address') || '').trim() || null,
             city: String(get('city') || '').trim() || null,
             country: String(get('country') || 'Tunisie').trim(),
-            matriculeFiscal: String(get('matriculeFiscal') || '').trim() || null,
+            matriculeFiscal: normalizeFiscalId(String(get('matriculeFiscal') || '')) || null,
           },
         })
         log.push({ row: rowNum, code, name, id: supplier.id })

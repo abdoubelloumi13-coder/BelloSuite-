@@ -39,10 +39,13 @@ export default function SuppliersPage() {
     }
   }
 
-  const filteredSuppliers = suppliers.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.matriculeFiscal?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredSuppliers = suppliers.filter((s: any) => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    const qMf = q.replace(/[\s/.\-]/g, '')
+    return [s.name, s.code, s.email, s.city, s.phone].some((x: any) => String(x || '').toLowerCase().includes(q))
+      || (qMf.length > 0 && String(s.matriculeFiscal || '').toLowerCase().replace(/[\s/.\-]/g, '').includes(qMf))
+  })
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto min-h-screen bg-transparent pt-0 text-start">
