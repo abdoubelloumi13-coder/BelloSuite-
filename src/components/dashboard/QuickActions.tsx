@@ -53,7 +53,7 @@ export function QuickActions({ userRole = 'USER' }: QuickActionsProps) {
     },
     { 
       label: t('new_client'), 
-      href: '/commercial/clients/new', 
+      href: '/commercial/clients?new=1', 
       icon: ShoppingCart,
       color: 'blue'
     },
@@ -65,7 +65,7 @@ export function QuickActions({ userRole = 'USER' }: QuickActionsProps) {
     },
     { 
       label: t('import'), 
-      href: '/stock/import', 
+      href: '/stock/products/import', 
       icon: Upload,
       color: 'purple'
     },
@@ -74,7 +74,7 @@ export function QuickActions({ userRole = 'USER' }: QuickActionsProps) {
   const adminActions: QuickAction[] = [
     { 
       label: t('new_employee'), 
-      href: '/hr/employees/new', 
+      href: '/hr/employees?new=1', 
       icon: Users,
       color: 'teal'
     },

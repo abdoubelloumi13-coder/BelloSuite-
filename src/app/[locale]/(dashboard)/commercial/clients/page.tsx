@@ -20,11 +20,25 @@ export default function ClientsPage() {
     fetchClients(tenantId)
   }, [])
 
+  // /commercial/clients?new=1 (raccourcis « Nouveau client ») : ouvre directement la fiche de création
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('new') !== '1') return
+    const id = setTimeout(() => {
+      setSelectedClient(null)
+      setIsModalOpen(true)
+      params.delete('new')
+      const qs = params.toString()
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+
   const fetchClients = async (tid: string) => {
     try {
       const res = await fetch(`/api/commercial/clients`)
-      const data = await res.json()
-      setClients(data)
+      const data = await res.json().catch(() => [])
+      setClients(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error(error)
     } finally {

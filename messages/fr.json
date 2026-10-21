@@ -102,7 +102,11 @@
     "anomalies": "Points à vérifier",
     "firm_space": "Espace cabinet",
     "close": "Fermer le menu",
-    "open": "Ouvrir le menu"
+    "open": "Ouvrir le menu",
+    "projects": "Projets",
+    "withholding": "Retenue à la source",
+    "tej_export": "Export TEJ",
+    "settings": "Paramètres"
   },
   "Common": {
     "dashboard": "Tableau de Bord",
@@ -2932,5 +2936,51 @@
     "origin_INVITE": "Invité par vous",
     "origin_CREATED": "Dossier ouvert par le cabinet",
     "manage_access": "Gérer l’accès cabinet"
+  },
+  "Settings": {
+    "title": "Paramètres",
+    "subtitle": "Configuration de votre entreprise et de vos modules",
+    "links": {
+      "users": {
+        "title": "Utilisateurs",
+        "desc": "Comptes ayant accès à votre espace"
+      },
+      "einvoice": {
+        "title": "Facturation électronique (TTN)",
+        "desc": "Paramètres El Fatoora / TTN"
+      },
+      "periods": {
+        "title": "Exercices comptables",
+        "desc": "Ouverture et clôture des exercices"
+      },
+      "chart": {
+        "title": "Plan comptable",
+        "desc": "Plan comptable tunisien et comptes personnalisés"
+      },
+      "stock": {
+        "title": "Paramètres du stock",
+        "desc": "Valorisation, dépôts, seuils d'alerte"
+      }
+    },
+    "modules_title": "Modules actifs",
+    "modules_hint": "Pour activer un module supplémentaire, contactez le support BelloSuite.",
+    "modules_none": "Aucun module actif",
+    "users_page": {
+      "title": "Utilisateurs",
+      "subtitle": "Comptes ayant accès à votre entreprise",
+      "name": "Nom",
+      "email": "E-mail",
+      "role": "Rôle",
+      "status": "Statut",
+      "since": "Depuis",
+      "loading": "Chargement...",
+      "empty": "Aucun utilisateur",
+      "role_admin": "Administrateur",
+      "role_user": "Utilisateur",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "load_error": "Impossible de charger les utilisateurs",
+      "hint": "L'ajout et la suppression d'utilisateurs se font auprès du support BelloSuite."
+    }
   }
 }

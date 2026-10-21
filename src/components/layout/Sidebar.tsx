@@ -20,24 +20,38 @@ import {
   ShieldAlert,
   Target,
   Menu,
-  X, Briefcase } from 'lucide-react'
+  X, Briefcase, FolderKanban, Receipt, FileDown, Settings } from 'lucide-react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 import { STOCK_NAV } from '@/components/stock/ui'
 
-const MODULE_REGISTRY: Record<string, { tKey: string; icon: any; path: string; alwaysVisible?: boolean }> = {
+// enabledBy : modules dont l'activation suffit à afficher l'entrée (ex. la caisse fait partie du commercial)
+const MODULE_REGISTRY: Record<string, { tKey: string; icon: any; path: string; alwaysVisible?: boolean; enabledBy?: string[] }> = {
   dashboard:   { tKey: 'Common.dashboard', icon: LayoutDashboard, path: '/dashboard', alwaysVisible: true },
   stock:       { tKey: 'Home.modules.stock.title', icon: Package, path: '/stock' },
   commercial:  { tKey: 'Home.modules.commercial.title', icon: ShoppingCart, path: '/commercial' },
-  crm:         { tKey: 'Home.modules.crm.title', icon: Target, path: '/crm' },
+  crm:         { tKey: 'Home.modules.crm.title', icon: Target, path: '/crm', enabledBy: ['commercial'] },
   accounting:  { tKey: 'Home.modules.accounting.title', icon: Wallet, path: '/accounting/chart' },
   hr:          { tKey: 'Home.modules.hr.title', icon: Users, path: '/hr' },
-  pos:         { tKey: 'Sidebar.pos', icon: ShoppingCart, path: '/pos' },
+  pos:         { tKey: 'Sidebar.pos', icon: ShoppingCart, path: '/pos', enabledBy: ['commercial', 'stock'] },
+  projects:    { tKey: 'Sidebar.projects', icon: FolderKanban, path: '/projects', alwaysVisible: true },
   gmao:        { tKey: 'Home.modules.maintenance.title', icon: Wrench, path: '/gmao' },
   gpao:        { tKey: 'Home.modules.production.title', icon: Factory, path: '/gpao' },
 }
 
-const MODULE_ORDER = ['dashboard', 'stock', 'commercial', 'crm', 'accounting', 'hr', 'pos', 'gmao', 'gpao']
+const MODULE_ORDER = ['dashboard', 'stock', 'commercial', 'crm', 'accounting', 'hr', 'pos', 'projects', 'gmao', 'gpao']
+
+/** Liens rattachés au module commercial (toujours visibles quand il est actif). */
+const COMMERCIAL_LINKS = [
+  { href: '/commercial/scan', tKey: 'Sidebar.scan_document', icon: ScanLine },
+  { href: '/commercial/retenue-source', tKey: 'Sidebar.withholding', icon: Receipt },
+  { href: '/commercial/retenue-source?export=tej', tKey: 'Sidebar.tej_export', icon: FileDown },
+] as const
+
+const isModuleEnabled = (key: string, enabled: string[]) => {
+  const c = MODULE_REGISTRY[key]
+  return !!c.alwaysVisible || enabled.includes(key) || (c.enabledBy ?? []).some(m => enabled.includes(m))
+}
 
 export default function Sidebar() {
   const t = useTranslations()
@@ -77,12 +91,12 @@ export default function Sidebar() {
 
   const sidebarItems = MODULE_ORDER.map(key => {
     const config = MODULE_REGISTRY[key]
-    const isEnabled = config.alwaysVisible || enabledModuleNames.includes(key)
+    const isEnabled = isModuleEnabled(key, enabledModuleNames)
     return { ...config, key, isEnabled }
   }).filter(m => m.isEnabled || m.alwaysVisible === true)
 
   const lockedItems = MODULE_ORDER
-    .filter(key => !MODULE_REGISTRY[key].alwaysVisible && !enabledModuleNames.includes(key))
+    .filter(key => !isModuleEnabled(key, enabledModuleNames))
     .map(key => MODULE_REGISTRY[key])
 
   const asideClass = `
@@ -163,7 +177,7 @@ export default function Sidebar() {
         ) : (
           <>
             {sidebarItems.map((module) => {
-              const isActive = (pathname === module.path || (module.path !== '/dashboard' && pathname.startsWith(module.path))) && !(module.key === 'commercial' && pathname.startsWith('/commercial/scan'))
+              const isActive = (pathname === module.path || (module.path !== '/dashboard' && pathname.startsWith(module.path))) && !(module.key === 'commercial' && COMMERCIAL_LINKS.some(l => pathname.startsWith(l.href.split('?')[0])))
               return (
                 <React.Fragment key={module.key}>
                 <Link href={module.path} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${isActive ? 'bg-teal-500/10 text-teal-400 shadow-[inset_0_0_12px_rgba(20,184,166,0.1)]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
@@ -171,16 +185,18 @@ export default function Sidebar() {
                   <module.icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-teal-400' : ''}`} />
                   {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t(module.tKey as any)}</span>}
                 </Link>
-                {module.key === 'commercial' && (() => {
-                  const scanActive = pathname === '/commercial/scan' || pathname.startsWith('/commercial/scan/')
+                {module.key === 'commercial' && COMMERCIAL_LINKS.map((l) => {
+                  const base = l.href.split('?')[0]
+                  const isQuery = l.href.includes('?')
+                  const linkActive = !isQuery && (pathname === base || pathname.startsWith(base + '/'))
                   return (
-                    <Link href="/commercial/scan" title={t('Sidebar.scan_document')} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${scanActive ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
-                      {scanActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
-                      <ScanLine className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${scanActive ? 'text-teal-400' : ''}`} />
-                      {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t('Sidebar.scan_document')}</span>}
+                    <Link key={l.href} href={l.href} title={t(l.tKey)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden ${linkActive ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'} ${isQuery && !isCollapsed ? 'ps-10 py-2' : ''}`}>
+                      {linkActive && <div className="absolute start-0 w-1.5 h-6 bg-teal-500 rounded-e-full transition-all" />}
+                      <l.icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${linkActive ? 'text-teal-400' : ''}`} />
+                      {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow animate-in fade-in slide-in-from-start duration-300">{t(l.tKey)}</span>}
                     </Link>
                   )
-                })()}
+                })}
                 {module.key === 'dashboard' && (() => {
                   const anActive = pathname === '/anomalies' || pathname.startsWith('/anomalies/')
                   return (
@@ -250,6 +266,13 @@ export default function Sidebar() {
           </>
         )}
       </nav>
+
+      <div className="px-4 pb-2 shrink-0">
+        <Link href="/settings" title={t('Sidebar.settings')} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${pathname.startsWith('/settings') || pathname.startsWith('/users') ? 'bg-teal-500/10 text-teal-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'}`}>
+          <Settings className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="font-semibold text-sm tracking-wide grow">{t('Sidebar.settings')}</span>}
+        </Link>
+      </div>
 
       <div className="p-4 border-t border-zinc-800/50 space-y-4 shrink-0">
         <div className="flex items-center justify-center gap-2"><LanguageSwitcher /></div>

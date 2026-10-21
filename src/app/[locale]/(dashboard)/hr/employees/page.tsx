@@ -24,6 +24,17 @@ export default function EmployeesPage() {
     fetchEmployees(currentTenant)
   }, [tenantId])
 
+  // /hr/employees?new=1 (raccourci « Nouvel employé ») : ouvre le formulaire de création
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('new') !== '1') return
+    const id = setTimeout(() => {
+      setShowModal(true)
+      window.history.replaceState(null, '', window.location.pathname)
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+
   async function fetchEmployees(currentTenant: string) {
     setLoading(true)
     try {

@@ -102,7 +102,11 @@
     "anomalies": "Items to review",
     "firm_space": "Firm space",
     "close": "Close menu",
-    "open": "Open menu"
+    "open": "Open menu",
+    "projects": "Projects",
+    "withholding": "Withholding tax",
+    "tej_export": "TEJ export",
+    "settings": "Settings"
   },
   "Common": {
     "dashboard": "Dashboard",
@@ -2932,5 +2936,51 @@
     "origin_INVITE": "Invited by you",
     "origin_CREATED": "File opened by the firm",
     "manage_access": "Manage firm access"
+  },
+  "Settings": {
+    "title": "Settings",
+    "subtitle": "Company and module configuration",
+    "links": {
+      "users": {
+        "title": "Users",
+        "desc": "Accounts with access to your workspace"
+      },
+      "einvoice": {
+        "title": "E-invoicing (TTN)",
+        "desc": "El Fatoora / TTN settings"
+      },
+      "periods": {
+        "title": "Fiscal years",
+        "desc": "Open and close fiscal years"
+      },
+      "chart": {
+        "title": "Chart of accounts",
+        "desc": "Tunisian chart of accounts and custom accounts"
+      },
+      "stock": {
+        "title": "Stock settings",
+        "desc": "Valuation, warehouses, alert thresholds"
+      }
+    },
+    "modules_title": "Active modules",
+    "modules_hint": "To enable another module, contact BelloSuite support.",
+    "modules_none": "No active module",
+    "users_page": {
+      "title": "Users",
+      "subtitle": "Accounts with access to your company",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "since": "Since",
+      "loading": "Loading...",
+      "empty": "No users",
+      "role_admin": "Administrator",
+      "role_user": "User",
+      "active": "Active",
+      "inactive": "Inactive",
+      "load_error": "Unable to load users",
+      "hint": "Adding and removing users is handled by BelloSuite support."
+    }
   }
 }

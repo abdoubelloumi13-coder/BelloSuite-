@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
@@ -44,6 +44,8 @@ export default function RetenueSourcePage() {
     const tid = tenantId;
   }, []);
 
+  const tejIntent = useRef(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'tej');
+
   const fetchRecords = async () => {
     setLoading(true);
     try {
@@ -56,7 +58,14 @@ export default function RetenueSourcePage() {
       const res = await fetch(`/api/commercial/retenue-source?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setRecords(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setRecords(list);
+        // Lien « Export TEJ » (?export=tej) : présélectionne les retenues exportables et amène au bouton d'export
+        if (tejIntent.current) {
+          tejIntent.current = false;
+          setSelectedIds(list.filter((r: { tejStatus?: string }) => r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED').map((r: { id: string }) => r.id));
+          setTimeout(() => document.getElementById('tej-export-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        }
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -193,7 +202,7 @@ export default function RetenueSourcePage() {
             {selectedIds.length === records.length ? <CheckSquare className="w-4 h-4 text-teal-600 dark:text-teal-400" /> : <Square className="w-4 h-4 text-stone-400 dark:text-zinc-600" />}
             {t('select_all')}
           </button>
-          <button onClick={handleExport} disabled={selectedIds.length === 0 || exportLoading}
+          <button id="tej-export-btn" onClick={handleExport} disabled={selectedIds.length === 0 || exportLoading}
             className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 disabled:opacity-30 text-white rounded-xl font-black text-sm shadow-xl shadow-teal-600/20 transition-all">
             <Download className="w-4 h-4" />
             {exportLoading ? t('export_loading') : t('export_xml', { count: selectedIds.length })}
