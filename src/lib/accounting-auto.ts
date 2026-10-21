@@ -121,21 +121,49 @@ export function buildEntryDescription(doc: {
   return `${label} ${doc.number}${client}`
 }
 
+/** Documents de vente donnant lieu à une écriture (devis, BC et BL : aucune écriture comptable). */
+export const POSTABLE_SALE_TYPES = ['INVOICE', 'INVOICE_SERVICE', 'INVOICE_HONORARY', 'CREDIT_NOTE']
+/** Documents de vente pouvant être réglés (encaissement client). */
+export const PAYABLE_SALE_TYPES = ['INVOICE', 'INVOICE_SERVICE', 'INVOICE_HONORARY']
+
+export function isPostableSaleType(type: string): boolean {
+  return POSTABLE_SALE_TYPES.includes(type)
+}
+
+export class SettlementError extends Error {
+  constructor(message: string, public field?: string, public status = 400) { super(message) }
+}
+
 /**
- * Calcule le montant de la RS (retenue à la source) pour une note d'honoraires
- * Taux RS = 1.5%, plafond 20% du montant total HT
- * La RS est déductible de la TTC et doit être reflétée dans l'écriture
+ * Règlement (total ou partiel) d'une facture de vente, avec retenue à la source SUBIE éventuelle :
+ *   reste dû = TTC − déjà soldé − avoirs (HT + FODEC + TVA des avoirs actifs liés)
+ *   encaissement + RS subie ≤ reste dû ; par défaut l'encaissement solde le reste (net de la RS).
+ * Écriture : 532|541 (encaissement) + 4341 (RS subie, créance sur l'État) / 411 (montant soldé).
  */
-export function calculateRS(subtotalHT: number, totalRS: number): {
-  taxableAmount: number
-  rsAmount: number
-  netToClient: number
-} {
-  const rsAmount = totalRS > 0 ? totalRS : subtotalHT * 0.015
-  const netToClient = subtotalHT - rsAmount
-  return {
-    taxableAmount: subtotalHT, // Base pour la RS
-    rsAmount: Math.round(rsAmount * 1000) / 1000,
-    netToClient: Math.round(netToClient * 1000) / 1000,
+export function computeSettlement(input: {
+  totalTTC: number
+  alreadySettled: number
+  credited?: number
+  amount?: number | null
+  rsAmount?: number | null
+  method?: 'CASH' | 'BANK'
+}): { remainingBefore: number; amount: number; rsAmount: number; settled: number; remainingAfter: number; fullyPaid: boolean; lines: AutoEntryLine[] } {
+  const remainingBefore = r3(Number(input.totalTTC) - Number(input.alreadySettled || 0) - Number(input.credited || 0))
+  if (remainingBefore <= 0.0005) throw new SettlementError('Facture déjà soldée', undefined, 409)
+  const rsAmount = r3(Number(input.rsAmount) || 0)
+  if (rsAmount < 0) throw new SettlementError('Retenue à la source invalide', 'rsAmount')
+  const amount = input.amount === undefined || input.amount === null ? r3(remainingBefore - rsAmount) : r3(Number(input.amount))
+  if (!Number.isFinite(amount) || amount < 0) throw new SettlementError('Montant du règlement invalide', 'amount')
+  const settled = r3(amount + rsAmount)
+  if (settled <= 0) throw new SettlementError('Montant du règlement nul', 'amount')
+  if (settled > remainingBefore + 0.0005) {
+    throw new SettlementError(`Règlement supérieur au reste dû (${remainingBefore.toFixed(3)} DT)`, 'amount')
   }
+  const remainingAfter = r3(remainingBefore - settled)
+  const treasury = input.method === 'CASH' ? TN_ACCOUNTS.CASH : TN_ACCOUNTS.BANK
+  const lines: AutoEntryLine[] = []
+  if (amount > 0) lines.push({ account: treasury, label: input.method === 'CASH' ? 'Encaissement caisse' : 'Encaissement banque', debit: amount, credit: 0 })
+  if (rsAmount > 0) lines.push({ account: TN_ACCOUNTS.WITHHOLDING_SUFFERED, label: 'Retenue à la source subie', debit: rsAmount, credit: 0 })
+  lines.push({ account: TN_ACCOUNTS.CLIENTS, label: 'Clients', debit: 0, credit: settled })
+  return { remainingBefore, amount, rsAmount, settled, remainingAfter, fullyPaid: remainingAfter <= 0.0005, lines }
 }

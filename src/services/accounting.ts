@@ -7,7 +7,8 @@ import { PURCHASE_INVOICE_TYPES } from '@/lib/firm-dashboard'
 import { assertBelongsToTenant, assertAllBelongToTenant } from '@/lib/tenant-scope'
 import { BusinessError } from '@/lib/errors'
 import { TN_ACCOUNTS, findChartAccount, TUNISIAN_CHART_OF_ACCOUNTS } from '@/lib/tunisian-chart-of-accounts'
-import { buildAutoEntryLines } from '@/lib/accounting-auto'
+import { buildAutoEntryLines, buildEntryDescription, computeSettlement, isPostableSaleType, PAYABLE_SALE_TYPES, SettlementError } from '@/lib/accounting-auto'
+import { r3 } from '@/lib/fiscal'
 
 type Db = Prisma.TransactionClient | typeof prisma
 
@@ -211,105 +212,169 @@ export async function createJournalEntry(data: JournalEntryData) {
   })
 }
 
-export async function postInvoiceToAccounting(invoiceId: string, tenantId: string) {
+/**
+ * Écriture d'une facture / d'un avoir de vente (journal VT). Devis, bons de commande et bons de
+ * livraison n'ont PAS d'écriture. Idempotent : une seule écriture par document (Invoice.accountingEntryId),
+ * liaison conditionnelle (accountingEntryId IS NULL) dans la transaction → deux appels simultanés ne
+ * peuvent pas créer deux écritures.
+ *  - posted = true  (POST /invoices/[id]/post) : écriture validée ; si un brouillon existe, il est validé.
+ *  - posted = false (generate-entries) : brouillon ; si une écriture existe déjà, elle est renvoyée.
+ */
+export async function generateInvoiceEntry(invoiceId: string, tenantId: string, opts: { posted: boolean }) {
   return prisma.$transaction(async (tx) => {
-    // 1. Get invoice with details
-    const invoice = await tx.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { client: true, items: true }
+    const invoice = await tx.invoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      include: { client: true },
     })
+    if (!invoice) throw new BusinessError('Facture introuvable', 404)
+    if (!isPostableSaleType(invoice.type)) {
+      throw new BusinessError('Seules les factures et les avoirs sont comptabilisés (devis, bons de commande et bons de livraison : aucune écriture)', 400, { code: 'NOT_POSTABLE' })
+    }
+    if (invoice.status === 'CANCELLED' || invoice.status === 'DRAFT') {
+      throw new BusinessError('Document brouillon ou annulé : comptabilisation impossible', 409)
+    }
 
-    if (!invoice || invoice.tenantId !== tenantId) throw new BusinessError('Facture introuvable', 404)
-    if (invoice.accountingEntryId) throw new BusinessError('Facture déjà comptabilisée', 409)
+    if (invoice.accountingEntryId) {
+      const existing = await tx.journalEntry.findFirst({
+        where: { id: invoice.accountingEntryId, tenantId },
+        include: { lines: { include: { account: true } } },
+      })
+      if (existing) {
+        if (!opts.posted) return Object.assign(existing, { alreadyExists: true })
+        if (existing.isPosted) throw new BusinessError('Facture déjà comptabilisée', 409, { code: 'ALREADY_POSTED', entryId: existing.id })
+        return tx.journalEntry.update({ where: { id: existing.id }, data: { isPosted: true }, include: { lines: { include: { account: true } } } })
+      }
+      // écriture liée supprimée entre-temps : on régénère
+    }
 
-    // 2. Lignes selon le plan tunisien (411 / 707|705, 4371 FODEC, 4367 TVA, 4368 timbre) — voir lib/accounting-auto
-    const built = buildAutoEntryLines({ ...invoice, type: ['CREDIT_NOTE', 'INVOICE_SERVICE', 'INVOICE_HONORARY'].includes(invoice.type) ? invoice.type : 'INVOICE' })
-    if (!built.lines.length) throw new BusinessError('Aucune écriture à générer pour ce document', 400)
+    // Lignes selon le plan tunisien (411 / 707|705, 4371 FODEC, 4367 TVA, 4368 timbre) — voir lib/accounting-auto
+    const built = buildAutoEntryLines(invoice)
+    if (!built.lines.length) throw new BusinessError('Montants nuls : aucune écriture à générer', 400)
     if (!built.balanced) throw new BusinessError('Montants de la facture incohérents (HT + FODEC + TVA + timbre ≠ TTC)', 400)
 
-    // 3. Journal des ventes et exercice (créés au besoin)
     const journal = await ensureJournal(tx, tenantId, 'VT')
     const period = await ensurePeriodFor(tx, tenantId, invoice.date)
-
-    // 5. Prepare lines
     const lines: Array<{ accountId: string; debit: number; credit: number; description: string }> = []
     for (const l of built.lines) {
       const acc = await ensureAccount(tx, tenantId, l.account)
-      lines.push({ accountId: acc.id, debit: l.debit, credit: l.credit, description: `${l.label} — ${invoice.number}` })
+      lines.push({ accountId: acc.id, debit: l.debit, credit: l.credit, description: `${l.label} — ${invoice.number}${invoice.client?.name ? ` — ${invoice.client.name}` : ''}` })
     }
 
-    // 6. Create Journal Entry
+    // Numéro d'écriture stable par document (unique tenant + entryNumber)
+    const baseNumber = `VT-${invoice.number}`
+    const taken = await tx.journalEntry.findFirst({ where: { tenantId, entryNumber: baseNumber }, select: { id: true } })
     const entry = await tx.journalEntry.create({
       data: {
         tenantId,
         journalId: journal.id,
         periodId: period.id,
-        entryNumber: `POST-${invoice.number}`,
+        entryNumber: taken ? `${baseNumber}-${Date.now().toString(36).toUpperCase()}` : baseNumber,
         date: invoice.date,
-        description: `Comptabilisation Facture ${invoice.number}`,
-        lines: {
-          createMany: { data: lines }
-        }
-      }
+        description: buildEntryDescription(invoice),
+        isPosted: opts.posted,
+        lines: { createMany: { data: lines } },
+      },
+      include: { lines: { include: { account: true } } },
     })
 
-    // 7. Link to invoice
-    await tx.invoice.update({
-      where: { id: invoiceId },
-      data: { accountingEntryId: entry.id }
+    const linked = await tx.invoice.updateMany({
+      where: { id: invoice.id, tenantId, accountingEntryId: invoice.accountingEntryId ?? null },
+      data: { accountingEntryId: entry.id },
     })
-
+    if (linked.count !== 1) throw new BusinessError('Facture comptabilisée simultanément : réessayez', 409)
     return entry
   })
 }
 
-export async function postPaymentToAccounting(invoiceId: string, tenantId: string, method: 'CASH' | 'BANK' = 'BANK') {
+export async function postInvoiceToAccounting(invoiceId: string, tenantId: string) {
+  return generateInvoiceEntry(invoiceId, tenantId, { posted: true })
+}
+
+export const paymentSchema = z.object({
+  method: z.enum(['CASH', 'BANK']).default('BANK'),
+  /** Montant encaissé (défaut : le reste dû, net de la RS subie) */
+  amount: z.coerce.number().min(0, 'Montant invalide').optional().nullable(),
+  /** Retenue à la source subie, opérée par le client (certificat à recevoir) */
+  rsAmount: z.coerce.number().min(0, 'Retenue invalide').optional().nullable(),
+  date: z.string().optional().nullable(),
+})
+export type PaymentInput = z.infer<typeof paymentSchema>
+
+/**
+ * Règlement d'une facture de vente : total ou partiel, avec RS subie éventuelle (4341).
+ * Verrou de la facture (FOR UPDATE) ; le reste dû tient compte des règlements précédents
+ * (Invoice.amountSettled) et des avoirs actifs liés. Statut PAID quand la facture est soldée.
+ */
+export async function postPaymentToAccounting(
+  invoiceId: string,
+  tenantId: string,
+  input: 'CASH' | 'BANK' | PaymentInput = 'BANK',
+) {
+  const opts: PaymentInput = typeof input === 'string' ? { method: input } : input
   return prisma.$transaction(async (tx) => {
-    // 1. Get invoice
-    const invoice = await tx.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { client: true }
+    await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${invoiceId} AND "tenantId" = ${tenantId} FOR UPDATE`
+    const invoice = await tx.invoice.findFirst({ where: { id: invoiceId, tenantId }, include: { client: true } })
+    if (!invoice) throw new BusinessError('Facture introuvable', 404)
+    if (!PAYABLE_SALE_TYPES.includes(invoice.type)) throw new BusinessError('Seules les factures peuvent être réglées', 400, { code: 'NOT_PAYABLE' })
+    if (invoice.status === 'CANCELLED' || invoice.status === 'DRAFT') throw new BusinessError('Facture brouillon ou annulée', 409)
+
+    const credits = await tx.invoice.findMany({
+      // TODO prisma generate : originalInvoiceId ajouté par la migration 20261022000100
+      where: { tenantId, type: 'CREDIT_NOTE', status: { notIn: ['CANCELLED', 'REJECTED'] }, originalInvoiceId: invoice.id } as any,
+      select: { subtotalHT: true, totalFodec: true, totalVAT: true },
     })
+    const credited = credits.reduce((s, c) => s + Number(c.subtotalHT) + Number(c.totalFodec) + Number(c.totalVAT), 0)
+    // TODO prisma generate : amountSettled ajouté par la migration 20261022000100
+    const alreadySettled = Number((invoice as any).amountSettled ?? 0) || (invoice.status === 'PAID' ? Number(invoice.totalTTC) : 0)
 
-    if (!invoice || invoice.tenantId !== tenantId) throw new BusinessError('Facture introuvable', 404)
-    if (invoice.paymentEntryId) throw new BusinessError('Règlement déjà comptabilisé', 409)
+    let settlement: ReturnType<typeof computeSettlement>
+    try {
+      settlement = computeSettlement({
+        totalTTC: Number(invoice.totalTTC), alreadySettled, credited,
+        amount: opts.amount, rsAmount: opts.rsAmount, method: opts.method,
+      })
+    } catch (e) {
+      if (e instanceof SettlementError) throw new BusinessError(e.message, e.status, e.field ? { field: e.field } : undefined)
+      throw e
+    }
 
-    // 2. Comptes tunisiens : 411 Clients / 532 Banques ou 541 Caisse (créés au besoin)
-    const acc411 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.CLIENTS)
-    const accTreasury = await ensureAccount(tx, tenantId, method === 'BANK' ? TN_ACCOUNTS.BANK : TN_ACCOUNTS.CASH)
-
-    // 3. Journal (BQ ou CS) et exercice
-    const journal = await ensureJournal(tx, tenantId, method === 'BANK' ? 'BQ' : 'CS')
-    const period = await ensurePeriodFor(tx, tenantId, new Date())
-
-    // 5. Create Journal Entry
+    const date = opts.date ? new Date(opts.date) : new Date()
+    if (Number.isNaN(date.getTime())) throw new BusinessError('Date invalide', 400, { field: 'date' })
+    const journal = await ensureJournal(tx, tenantId, opts.method === 'CASH' ? 'CS' : 'BQ')
+    const period = await ensurePeriodFor(tx, tenantId, date)
+    const lines = []
+    for (const l of settlement.lines) {
+      const acc = await ensureAccount(tx, tenantId, l.account)
+      lines.push({ accountId: acc.id, debit: l.debit, credit: l.credit, description: `${l.label} — ${invoice.number}` })
+    }
+    const previousPayments = await tx.journalEntry.count({ where: { tenantId, entryNumber: { startsWith: `PAY-${invoice.number}` } } })
     const entry = await tx.journalEntry.create({
       data: {
         tenantId,
         journalId: journal.id,
         periodId: period.id,
-        entryNumber: `PAY-${invoice.number}`,
-        date: new Date(),
-        description: `Règlement Facture ${invoice.number}`,
-        lines: {
-          create: [
-            { accountId: accTreasury.id, debit: Number(invoice.totalTTC), credit: 0, description: `Encaissement ${invoice.number}` },
-            { accountId: acc411.id, debit: 0, credit: Number(invoice.totalTTC), description: `Solder ${invoice.number}` },
-          ]
-        }
-      }
+        entryNumber: previousPayments ? `PAY-${invoice.number}-${previousPayments + 1}` : `PAY-${invoice.number}`,
+        date,
+        description: `${settlement.fullyPaid ? 'Règlement' : 'Règlement partiel'} facture ${invoice.number}${settlement.rsAmount ? ` (RS subie ${settlement.rsAmount.toFixed(3)} DT)` : ''}`,
+        isPosted: true,
+        lines: { create: lines },
+      },
+      include: { lines: true },
     })
 
-    // 6. Update invoice status & link
     await tx.invoice.update({
-      where: { id: invoiceId },
-      data: { 
-        status: 'PAID',
-        paymentEntryId: entry.id 
-      }
+      where: { id: invoice.id },
+      data: {
+        ...(settlement.fullyPaid ? { status: 'PAID' as const } : {}),
+        paymentEntryId: entry.id,
+        // TODO prisma generate : amountSettled ajouté par la migration 20261022000100
+        ...({ amountSettled: r3(alreadySettled + settlement.settled) } as Record<string, unknown>),
+      } as any,
     })
 
-    return entry
+    return Object.assign(entry, {
+      settlement: { amount: settlement.amount, rsAmount: settlement.rsAmount, remaining: settlement.remainingAfter, fullyPaid: settlement.fullyPaid },
+    })
   })
 }
 
@@ -323,9 +388,13 @@ export async function postPurchaseToAccounting(purchaseOrderId: string, tenantId
 
     if (!po || po.tenantId !== tenantId) throw new BusinessError('Bon de commande fournisseur introuvable', 404)
     if (po.accountingEntryId) throw new BusinessError('Achat déjà comptabilisé', 409)
+    // Seules les factures fournisseurs sont comptabilisées (un bon de commande n'engage pas la comptabilité)
+    if (!PURCHASE_INVOICE_TYPES.includes(po.type)) {
+      throw new BusinessError('Seules les factures fournisseurs sont comptabilisées (bon de commande / réception : aucune écriture)', 400, { code: 'NOT_POSTABLE' })
+    }
+    if (po.status === 'CANCELLED') throw new BusinessError('Facture fournisseur annulée : comptabilisation impossible', 409)
 
     // 2. Comptes tunisiens (mêmes que lib/purchase-review) : 607 achats, 4366 TVA déductible, 665 timbre, 401 fournisseurs
-    const r3 = (n: number) => Math.round(n * 1000) / 1000
     const ht = r3(Number(po.subtotal) || 0)
     const vat = r3(Number(po.taxAmount) || 0)
     const ttc = r3(Number(po.total) || 0)
@@ -357,11 +426,12 @@ export async function postPurchaseToAccounting(purchaseOrderId: string, tenantId
       }
     })
 
-    // 7. Link to PO
-    await tx.purchaseOrder.update({
-      where: { id: purchaseOrderId },
+    // 7. Liaison conditionnelle : un seul appel gagne si deux comptabilisations sont simultanées
+    const linked = await tx.purchaseOrder.updateMany({
+      where: { id: purchaseOrderId, tenantId, accountingEntryId: null },
       data: { accountingEntryId: entry.id }
     })
+    if (linked.count !== 1) throw new BusinessError('Achat déjà comptabilisé', 409)
 
     return entry
   })
