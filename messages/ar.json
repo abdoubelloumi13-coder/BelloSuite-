@@ -2588,7 +2588,11 @@
     "review_payment": "قيد الخلاص",
     "account": "الحساب",
     "debit": "مدين",
-    "credit": "دائن"
+    "credit": "دائن",
+    "review_loading": "جار التحقق من الفاتورة…",
+    "review_error": "فشل التحقق من الفاتورة",
+    "review_timeout": "استغرق التحقق من الفاتورة وقتا طويلا",
+    "review_retry": "إعادة المحاولة"
   },
   "FiscalAssistant": {
     "title": "المساعد الجبائي",

@@ -2592,7 +2592,11 @@
     "review_payment": "Payment entry",
     "account": "Account",
     "debit": "Debit",
-    "credit": "Credit"
+    "credit": "Credit",
+    "review_loading": "Checking the invoice…",
+    "review_error": "The invoice check failed",
+    "review_timeout": "The invoice check took too long",
+    "review_retry": "Retry"
   },
   "FiscalAssistant": {
     "title": "Tax assistant",

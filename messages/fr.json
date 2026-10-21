@@ -2708,7 +2708,11 @@
     "review_payment": "Écriture de règlement",
     "account": "Compte",
     "debit": "Débit",
-    "credit": "Crédit"
+    "credit": "Crédit",
+    "review_loading": "Contrôle de la facture en cours…",
+    "review_error": "Le contrôle de la facture a échoué",
+    "review_timeout": "Le contrôle de la facture a pris trop de temps",
+    "review_retry": "Réessayer"
   },
   "FiscalAssistant": {
     "title": "Assistant fiscal",

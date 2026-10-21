@@ -15,6 +15,11 @@ import { FileUp, Loader2, CheckCircle2, AlertTriangle, Sparkles, Camera, ScanLin
 import { useStockFormat, cls } from '@/components/stock/ui'
 import { extractInvoice, mergeAiExtraction, LOW_CONFIDENCE, type InvoiceExtraction, type AiInvoice } from '@/lib/invoice-extract'
 import type { OcrProgress } from '@/lib/invoice-ocr-client'
+import { fetchWithTimeout, withTimeout } from '@/lib/fetch-timeout'
+
+/** Affinage IA facultatif : au-delà, on garde l'extraction déterministe. */
+const AI_TIMEOUT_MS = 40_000
+const AI_IMAGE_TIMEOUT_MS = 10_000
 
 const MAX_BYTES = 5 * 1024 * 1024
 const SAMPLES = [
@@ -60,10 +65,11 @@ export function InvoiceImportPanel({ onExtracted, variant = 'invoice', showSampl
       let x = extractInvoice(text)
       let aiUsed = false
       // Affinage IA : silencieux si aucune clé n'est configurée ou en cas d'erreur
+      // Délais bornés : l'étape « Vérification par l'IA » se termine toujours (succès, échec ou délai dépassé)
       try {
         setStatus({ kind: 'busy', p: { stage: 'done', progress: 1 }, ai: true })
-        const image = pdfImage ?? (await imageDataUrlForAi(file))
-        const res = await fetch('/api/ai/extract-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 30_000), image }) })
+        const image = pdfImage ?? (await withTimeout(imageDataUrlForAi(file), AI_IMAGE_TIMEOUT_MS, null))
+        const res = await fetchWithTimeout('/api/ai/extract-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 30_000), image }) }, AI_TIMEOUT_MS)
         if (res.ok) {
           const body = (await res.json()) as { available?: boolean; result?: AiInvoice | null }
           if (body.available && body.result) { x = mergeAiExtraction(x, body.result); aiUsed = true }

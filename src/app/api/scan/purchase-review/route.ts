@@ -10,6 +10,7 @@ import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { matchSupplier, type InvoiceExtraction } from '@/lib/invoice-extract'
 import { reviewPurchase, type ReviewSupplier } from '@/lib/purchase-review'
+import { sanitizeExtractionForReview } from '@/lib/purchase-review-input'
 import { PURCHASE_INVOICE_TYPES } from '@/lib/firm-dashboard'
 import { tejMatricule, type BeneficiaryRegime, type BeneficiaryType } from '@/lib/retenue-source'
 
@@ -42,6 +43,9 @@ export async function POST(req: NextRequest) {
     if (ctx instanceof NextResponse) return ctx
     let body: unknown
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Body JSON invalide' }, { status: 400 }) }
+    // Extraction normalisée (tailles bornées, NaN → null) : une extraction OCR imparfaite ne doit pas donner un 400
+    const raw = (body as { extraction?: unknown } | null)?.extraction
+    if (raw && typeof raw === 'object') body = { extraction: sanitizeExtractionForReview(raw as InvoiceExtraction) }
     const data = parseBody(bodySchema, body)
     if (data instanceof NextResponse) return data
     const x = data.extraction as unknown as InvoiceExtraction
