@@ -1,22 +1,18 @@
 /**
  * Accounting Auto-Journalization Service
  * ======================================
- * Génère automatiquement les écritures comptables depuis les factures,
- * notes d'honoraires et documents commerciaux.
- *
- * Plan comptable minimum tunisien :
- *  4111xxx : Clients Tunisia (actif)
- *  7071xxx : Ventes de marchandises
- *  7073xxx : Prestations de services
- *  7074xxx : Honoraires
- *  4457xxx : TVA collectée
- *  3410xxx : Timbre fiscal (charge)
- *  6110xxx : FODEC (charge)
- *  4360xxx : Retenue à la source à payer
- *  709xxxx : Rabais/remises accordés
+ * Génère les écritures comptables des documents commerciaux selon le plan comptable tunisien (SCE) :
+ *  411  : Clients
+ *  707  : Ventes de marchandises      705 : Etudes et prestations de services (honoraires inclus)
+ *  4367 : TVA collectée               4371 : FODEC à payer
+ *  4368 : Droit de timbre collecté à reverser
+ *  432  : Etat, retenues à la source (opérées au règlement, pas à la facturation)
+ * Mêmes comptes que lib/purchase-review (achats : 607/604, 4366, 665, 401 ; règlement 532, 432).
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { TN_ACCOUNTS } from '@/lib/tunisian-chart-of-accounts'
+
+export type AmountField = 'totalTTC' | 'subtotalHT' | 'totalVAT' | 'timbreFiscal' | 'totalFodec'
 
 export interface JournalizationRule {
   documentType: string
@@ -25,66 +21,82 @@ export interface JournalizationRule {
     accountPrefix: string
     accountLabel: string
     debit: boolean
-    vatField?: string
-    taxField?: string
+    field: AmountField
   }>
 }
+
+const saleLines = (revenueAccount: string, revenueLabel: string): JournalizationRule['lines'] => [
+  { accountPrefix: TN_ACCOUNTS.CLIENTS, accountLabel: 'Clients', debit: true, field: 'totalTTC' },
+  { accountPrefix: revenueAccount, accountLabel: revenueLabel, debit: false, field: 'subtotalHT' },
+  { accountPrefix: TN_ACCOUNTS.FODEC, accountLabel: 'FODEC à payer', debit: false, field: 'totalFodec' },
+  { accountPrefix: TN_ACCOUNTS.VAT_COLLECTED, accountLabel: 'TVA collectée', debit: false, field: 'totalVAT' },
+  { accountPrefix: TN_ACCOUNTS.STAMP_COLLECTED, accountLabel: 'Droit de timbre collecté', debit: false, field: 'timbreFiscal' },
+]
 
 /**
  * Règles de journalisation par type de document
  */
 export const JOURNALIZATION_RULES: Record<string, JournalizationRule> = {
   // ─── Facture de vente (marchandises) ───────────────────
-  INVOICE: {
-    documentType: 'INVOICE',
-    journalCode: 'VTE',
-    lines: [
-      { accountPrefix: '4111', accountLabel: 'Clients - Ventes', debit: true, vatField: 'totalTTC' },
-      { accountPrefix: '7071', accountLabel: 'Ventes marchandises HT', debit: false, vatField: 'subtotalHT' },
-      { accountPrefix: '4457', accountLabel: 'TVA collectée 19%', debit: false, vatField: 'totalVAT' },
-      { accountPrefix: '3410', accountLabel: 'Timbre fiscal', debit: false, taxField: 'timbreFiscal' },
-      { accountPrefix: '6110', accountLabel: 'FODEC', debit: false, taxField: 'totalFodec' },
-    ],
-  },
-  // ─── Note d'honoraires (prestations de services avec RS) ─
-  INVOICE_HONORARY: {
-    documentType: 'INVOICE_HONORARY',
-    journalCode: 'SVC',
-    lines: [
-      { accountPrefix: '4111', accountLabel: 'Clients - Honoraires', debit: true, vatField: 'totalTTC' },
-      { accountPrefix: '7074', accountLabel: 'Honoraires HT', debit: false, vatField: 'subtotalHT' },
-      { accountPrefix: '4457', accountLabel: 'TVA collectée', debit: false, vatField: 'totalVAT' },
-      { accountPrefix: '4360', accountLabel: 'RS 1.5% à payer', debit: false, taxField: 'retenueSource' },
-      { accountPrefix: '3410', accountLabel: 'Timbre fiscal', debit: false, taxField: 'timbreFiscal' },
-    ],
-  },
-  // ─── Facture de service (sans RS) ───────────────────────
-  INVOICE_SERVICE: {
-    documentType: 'INVOICE_SERVICE',
-    journalCode: 'SVC',
-    lines: [
-      { accountPrefix: '4111', accountLabel: 'Clients - Services', debit: true, vatField: 'totalTTC' },
-      { accountPrefix: '7073', accountLabel: 'Prestations de services HT', debit: false, vatField: 'subtotalHT' },
-      { accountPrefix: '4457', accountLabel: 'TVA collectée', debit: false, vatField: 'totalVAT' },
-      { accountPrefix: '3410', accountLabel: 'Timbre fiscal', debit: false, taxField: 'timbreFiscal' },
-    ],
-  },
-  // ─── Avoir / Note de crédit ──────────────────────────────
+  INVOICE: { documentType: 'INVOICE', journalCode: 'VT', lines: saleLines(TN_ACCOUNTS.SALES_GOODS, 'Ventes de marchandises HT') },
+  // ─── Note d'honoraires : la RS éventuelle est constatée au règlement (432), pas ici ─
+  INVOICE_HONORARY: { documentType: 'INVOICE_HONORARY', journalCode: 'VT', lines: saleLines(TN_ACCOUNTS.SALES_SERVICES, 'Honoraires HT') },
+  // ─── Facture de service ─────────────────────────────────
+  INVOICE_SERVICE: { documentType: 'INVOICE_SERVICE', journalCode: 'VT', lines: saleLines(TN_ACCOUNTS.SALES_SERVICES, 'Prestations de services HT') },
+  // ─── Avoir : contrepassation (le timbre n'est pas restitué) ─
   CREDIT_NOTE: {
     documentType: 'CREDIT_NOTE',
-    journalCode: 'AVOIR',
+    journalCode: 'VT',
     lines: [
-      { accountPrefix: '7071', accountLabel: 'Ventes - Annulation', debit: true, vatField: 'subtotalHT' },
-      { accountPrefix: '4457', accountLabel: 'TVA collectée - Annulation', debit: true, vatField: 'totalVAT' },
-      { accountPrefix: '4111', accountLabel: 'Clients - Avoir à solder', debit: false, vatField: 'totalTTC' },
+      { accountPrefix: TN_ACCOUNTS.SALES_GOODS, accountLabel: 'Ventes - Annulation', debit: true, field: 'subtotalHT' },
+      { accountPrefix: TN_ACCOUNTS.FODEC, accountLabel: 'FODEC - Annulation', debit: true, field: 'totalFodec' },
+      { accountPrefix: TN_ACCOUNTS.VAT_COLLECTED, accountLabel: 'TVA collectée - Annulation', debit: true, field: 'totalVAT' },
+      { accountPrefix: TN_ACCOUNTS.CLIENTS, accountLabel: 'Clients - Avoir', debit: false, field: 'totalTTC' },
     ],
   },
   // ─── Devis ───────────────────────────────────────────────
   QUOTE: {
     documentType: 'QUOTE',
-    journalCode: 'DEVIS',
+    journalCode: 'VT',
     lines: [], // Pas d'écriture comptable pour un devis
   },
+}
+
+export type AutoEntryLine = { account: string; label: string; debit: number; credit: number }
+
+const r3 = (n: number) => Math.round(n * 1000) / 1000
+
+/**
+ * Lignes d'écriture d'un document selon sa règle. Lignes nulles omises ; pour un avoir le montant client est
+ * recalculé (HT + FODEC + TVA) car le timbre n'est pas restitué. Un écart d'arrondi ≤ 5 millimes est absorbé
+ * par la ligne de produit ; au-delà, `balanced` vaut false (à corriger avant comptabilisation).
+ */
+export function buildAutoEntryLines(
+  doc: Partial<Record<AmountField, unknown>> & { type: string },
+  rule: JournalizationRule | undefined = JOURNALIZATION_RULES[doc.type]
+): { lines: AutoEntryLine[]; balanced: boolean } {
+  if (!rule || rule.lines.length === 0) return { lines: [], balanced: true }
+  const amount = (f: AmountField) => r3(Number(doc[f]) || 0)
+  const lines: AutoEntryLine[] = []
+  for (const l of rule.lines) {
+    let v = amount(l.field)
+    if (doc.type === 'CREDIT_NOTE' && l.field === 'totalTTC') v = r3(amount('subtotalHT') + amount('totalFodec') + amount('totalVAT'))
+    if (!v) continue
+    lines.push({ account: l.accountPrefix, label: l.accountLabel, debit: l.debit ? v : 0, credit: l.debit ? 0 : v })
+  }
+  const d = r3(lines.reduce((s, l) => s + l.debit, 0))
+  const c = r3(lines.reduce((s, l) => s + l.credit, 0))
+  const gap = r3(d - c)
+  if (gap !== 0 && Math.abs(gap) <= 0.005) {
+    const revenue = lines.find(l => l.account === TN_ACCOUNTS.SALES_GOODS || l.account === TN_ACCOUNTS.SALES_SERVICES)
+    if (revenue) {
+      if (revenue.credit) revenue.credit = r3(revenue.credit + gap)
+      else revenue.debit = r3(revenue.debit - gap)
+    }
+  }
+  const d2 = r3(lines.reduce((s, l) => s + l.debit, 0))
+  const c2 = r3(lines.reduce((s, l) => s + l.credit, 0))
+  return { lines, balanced: Math.abs(d2 - c2) < 0.0005 }
 }
 
 /**

@@ -1,117 +1,55 @@
-import { requireTenant } from '@/lib/api-auth'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getApiContext } from '@/lib/api'
+import { BusinessError, handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
-import { JOURNALIZATION_RULES, buildEntryDescription } from '@/lib/accounting-auto'
+import { JOURNALIZATION_RULES, buildAutoEntryLines, buildEntryDescription } from '@/lib/accounting-auto'
+import { ensureAccount, ensureJournal, ensurePeriodFor } from '@/services/accounting'
 
-// POST /api/commercial/accounting/generate-entries
-export async function POST(req: Request) {
+// POST /api/commercial/accounting/generate-entries { invoiceId } — écriture (brouillon) selon le plan tunisien
+export async function POST(req: NextRequest) {
   try {
-    const { invoiceId, tenantId: requestedTenantId } = await req.json()
-    const ctx = await requireTenant(req, requestedTenantId)
+    const body = await req.json().catch(() => null)
+    const ctx = await getApiContext(req, body?.tenantId)
     if (ctx instanceof NextResponse) return ctx
     const tenantId = ctx.tenantId
-    if (!invoiceId || !tenantId) {
-      return NextResponse.json({ error: 'invoiceId and tenantId required' }, { status: 400 })
-    }
+    const invoiceId = typeof body?.invoiceId === 'string' ? body.invoiceId : ''
+    if (!invoiceId) return NextResponse.json({ error: 'invoiceId requis' }, { status: 400 })
 
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId: ctx.tenantId },
-      include: { client: true, items: true, tenant: true },
-    })
-    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-
-    const accounts = await prisma.accountingAccount.findMany({
-      where: { tenantId, isActive: true },
-    })
-
-    let journal = await prisma.accountingJournal.findFirst({
-      where: { tenantId, type: 'SALES' },
-    })
-    if (!journal) {
-      journal = await prisma.accountingJournal.create({
-        data: { tenantId, code: 'VTE', name: 'Journal des Ventes', type: 'SALES' },
-      })
-    }
-
-    const now = new Date()
-    let period = await prisma.accountingPeriod.findFirst({
-      where: { tenantId, startDate: { lte: now }, endDate: { gte: now } },
-    })
-    if (!period) {
-      const year = now.getFullYear()
-      period = await prisma.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: `${year}`,
-          startDate: new Date(`${year}-01-01`),
-          endDate: new Date(`${year}-12-31`),
-        },
-      })
-    }
+    const invoice = await prisma.invoice.findFirst({ where: { id: invoiceId, tenantId }, include: { client: true } })
+    if (!invoice) return NextResponse.json({ error: 'Facture introuvable' }, { status: 404 })
 
     const rule = JOURNALIZATION_RULES[invoice.type]
     if (!rule || rule.lines.length === 0) {
-      return NextResponse.json({ message: 'No journal entries for this document type (e.g. QUOTE)' })
+      return NextResponse.json({ message: 'Aucune écriture comptable pour ce type de document (ex. devis)' })
     }
+    const built = buildAutoEntryLines(invoice, rule)
+    if (!built.lines.length) return NextResponse.json({ message: 'Montants nuls : aucune écriture générée' })
+    if (!built.balanced) throw new BusinessError('Montants de la facture incohérents (HT + FODEC + TVA + timbre ≠ TTC)', 400)
 
-    const description = buildEntryDescription(invoice)
-
-    const lines: any[] = [
-      {
-        accountId: accounts.find(a => a.accountNumber.startsWith('4111'))?.id || '',
-        debit: Number(invoice.totalTTC),
-        credit: 0,
-        description: `Client ${invoice.client?.name || ''}`,
-      },
-      {
-        accountId: accounts.find(a => a.accountNumber.startsWith('707'))?.id || '',
-        debit: 0,
-        credit: Number(invoice.subtotalHT),
-        description: 'Ventes HT',
-      },
-    ]
-    if (Number(invoice.totalVAT) > 0) {
-      lines.push({
-        accountId: accounts.find(a => a.accountNumber.startsWith('4457'))?.id || '',
-        debit: 0,
-        credit: Number(invoice.totalVAT),
-        description: 'TVA collectée',
+    const entry = await prisma.$transaction(async (tx) => {
+      const journal = await ensureJournal(tx, tenantId, 'VT')
+      const period = await ensurePeriodFor(tx, tenantId, invoice.date)
+      const lines = []
+      for (const l of built.lines) {
+        const acc = await ensureAccount(tx, tenantId, l.account)
+        lines.push({ accountId: acc.id, debit: l.debit, credit: l.credit, description: `${l.label}${invoice.client?.name ? ` — ${invoice.client.name}` : ''}` })
+      }
+      return tx.journalEntry.create({
+        data: {
+          tenantId,
+          journalId: journal.id,
+          periodId: period.id,
+          entryNumber: `AUTO-${invoice.number}-${Date.now().toString(36).toUpperCase()}`,
+          date: invoice.date,
+          description: buildEntryDescription(invoice),
+          isPosted: false,
+          lines: { create: lines },
+        },
+        include: { lines: { include: { account: true } } },
       })
-    }
-    if (Number(invoice.timbreFiscal) > 0) {
-      lines.push({
-        accountId: accounts.find(a => a.accountNumber.startsWith('341'))?.id || '',
-        debit: 0,
-        credit: Number(invoice.timbreFiscal),
-        description: 'Timbre fiscal',
-      })
-    }
-    if (Number(invoice.totalFodec) > 0) {
-      lines.push({
-        accountId: accounts.find(a => a.accountNumber.startsWith('611'))?.id || '',
-        debit: 0,
-        credit: Number(invoice.totalFodec),
-        description: 'FODEC',
-      })
-    }
-
-    const journalEntry = await prisma.journalEntry.create({
-      data: {
-        tenantId,
-        journalId: journal.id,
-        periodId: period.id,
-        entryNumber: `AUTO-${invoice.number}-${Date.now().toString(36).toUpperCase()}`,
-        date: invoice.date,
-        description,
-        isPosted: false,
-        lines: { create: lines },
-      },
-      include: { lines: { include: { account: true } } },
     })
-
-    return NextResponse.json(journalEntry)
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json(entry)
+  } catch (err) {
+    return handleApiError(err, 'POST generate-entries')
   }
 }

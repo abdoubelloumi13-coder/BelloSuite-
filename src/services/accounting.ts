@@ -5,6 +5,57 @@ import { buildLedger, parseDateParam, type LedgerResult } from '@/lib/ledger'
 import { computeVatDeclaration, monthRange, SALES_VAT_TYPES, EXCLUDED_SALE_STATUSES } from '@/lib/vat-declaration'
 import { PURCHASE_INVOICE_TYPES } from '@/lib/firm-dashboard'
 import { assertBelongsToTenant, assertAllBelongToTenant } from '@/lib/tenant-scope'
+import { BusinessError } from '@/lib/errors'
+import { TN_ACCOUNTS, findChartAccount } from '@/lib/tunisian-chart-of-accounts'
+import { buildAutoEntryLines } from '@/lib/accounting-auto'
+
+type Db = Prisma.TransactionClient | typeof prisma
+
+/** Compte du plan tunisien : trouvé chez le tenant ou créé à la volée (libellé/type du plan officiel). */
+export async function ensureAccount(db: Db, tenantId: string, accountNumber: string) {
+  const node = findChartAccount(accountNumber)
+  return db.accountingAccount.upsert({
+    where: { tenantId_accountNumber: { tenantId, accountNumber } },
+    update: {},
+    create: { tenantId, accountNumber, name: node?.name ?? `Compte ${accountNumber}`, type: (node?.type ?? 'ASSET') as AccountType },
+  })
+}
+
+const JOURNAL_DEFAULTS: Record<string, { name: string; type: JournalType }> = {
+  VT: { name: 'Ventes', type: JournalType.SALES },
+  AC: { name: 'Achats', type: JournalType.PURCHASES },
+  BQ: { name: 'Banque', type: JournalType.BANK },
+  CS: { name: 'Caisse', type: JournalType.CASH },
+  OD: { name: 'Opérations Diverses', type: JournalType.GENERAL },
+}
+
+/** Journal par code (VT, AC, BQ, CS, OD) : créé s'il n'existe pas encore. */
+export async function ensureJournal(db: Db, tenantId: string, code: keyof typeof JOURNAL_DEFAULTS) {
+  const d = JOURNAL_DEFAULTS[code]
+  return db.accountingJournal.upsert({
+    where: { tenantId_code: { tenantId, code } },
+    update: {},
+    create: { tenantId, code, name: d.name, type: d.type },
+  })
+}
+
+/** Exercice couvrant la date (sinon exercice civil créé). Refuse un exercice clôturé. */
+export async function ensurePeriodFor(db: Db, tenantId: string, date: Date) {
+  let period = await db.accountingPeriod.findFirst({
+    where: { tenantId, startDate: { lte: date }, endDate: { gte: date } },
+    orderBy: { startDate: 'desc' },
+  })
+  if (!period) {
+    const year = date.getFullYear()
+    period = await db.accountingPeriod.upsert({
+      where: { tenantId_name: { tenantId, name: `${year}` } },
+      update: {},
+      create: { tenantId, name: `${year}`, startDate: new Date(`${year}-01-01`), endDate: new Date(`${year}-12-31`) },
+    })
+  }
+  if (period.isClosed) throw new BusinessError(`Exercice ${period.name} clôturé : écriture impossible`, 409)
+  return period
+}
 
 // ─── Zod Schemas ────────────────────────────────────────────
 
@@ -53,16 +104,12 @@ export async function getPeriods(tenantId: string) {
  * Initialize a standard Tunisian Chart of Accounts for a new tenant.
  */
 export async function initChartOfAccounts(tenantId: string) {
-  const standardAccounts = [
-    { num: '101', name: 'Capital social', type: AccountType.EQUITY },
-    { num: '221', name: 'Installations techniques', type: AccountType.ASSET },
-    { num: '401', name: 'Fournisseurs d\'exploitation', type: AccountType.LIABILITY },
-    { num: '411', name: 'Clients', type: AccountType.ASSET },
-    { num: '512', name: 'Banque', type: AccountType.ASSET },
-    { num: '531', name: 'Caisse', type: AccountType.ASSET },
-    { num: '601', name: 'Achats de marchandises', type: AccountType.EXPENSE },
-    { num: '701', name: 'Ventes de produits finis', type: AccountType.REVENUE },
-  ]
+  // Comptes clés du plan comptable tunisien utilisés par les écritures automatiques
+  const standardNumbers = ['101', '221', ...Object.values(TN_ACCOUNTS), '701']
+  const standardAccounts = [...new Set(standardNumbers)].map((num) => {
+    const node = findChartAccount(num)
+    return { num, name: node?.name ?? `Compte ${num}`, type: (node?.type ?? 'ASSET') as AccountType }
+  })
 
   const journals = [
     { code: 'VT', name: 'Ventes', type: JournalType.SALES },
@@ -109,7 +156,7 @@ export async function createJournalEntry(data: JournalEntryData) {
   const totalCredit = data.lines.reduce((sum, l) => sum + l.credit, 0)
 
   if (Math.abs(totalDebit - totalCredit) > 0.001) {
-    throw new Error('L\'écriture n\'est pas équilibrée (Débit != Crédit)')
+    throw new BusinessError('L\'écriture n\'est pas équilibrée (Débit != Crédit)', 400)
   }
 
   // Journal, période et comptes : uniquement ceux du tenant (anti-IDOR)
@@ -153,51 +200,23 @@ export async function postInvoiceToAccounting(invoiceId: string, tenantId: strin
       include: { client: true, items: true }
     })
 
-    if (!invoice || invoice.tenantId !== tenantId) throw new Error('Facture introuvable')
-    if (invoice.accountingEntryId) throw new Error('Facture déjà comptabilisée')
+    if (!invoice || invoice.tenantId !== tenantId) throw new BusinessError('Facture introuvable', 404)
+    if (invoice.accountingEntryId) throw new BusinessError('Facture déjà comptabilisée', 409)
 
-    // 2. Find target accounts
-    const acc411 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '411' } })
-    const acc701 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '701' } })
-    const acc445 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '445' } }) // TVA (Simplified)
-    const acc543 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '543' } }) // Timbre (Simplified)
+    // 2. Lignes selon le plan tunisien (411 / 707|705, 4371 FODEC, 4367 TVA, 4368 timbre) — voir lib/accounting-auto
+    const built = buildAutoEntryLines({ ...invoice, type: ['CREDIT_NOTE', 'INVOICE_SERVICE', 'INVOICE_HONORARY'].includes(invoice.type) ? invoice.type : 'INVOICE' })
+    if (!built.lines.length) throw new BusinessError('Aucune écriture à générer pour ce document', 400)
+    if (!built.balanced) throw new BusinessError('Montants de la facture incohérents (HT + FODEC + TVA + timbre ≠ TTC)', 400)
 
-    if (!acc411 || !acc701) {
-      throw new Error('Comptes comptables de base (411, 701) non configurés')
-    }
-
-    // 3. Find Sales Journal
-    const journal = await tx.accountingJournal.findFirst({ where: { tenantId, code: 'VT' } })
-    if (!journal) throw new Error('Journal des Ventes (VT) non configuré')
-
-    // 4. Find/Create Period (simplified: current year)
-    const currentYear = new Date().getFullYear().toString()
-    let period = await tx.accountingPeriod.findFirst({ where: { tenantId, name: currentYear } })
-    if (!period) {
-      period = await tx.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: currentYear,
-          startDate: new Date(`${currentYear}-01-01`),
-          endDate: new Date(`${currentYear}-12-31`),
-        }
-      })
-    }
+    // 3. Journal des ventes et exercice (créés au besoin)
+    const journal = await ensureJournal(tx, tenantId, 'VT')
+    const period = await ensurePeriodFor(tx, tenantId, invoice.date)
 
     // 5. Prepare lines
-    const lines = [
-      { accountId: acc411.id, debit: Number(invoice.totalTTC), credit: 0, description: `Facture ${invoice.number}` },
-      { accountId: acc701.id, debit: 0, credit: Number(invoice.subtotalHT), description: `Vente HT ${invoice.number}` },
-    ]
-
-    if (Number(invoice.totalVAT) > 0) {
-      const vatAccId = acc445?.id || (await tx.accountingAccount.create({ data: { tenantId, accountNumber: '445', name: 'TVA Collectée', type: 'LIABILITY' } })).id
-      lines.push({ accountId: vatAccId, debit: 0, credit: Number(invoice.totalVAT), description: `TVA sur ${invoice.number}` })
-    }
-
-    if (Number(invoice.timbreFiscal) > 0) {
-      const stampAccId = acc543?.id || (await tx.accountingAccount.create({ data: { tenantId, accountNumber: '543', name: 'Timbre Fiscal', type: 'LIABILITY' } })).id
-      lines.push({ accountId: stampAccId, debit: 0, credit: Number(invoice.timbreFiscal), description: `Timbre sur ${invoice.number}` })
+    const lines: Array<{ accountId: string; debit: number; credit: number; description: string }> = []
+    for (const l of built.lines) {
+      const acc = await ensureAccount(tx, tenantId, l.account)
+      lines.push({ accountId: acc.id, debit: l.debit, credit: l.credit, description: `${l.label} — ${invoice.number}` })
     }
 
     // 6. Create Journal Entry
@@ -233,37 +252,16 @@ export async function postPaymentToAccounting(invoiceId: string, tenantId: strin
       include: { client: true }
     })
 
-    if (!invoice || invoice.tenantId !== tenantId) throw new Error('Facture introuvable')
-    if (invoice.paymentEntryId) throw new Error('Règlement déjà comptabilisé')
+    if (!invoice || invoice.tenantId !== tenantId) throw new BusinessError('Facture introuvable', 404)
+    if (invoice.paymentEntryId) throw new BusinessError('Règlement déjà comptabilisé', 409)
 
-    // 2. Find target accounts
-    const acc411 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '411' } })
-    const accTreasury = await tx.accountingAccount.findFirst({ 
-      where: { tenantId, accountNumber: method === 'BANK' ? '512' : '531' } 
-    })
+    // 2. Comptes tunisiens : 411 Clients / 532 Banques ou 541 Caisse (créés au besoin)
+    const acc411 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.CLIENTS)
+    const accTreasury = await ensureAccount(tx, tenantId, method === 'BANK' ? TN_ACCOUNTS.BANK : TN_ACCOUNTS.CASH)
 
-    if (!acc411 || !accTreasury) {
-      throw new Error(`Comptes comptables (411, ${method === 'BANK' ? '512' : '531'}) non configurés`)
-    }
-
-    // 3. Find Journal (BANK or CASH)
-    const journalCode = method === 'BANK' ? 'BQ' : 'CS'
-    const journal = await tx.accountingJournal.findFirst({ where: { tenantId, code: journalCode } })
-    if (!journal) throw new Error(`Journal ${journalCode} non configuré`)
-
-    // 4. Find/Create Period
-    const currentYear = new Date().getFullYear().toString()
-    let period = await tx.accountingPeriod.findFirst({ where: { tenantId, name: currentYear } })
-    if (!period) {
-      period = await tx.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: currentYear,
-          startDate: new Date(`${currentYear}-01-01`),
-          endDate: new Date(`${currentYear}-12-31`),
-        }
-      })
-    }
+    // 3. Journal (BQ ou CS) et exercice
+    const journal = await ensureJournal(tx, tenantId, method === 'BANK' ? 'BQ' : 'CS')
+    const period = await ensurePeriodFor(tx, tenantId, new Date())
 
     // 5. Create Journal Entry
     const entry = await tx.journalEntry.create({
@@ -304,48 +302,26 @@ export async function postPurchaseToAccounting(purchaseOrderId: string, tenantId
       include: { supplier: true, items: true }
     })
 
-    if (!po || po.tenantId !== tenantId) throw new Error('Bon de commande fournisseur introuvable')
-    if (po.accountingEntryId) throw new Error('Achat déjà comptabilisé')
+    if (!po || po.tenantId !== tenantId) throw new BusinessError('Bon de commande fournisseur introuvable', 404)
+    if (po.accountingEntryId) throw new BusinessError('Achat déjà comptabilisé', 409)
 
-    // 2. Find target accounts
-    const acc401 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '401' } }) // Fournisseur
-    const acc601 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '601' } }) // Achats
-    const acc445 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '445' } }) // TVA Déductible (Simplified)
+    // 2. Comptes tunisiens (mêmes que lib/purchase-review) : 607 achats, 4366 TVA déductible, 665 timbre, 401 fournisseurs
+    const r3 = (n: number) => Math.round(n * 1000) / 1000
+    const ht = r3(Number(po.subtotal) || 0)
+    const vat = r3(Number(po.taxAmount) || 0)
+    const ttc = r3(Number(po.total) || 0)
+    const other = r3(ttc - ht - vat) // timbre (et éventuels frais) inclus dans le TTC
 
-    if (!acc401 || !acc601) {
-      throw new Error('Comptes comptables de base (401, 601) non configurés')
-    }
-
-    // 3. Find Purchase Journal
-    const journal = await tx.accountingJournal.findFirst({ where: { tenantId, code: 'AC' } })
-    if (!journal) throw new Error('Journal des Achats (AC) non configuré')
-
-    // 4. Find/Create Period
-    const currentYear = new Date().getFullYear().toString()
-    let period = await tx.accountingPeriod.findFirst({ where: { tenantId, name: currentYear } })
-    if (!period) {
-      period = await tx.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: currentYear,
-          startDate: new Date(`${currentYear}-01-01`),
-          endDate: new Date(`${currentYear}-12-31`),
-        }
-      })
-    }
+    const journal = await ensureJournal(tx, tenantId, 'AC')
+    const period = await ensurePeriodFor(tx, tenantId, po.date)
 
     // 5. Prepare lines
     const lines = [
-      { accountId: acc601.id, debit: Number(po.subtotal), credit: 0, description: `Achat ${po.number}` },
+      { accountId: (await ensureAccount(tx, tenantId, TN_ACCOUNTS.PURCHASES_GOODS)).id, debit: ht, credit: 0, description: `Achat ${po.number}` },
     ]
-
-    if (Number(po.taxAmount) > 0) {
-      const vatAccId = acc445?.id || (await tx.accountingAccount.create({ data: { tenantId, accountNumber: '445', name: 'TVA Déductible', type: 'ASSET' } })).id
-      lines.push({ accountId: vatAccId, debit: Number(po.taxAmount), credit: 0, description: `TVA déductible sur ${po.number}` })
-    }
-
-    // Liability
-    lines.push({ accountId: acc401.id, debit: 0, credit: Number(po.total), description: `Dette fournisseur ${po.number}` })
+    if (vat > 0) lines.push({ accountId: (await ensureAccount(tx, tenantId, TN_ACCOUNTS.VAT_DEDUCTIBLE)).id, debit: vat, credit: 0, description: `TVA déductible sur ${po.number}` })
+    if (other > 0) lines.push({ accountId: (await ensureAccount(tx, tenantId, TN_ACCOUNTS.STAMP_EXPENSE)).id, debit: other, credit: 0, description: `Timbre fiscal ${po.number}` })
+    lines.push({ accountId: (await ensureAccount(tx, tenantId, TN_ACCOUNTS.SUPPLIERS)).id, debit: 0, credit: r3(ht + vat + Math.max(0, other)), description: `Dette fournisseur ${po.number}` })
 
     // 6. Create Journal Entry
     const entry = await tx.journalEntry.create({
@@ -379,8 +355,8 @@ export async function postPayrollToAccounting(month: number, year: number, tenan
       where: { tenantId, mois: month, annee: year, statut: 'PENDING' }
     })
 
-    if (payslips.length === 0) throw new Error('Aucun bulletin de paie en attente trouvé pour cette période')
-    if (payslips.some(p => p.accountingEntryId)) throw new Error('Certains bulletins sont déjà comptabilisés')
+    if (payslips.length === 0) throw new BusinessError('Aucun bulletin de paie en attente trouvé pour cette période', 400)
+    if (payslips.some(p => p.accountingEntryId)) throw new BusinessError('Certains bulletins sont déjà comptabilisés', 409)
 
     // 2. Aggregate amounts
     const totals = payslips.reduce((acc, p) => ({
@@ -390,33 +366,15 @@ export async function postPayrollToAccounting(month: number, year: number, tenan
       net: acc.net + Number(p.netAPayer),
     }), { gross: 0, cnss: 0, irpp: 0, net: 0 })
 
-    // 3. Find target accounts
-    const acc641 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '641' } }) // Rémunérations
-    const acc431 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '431' } }) // CNSS
-    const acc432 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '432' } }) // IRPP
-    const acc421 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '421' } }) // Salaires dus
+    // 3. Comptes tunisiens : 640 salaires bruts / 431 CNSS, 4342 retenues sur salaires (IRPP), 425 rémunérations dues
+    const acc641 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.SALARIES)
+    const acc431 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.CNSS)
+    const acc432 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.PAYROLL_WITHHOLDING)
+    const acc421 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.PERSONNEL_DUE)
 
-    if (!acc641 || !acc431 || !acc432 || !acc421) {
-      throw new Error('Comptes comptables RH (641, 431, 432, 421) non configurés')
-    }
-
-    // 4. Find Journal OD
-    const journal = await tx.accountingJournal.findFirst({ where: { tenantId, code: 'OD' } })
-    if (!journal) throw new Error('Journal OD non configuré')
-
-    // 5. Find/Create Period
-    const periodName = `${year}`
-    let period = await tx.accountingPeriod.findFirst({ where: { tenantId, name: periodName } })
-    if (!period) {
-      period = await tx.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: periodName,
-          startDate: new Date(`${year}-01-01`),
-          endDate: new Date(`${year}-12-31`),
-        }
-      })
-    }
+    // 4. Journal OD et exercice
+    const journal = await ensureJournal(tx, tenantId, 'OD')
+    const period = await ensurePeriodFor(tx, tenantId, new Date(year, month - 1, 28))
 
     // 6. Create Journal Entry
     const entry = await tx.journalEntry.create({
@@ -458,9 +416,9 @@ export async function getVATSummary(month: number, year: number, tenantId: strin
       journalEntry: {
         tenantId,
         date: { gte: startDate, lte: endDate },
-        journal: { code: 'VT' }
+        NOT: { entryNumber: { startsWith: 'LIQ-TVA-' } },
       },
-      account: { accountNumber: { startsWith: '445' } } // simplified, should be 4457
+      account: { accountNumber: TN_ACCOUNTS.VAT_COLLECTED }
     }
   })
 
@@ -470,14 +428,15 @@ export async function getVATSummary(month: number, year: number, tenantId: strin
       journalEntry: {
         tenantId,
         date: { gte: startDate, lte: endDate },
-        journal: { code: 'AC' }
+        NOT: { entryNumber: { startsWith: 'LIQ-TVA-' } },
       },
-      account: { accountNumber: { startsWith: '445' } } // simplified, should be 4456
+      account: { accountNumber: TN_ACCOUNTS.VAT_DEDUCTIBLE }
     }
   })
 
-  const collectedTotal = collectedLines.reduce((sum: number, line) => sum + Number(line.credit), 0)
-  const deductibleTotal = deductibleLines.reduce((sum: number, line) => sum + Number(line.debit), 0)
+  // Soldes des comptes 4367 (TVA collectée, créditeur) et 4366 (TVA déductible, débiteur) hors écritures de liquidation
+  const collectedTotal = Math.round(collectedLines.reduce((sum: number, line) => sum + Number(line.credit) - Number(line.debit), 0) * 1000) / 1000
+  const deductibleTotal = Math.round(deductibleLines.reduce((sum: number, line) => sum + Number(line.debit) - Number(line.credit), 0) * 1000) / 1000
 
   return {
     month,
@@ -509,40 +468,25 @@ export async function postVATLiquidationToAccounting(month: number, year: number
   return prisma.$transaction(async (tx) => {
     const summary = await getVATSummary(month, year, tenantId)
     
-    // 1. Find Journal OD
-    const journal = await tx.accountingJournal.findFirst({ where: { tenantId, code: 'OD' } })
-    if (!journal) throw new Error('Journal OD non configuré')
+    const r3 = (n: number) => Math.round(n * 1000) / 1000
+    const collected = r3(summary.collectedVAT)
+    const deductible = r3(summary.deductibleVAT)
+    if (collected <= 0 && deductible <= 0) throw new BusinessError('Aucune TVA à liquider sur cette période', 400)
 
-    // 2. Find Accounts
-    const acc4457 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '445' } }) // Collected (simplified)
-    const acc4455 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '447' } }) // Tax to pay
-    const acc44567 = await tx.accountingAccount.findFirst({ where: { tenantId, accountNumber: '445' } }) // Credit (simplified)
+    const journal = await ensureJournal(tx, tenantId, 'OD')
+    const date = new Date(year, month, 0) // dernier jour du mois
+    const period = await ensurePeriodFor(tx, tenantId, date)
+    const acc4367 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.VAT_COLLECTED)
+    const acc4366 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.VAT_DEDUCTIBLE)
+    const acc4365 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.VAT_PAYABLE)
 
-    // 3. Find/Create Period
-    const periodName = `${year}`
-    let period = await tx.accountingPeriod.findFirst({ where: { tenantId, name: periodName } })
-    if (!period) {
-      period = await tx.accountingPeriod.create({
-        data: {
-          tenantId,
-          name: periodName,
-          startDate: new Date(`${year}-01-01`),
-          endDate: new Date(`${year}-12-31`),
-        }
-      })
-    }
-
-    // 4. Create Entry
-    const lines = [
-      { accountId: acc4457!.id, debit: summary.collectedVAT, credit: 0, description: `Liquidation TVA Collectée ${month}/${year}` },
-      { accountId: acc4457!.id, debit: 0, credit: summary.deductibleVAT, description: `Liquidation TVA Déductible ${month}/${year}` },
-    ]
-
-    if (summary.netVAT > 0) {
-      lines.push({ accountId: acc4455!.id, debit: 0, credit: summary.netVAT, description: `TVA à décaisser ${month}/${year}` })
-    } else if (summary.netVAT < 0) {
-      lines.push({ accountId: acc44567!.id, debit: Math.abs(summary.netVAT), credit: 0, description: `Crédit de TVA ${month}/${year}` })
-    }
+    // Solde 4367 contre 4366 ; TVA due → 4365 ; un crédit de TVA reste au débit du 4366 (report)
+    const offset = r3(Math.min(collected, deductible))
+    const lines: Array<{ accountId: string; debit: number; credit: number; description: string }> = []
+    if (collected > 0) lines.push({ accountId: acc4367.id, debit: collected, credit: 0, description: `Liquidation TVA collectée ${month}/${year}` })
+    if (offset > 0) lines.push({ accountId: acc4366.id, debit: 0, credit: offset, description: `Imputation TVA déductible ${month}/${year}` })
+    if (collected - offset > 0) lines.push({ accountId: acc4365.id, debit: 0, credit: r3(collected - offset), description: `TVA à décaisser ${month}/${year}` })
+    if (lines.length < 2) throw new BusinessError('Crédit de TVA : rien à liquider, le crédit reste reporté au 4366', 400)
 
     const entry = await tx.journalEntry.create({
       data: {
@@ -550,7 +494,7 @@ export async function postVATLiquidationToAccounting(month: number, year: number
         journalId: journal.id,
         periodId: period.id,
         entryNumber: `LIQ-TVA-${year}-${month.toString().padStart(2, '0')}`,
-        date: new Date(year, month, 0), // Last day of month
+        date,
         description: `Liquidation de TVA - Mois ${month}/${year}`,
         lines: {
           create: lines

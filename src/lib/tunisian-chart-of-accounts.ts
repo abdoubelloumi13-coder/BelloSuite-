@@ -79,12 +79,17 @@ export const TUNISIAN_CHART_OF_ACCOUNTS: ChartOfAccountNode[] = [
   { accountNumber: '421', name: 'Personnel - avances et acomptes', type: 'ASSET' },
   { accountNumber: '425', name: 'Personnel - rémunérations dues', type: 'LIABILITY' },
   { accountNumber: '43', name: 'Etat & collectivités publiques', type: 'LIABILITY' },
+  { accountNumber: '431', name: 'Etat - cotisations sociales (CNSS) à payer', type: 'LIABILITY' },
   { accountNumber: '432', name: 'Etat, impôts et taxes retenus à la source', type: 'LIABILITY' },
   { accountNumber: '434', name: 'Etat - impôts sur les bénéfices', type: 'LIABILITY' },
+  { accountNumber: '4342', name: 'Etat - retenues à la source sur salaires (IRPP)', type: 'LIABILITY' },
   { accountNumber: '436', name: 'Etat - taxes sur le chiffre d\'affaires (TVA)', type: 'LIABILITY' },
   { accountNumber: '4365', name: 'Taxes sur le chiffre d\'affaires à décaisser (TVA à payer)', type: 'LIABILITY' },
   { accountNumber: '4366', name: 'TVA déductible', type: 'ASSET' },
   { accountNumber: '4367', name: 'TVA collectée', type: 'LIABILITY' },
+  { accountNumber: '4368', name: 'Etat - droit de timbre collecté à reverser', type: 'LIABILITY' },
+  { accountNumber: '437', name: 'Etat - autres impôts, taxes et versements assimilés', type: 'LIABILITY' },
+  { accountNumber: '4371', name: 'Etat - FODEC à payer', type: 'LIABILITY' },
   { accountNumber: '45', name: 'Débiteurs divers & créditeurs divers', type: 'ASSET' }, // Can be both, let's default to ASSET
   { accountNumber: '453', name: 'Sécurité sociale (CNSS)', type: 'LIABILITY' },
 
@@ -144,6 +149,41 @@ export const TUNISIAN_CHART_OF_ACCOUNTS: ChartOfAccountNode[] = [
   { accountNumber: '78', name: 'Reprises sur amortissements et provisions', type: 'REVENUE' },
   { accountNumber: '79', name: 'Transferts de charges', type: 'REVENUE' }
 ];
+
+/**
+ * Comptes du plan comptable tunisien utilisés par les écritures automatiques (ventes, achats, paie, TVA, RS).
+ * Source unique : accounting-auto, services/accounting et purchase-review s'y réfèrent.
+ */
+export const TN_ACCOUNTS = {
+  CLIENTS: '411',
+  SUPPLIERS: '401',
+  SALES_GOODS: '707',
+  SALES_SERVICES: '705',
+  SALES_DISCOUNTS: '709',
+  PURCHASES_GOODS: '607',
+  PURCHASES_SERVICES: '604',
+  VAT_PAYABLE: '4365',
+  VAT_DEDUCTIBLE: '4366',
+  VAT_COLLECTED: '4367',
+  STAMP_COLLECTED: '4368',
+  FODEC: '4371',
+  WITHHOLDING: '432',
+  PAYROLL_WITHHOLDING: '4342',
+  CNSS: '431',
+  STAMP_EXPENSE: '665',
+  SALARIES: '640',
+  EMPLOYER_SOCIAL: '647',
+  PERSONNEL_DUE: '425',
+  BANK: '532',
+  CASH: '541',
+} as const
+
+export type TnAccountNumber = (typeof TN_ACCOUNTS)[keyof typeof TN_ACCOUNTS]
+
+/** Libellé et type d'un compte du plan (pour le créer à la volée s'il manque chez le tenant). */
+export function findChartAccount(accountNumber: string): ChartOfAccountNode | undefined {
+  return TUNISIAN_CHART_OF_ACCOUNTS.find(a => a.accountNumber === accountNumber)
+}
 
 export function getAccountHierarchy() {
   const accountMap = new Map<string, ChartOfAccountNode & { children: any[] }>();

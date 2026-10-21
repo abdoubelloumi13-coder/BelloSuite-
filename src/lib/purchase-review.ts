@@ -16,6 +16,7 @@ import {
   type BeneficiaryRegime, type BeneficiaryType,
 } from '@/lib/retenue-source'
 import { taxpayerKind } from '@/lib/firm-logic'
+import { TN_ACCOUNTS } from '@/lib/tunisian-chart-of-accounts'
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000
 
@@ -139,22 +140,22 @@ export function reviewPurchase(i: ReviewInput): PurchaseReview {
   const lines: EntryLine[] = [
     { account: acc.account, label: `${acc.label} — ${pieceLabel}`, debit: r3(ht + fodec), credit: 0 },
   ]
-  if (vat) lines.push({ account: '4366', label: `TVA déductible — ${pieceLabel}`, debit: vat, credit: 0 })
-  if (stamp) lines.push({ account: '665', label: `Timbre fiscal — ${pieceLabel}`, debit: stamp, credit: 0 })
+  if (vat) lines.push({ account: TN_ACCOUNTS.VAT_DEDUCTIBLE, label: `TVA déductible — ${pieceLabel}`, debit: vat, credit: 0 })
+  if (stamp) lines.push({ account: TN_ACCOUNTS.STAMP_EXPENSE, label: `Timbre fiscal — ${pieceLabel}`, debit: stamp, credit: 0 })
   const debits = r3(lines.reduce((s, l) => s + l.debit, 0))
   // Écart d'arrondi éventuel (TTC lu ≠ somme) : absorbé seulement s'il est d'au plus 5 millimes, sinon signalé
   const gap = r3(ttc - debits)
   if (Math.abs(gap) > 0 && Math.abs(gap) <= 0.005) lines[0].debit = r3(lines[0].debit + gap)
-  lines.push({ account: '401', label: `Fournisseurs — ${pieceLabel}`, debit: 0, credit: ttc })
+  lines.push({ account: TN_ACCOUNTS.SUPPLIERS, label: `Fournisseurs — ${pieceLabel}`, debit: 0, credit: ttc })
   const totalD = r3(lines.reduce((s, l) => s + l.debit, 0)), totalC = r3(lines.reduce((s, l) => s + l.credit, 0))
   const balanced = Math.abs(totalD - totalC) < 0.0005
   if (!balanced && !issues.some((is) => is.code === 'TOTALS_MISMATCH')) issues.push({ code: 'TOTALS_MISMATCH', level: 'warning' })
 
   const payment: EntryLine[] = [
-    { account: '401', label: `Règlement — ${pieceLabel}`, debit: ttc, credit: 0 },
-    { account: '532', label: `Banque — ${pieceLabel}`, debit: 0, credit: r3(ttc - rsAmount) },
+    { account: TN_ACCOUNTS.SUPPLIERS, label: `Règlement — ${pieceLabel}`, debit: ttc, credit: 0 },
+    { account: TN_ACCOUNTS.BANK, label: `Banque — ${pieceLabel}`, debit: 0, credit: r3(ttc - rsAmount) },
   ]
-  if (rsAmount) payment.push({ account: '432', label: `Retenue à la source ${(rule.taux * 100).toLocaleString('fr-FR')} % — ${pieceLabel}`, debit: 0, credit: rsAmount })
+  if (rsAmount) payment.push({ account: TN_ACCOUNTS.WITHHOLDING, label: `Retenue à la source ${(rule.taux * 100).toLocaleString('fr-FR')} % — ${pieceLabel}`, debit: 0, credit: rsAmount })
 
   const status: PurchaseReview['status'] = issues.some((is) => is.level === 'blocking') ? 'BLOCKED'
     : issues.some((is) => is.level === 'warning') ? 'TO_CHECK' : 'READY'
