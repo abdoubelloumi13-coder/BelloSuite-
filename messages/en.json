@@ -1372,7 +1372,10 @@
       "from": "From",
       "to": "To",
       "balance_d": "Dr",
-      "balance_c": "Cr"
+      "balance_c": "Cr",
+      "load_error": "Unable to load the general ledger",
+      "no_data_title": "No entries for this period",
+      "no_data_desc": "Record entries or validate invoices to populate the ledger."
     },
     "trial_balance": {
       "unbalanced": "⚠ Imbalance: total debits={debit} – total credits={credit}",

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   BookOpen,
   ChevronDown,
@@ -15,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 import { useTranslations, useLocale } from 'next-intl'
+import { apiErrorMessage } from '@/lib/zod-helpers'
+import type { LedgerResult } from '@/lib/ledger'
 
 export default function LedgerPage() {
   const t = useTranslations('Accounting.ledger')
@@ -23,30 +24,48 @@ export default function LedgerPage() {
   const [periodId, setPeriodId] = useState('')
   const [from, setFrom] = useState('2026-01-01')
   const [to, setTo] = useState('2026-12-31')
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<LedgerResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
   const [periods, setPeriods] = useState<any[]>([])
 
   useEffect(() => {
-    fetch('/api/accounting/periods')
-      .then((r) => r.json())
+    if (!tenantId) return
+    fetch(`/api/accounting/periods?tenantId=${encodeURIComponent(tenantId)}`)
+      .then((r) => (r.ok ? r.json() : []))
       .then((data) => setPeriods(Array.isArray(data) ? data : []))
       .catch(() => setPeriods([]))
-  }, [])
+  }, [tenantId])
 
   const fetchLedger = async () => {
     setLoading(true)
+    setError('')
     try {
-      const params = new URLSearchParams({ tenantId, from, to })
+      const params = new URLSearchParams({ tenantId: tenantId || '', startDate: from, endDate: to })
       if (periodId) params.set('periodId', periodId)
       const res = await fetch(`/api/accounting/ledger?${params}`)
-      const json = await res.json()
-      setData(json)
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        setData(null)
+        setError(apiErrorMessage(json, t('load_error')))
+      } else {
+        // Forme défensive : une réponse inattendue ne doit jamais faire planter le rendu
+        setData({
+          accounts: Array.isArray(json?.accounts) ? json.accounts : [],
+          totalDebit: Number(json?.totalDebit) || 0,
+          totalCredit: Number(json?.totalCredit) || 0,
+          isBalanced: json?.isBalanced !== false,
+          startDate: json?.startDate ?? null,
+          endDate: json?.endDate ?? null,
+        })
+      }
     } catch (e) {
       console.error(e)
+      setError(t('load_error'))
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const toggleAccount = (id: string) => {
@@ -58,8 +77,9 @@ export default function LedgerPage() {
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat(`${locale}-TN`, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v) + ' DT'
 
-  const totalDebit = data?.accounts?.reduce((s: number, a: any) => s + a.closingDebit, 0) || 0
-  const totalCredit = data?.accounts?.reduce((s: number, a: any) => s + a.closingCredit, 0) || 0
+  const accounts = data?.accounts ?? []
+  const totalDebit = data?.totalDebit ?? 0
+  const totalCredit = data?.totalCredit ?? 0
 
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto min-h-screen bg-transparent pt-0">
@@ -142,8 +162,23 @@ export default function LedgerPage() {
         </button>
       </div>
 
+      {error && (
+        <div role="alert" className="px-5 py-3 rounded-2xl text-sm font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+          {error}
+        </div>
+      )}
+
+      {/* Aucune écriture sur la période */}
+      {data && accounts.length === 0 && !loading && (
+        <div className="text-center py-16 text-zinc-500">
+          <BookOpen className="w-14 h-14 mx-auto mb-4 opacity-30" />
+          <p className="font-bold text-lg">{t('no_data_title')}</p>
+          <p className="text-sm mt-1">{t('no_data_desc')}</p>
+        </div>
+      )}
+
       {/* Balance check */}
-      {data && (
+      {data && accounts.length > 0 && (
         <div
           className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold ${
             data.isBalanced
@@ -160,8 +195,9 @@ export default function LedgerPage() {
       {/* Ledger table */}
       {data && (
         <div className="space-y-4">
-          {data.accounts.map((accountEntry: any) => {
-            const { account, movements, closingDebit, closingCredit, balance, balanceType } = accountEntry
+          {accounts.map((accountEntry) => {
+            const { account, closingDebit, closingCredit, balance, balanceType } = accountEntry
+            const movements = Array.isArray(accountEntry.movements) ? accountEntry.movements : []
             const isExpanded = expandedAccounts.has(account.id)
             const hasMovement = movements.length > 0
 
@@ -246,7 +282,7 @@ export default function LedgerPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {movements.map((m: any, i: number) => (
+                          {movements.map((m, i) => (
                             <tr key={i} className="border-t border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
                               <td className="px-5 py-2.5 text-xs text-zinc-400 font-mono">
                                 {new Date(m.date).toLocaleDateString(`${locale}-TN`)}
@@ -275,7 +311,7 @@ export default function LedgerPage() {
       )}
 
       {/* Empty state */}
-      {!data && !loading && (
+      {!data && !loading && !error && (
         <div className="text-center py-20 text-zinc-600">
           <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
           <p className="font-bold text-lg">{t('empty_title')}</p>

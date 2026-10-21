@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { AccountType, JournalType } from '@prisma/client'
+import { AccountType, JournalType, Prisma } from '@prisma/client'
+import { buildLedger, parseDateParam, type LedgerResult } from '@/lib/ledger'
 import { assertBelongsToTenant, assertAllBelongToTenant } from '@/lib/tenant-scope'
 
 // ─── Zod Schemas ────────────────────────────────────────────
@@ -714,66 +715,40 @@ export async function postAmortizationToAccounting(month: number, year: number, 
 /**
  * Initialize a standard Tunisian Chart of Accounts for a new tenant.
  */
-export async function getGeneralLedger(tenantId: string, params: { startDate?: string; endDate?: string; accountId?: string } = {}) {
-  const { startDate, endDate, accountId } = params
+export async function getGeneralLedger(
+  tenantId: string,
+  params: { startDate?: string; endDate?: string; accountId?: string; periodId?: string } = {}
+): Promise<LedgerResult> {
+  const { accountId, periodId } = params
+  let start = parseDateParam(params.startDate)
+  let end = parseDateParam(params.endDate)
+
+  // Une période choisie borne la recherche à ses dates (si elle appartient au tenant)
+  if (periodId) {
+    const period = await prisma.accountingPeriod.findFirst({ where: { id: periodId, tenantId } })
+    if (period) {
+      start = period.startDate
+      end = period.endDate
+    }
+  }
+  // « Au 31/12 » inclut toute la journée du 31/12
+  if (end && !periodId && /^\d{4}-\d{2}-\d{2}$/.test(params.endDate ?? '')) end = new Date(end.getTime() + 86_399_999)
 
   // JournalEntryLine n'a pas de colonne tenantId : le filtre passe par l'écriture parente.
-  const where: any = { journalEntry: { tenantId } }
-  if (accountId) where.accountId = accountId
-  if (startDate || endDate) {
-    where.journalEntry = {
+  const where: Prisma.JournalEntryLineWhereInput = {
+    journalEntry: {
       tenantId,
-      date: {
-        ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
-      }
-    }
+      ...(start || end ? { date: { ...(start && { gte: start }), ...(end && { lte: end }) } } : {}),
+    },
+    ...(accountId ? { accountId } : {}),
   }
 
   const lines = await prisma.journalEntryLine.findMany({
     where,
-    include: {
-      account: true,
-      journalEntry: {
-        include: { journal: true }
-      }
-    },
-    orderBy: [
-      { account: { accountNumber: 'asc' } },
-      { journalEntry: { date: 'asc' } }
-    ]
+    include: { account: true, journalEntry: { include: { journal: true } } },
+    orderBy: [{ account: { accountNumber: 'asc' } }, { journalEntry: { date: 'asc' } }],
   })
 
-  // Group by account for the Ledger view
-  const ledger: Record<string, any> = {}
-
-  for (const line of lines) {
-    const accNum = line.account.accountNumber
-    if (!ledger[accNum]) {
-      ledger[accNum] = {
-        account: line.account,
-        lines: [],
-        totalDebit: 0,
-        totalCredit: 0,
-        balance: 0
-      }
-    }
-
-    ledger[accNum].lines.push({
-      id: line.id,
-      date: line.journalEntry.date,
-      entryNumber: line.journalEntry.entryNumber,
-      description: line.description || line.journalEntry.description,
-      journal: line.journalEntry.journal.code,
-      debit: Number(line.debit),
-      credit: Number(line.credit)
-    })
-
-    ledger[accNum].totalDebit += Number(line.debit)
-    ledger[accNum].totalCredit += Number(line.credit)
-    ledger[accNum].balance = ledger[accNum].totalDebit - ledger[accNum].totalCredit
-  }
-
-  return ledger
+  return buildLedger(lines, { startDate: start?.toISOString() ?? null, endDate: end?.toISOString() ?? null })
 }
 

@@ -1372,7 +1372,10 @@
       "from": "Du",
       "to": "Au",
       "balance_d": "D",
-      "balance_c": "C"
+      "balance_c": "C",
+      "load_error": "Impossible de charger le grand livre",
+      "no_data_title": "Aucune écriture sur cette période",
+      "no_data_desc": "Saisissez des écritures ou validez des factures pour alimenter le grand livre."
     },
     "trial_balance": {
       "unbalanced": "⚠ Déséquilibre: Total Débits={debit} | Total Crédits={credit}",
