@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import { Search, FileText, Calendar, User, Download, ExternalLink, Printer, FileCode, Plus } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { useTranslations, useLocale } from 'next-intl'
-import { generateTEIFXml as generateTEIF } from '@/lib/teif-generator'
 import { useSession } from '@/hooks/useSession'
 
 export default function InvoicesPage() {
   const t = useTranslations('Commercial.Invoices')
   const dt = useTranslations('Commercial.DocumentTypes')
+  const et = useTranslations('EInvoice')
   const locale = useLocale()
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,47 +32,27 @@ export default function InvoicesPage() {
     }
   }
 
-  const exportTEIF = (inv: any) => {
-    let xml: string
-    try {
-    xml = generateTEIF({
-      invoiceNumber: inv.number,
-      type: inv.type,
-      issueDate: new Date(inv.date).toISOString().split('T')[0],
-      tenant: {
-        name: inv.tenant.name,
-        matriculeFiscal: inv.tenant.matriculeFiscal || '',
-        address: inv.tenant.address || '',
-        city: inv.tenant.city || '',
-        zipCode: inv.tenant.zipCode || '',
-      },
-      client: {
-        name: inv.client.name,
-        matriculeFiscal: inv.client.matriculeFiscal || '',
-        address: inv.client.address || '',
-        city: inv.client.city || '',
-      },
-      items: inv.items ?? [],
-      totals: {
-        subtotalHT: Number(inv.subtotalHT),
-        totalFodec: Number(inv.totalFodec),
-        totalVAT: Number(inv.totalVAT),
-        timbreFiscal: Number(inv.timbreFiscal),
-        totalTTC: Number(inv.totalTTC),
-        vatSummary: inv.vatSummary as any,
-      }
-    })
-    } catch (e: any) {
-      alert(e?.errors ? e.errors.join('\n') : (e?.message || 'TEIF'))
+  // TEIF côté serveur (même générateur que la signature) : validé > signé > non signé (simulation El Fatoora)
+  const exportTEIF = async (inv: any) => {
+    const variant = inv.ttnStatus === 'ACCEPTED' ? '?validated=1' : inv.ttnStatus === 'SIGNED' ? '?signed=1' : ''
+    let res = await fetch(`/api/commercial/invoices/${inv.id}/einvoice/xml${variant}`).catch(() => null)
+    if (res && !res.ok && variant) res = await fetch(`/api/commercial/invoices/${inv.id}/einvoice/xml`).catch(() => null)
+    if (!res || !res.ok) {
+      const err = res ? await res.json().catch(() => null) : null
+      alert(err?.errors?.length ? err.errors.join('\n') : (err?.error || et('download_failed')))
       return
     }
-
-    const blob = new Blob([xml], { type: 'application/xml' })
-    const url = URL.createObjectURL(blob)
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `${inv.number}_TEIF.xml`
+    const url = URL.createObjectURL(await res.blob())
     const a = document.createElement('a')
     a.href = url
-    a.download = `${inv.number}_TEIF.xml`
+    a.download = name
     a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  const openPrint = (inv: any) => {
+    window.open(`/${locale}/print/invoice/${inv.id}`, '_blank', 'noopener')
   }
 
   const filteredInvoices = Array.isArray(invoices) ? invoices.filter(inv => 
@@ -173,14 +153,16 @@ export default function InvoicesPage() {
                   <td className="px-8 py-6 text-end">
                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
                       <button 
+                        type="button"
                         onClick={() => exportTEIF(inv)}
+                        aria-label={et('row_teif')}
                         className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-emerald-500/20 text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 dark:hover:text-emerald-400 rounded-xl transition-all border border-transparent hover:border-emerald-500/20"
                         title={t('export_ttn')}
                       >
                          <FileCode className="w-4 h-4" />
                       </button>
-                      <button className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-white rounded-xl transition-all border border-transparent hover:border-stone-200 dark:hover:border-zinc-600"><Download className="w-4 h-4" /></button>
-                      <button className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-white rounded-xl transition-all border border-transparent hover:border-stone-200 dark:hover:border-zinc-600"><Printer className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => openPrint(inv)} title={et('row_pdf')} aria-label={et('row_pdf')} className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-white rounded-xl transition-all border border-transparent hover:border-stone-200 dark:hover:border-zinc-600"><Download className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => openPrint(inv)} title={et('row_print')} aria-label={et('row_print')} className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-white rounded-xl transition-all border border-transparent hover:border-stone-200 dark:hover:border-zinc-600"><Printer className="w-4 h-4" /></button>
                       <Link href={`/commercial/invoices/${inv.id}`} className="p-3 bg-stone-100 dark:bg-zinc-800 hover:bg-teal-500/20 text-zinc-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-xl transition-all border border-transparent hover:border-teal-500/20">
                         <ExternalLink className={`w-4 h-4 ${locale === 'ar' ? 'rotate-180' : ''}`} />
                       </Link>
