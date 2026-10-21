@@ -174,7 +174,7 @@ export default function InvoiceDetailPage() {
         subtotalHT: Number(invoice.subtotalHT),
         totalFodec: Number(invoice.totalFodec),
         totalVAT: Number(invoice.totalVAT),
-        timbreFiscal: Number(invoice.timbreFiscal || 1),
+        timbreFiscal: Number(invoice.timbreFiscal ?? 1),
         totalTTC: Number(invoice.totalTTC),
         vatSummary: invoice.vatSummary || {},
       },
@@ -421,7 +421,7 @@ export default function InvoiceDetailPage() {
             <div className="flex items-center justify-between text-sm"><span className="text-stone-500 dark:text-zinc-400">{t('subtotal_ht')}</span><span className="font-mono font-bold text-stone-900 dark:text-white">{fmt(Number(invoice.subtotalHT))}</span></div>
             <div className="flex items-center justify-between text-sm"><span className="text-stone-500 dark:text-zinc-400">{t('fodec')}</span><span className="font-mono text-amber-600 dark:text-amber-500 font-bold">{fmt(Number(invoice.totalFodec))}</span></div>
             <div className="flex items-center justify-between text-sm"><span className="text-stone-500 dark:text-zinc-400">{t('tva')}</span><span className="font-mono text-stone-600 dark:text-zinc-400 font-bold">{fmt(Number(invoice.totalVAT))}</span></div>
-            <div className="flex items-center justify-between text-sm border-t border-stone-100 dark:border-zinc-800 pt-3"><span className="text-stone-500 dark:text-zinc-400">{t('timbre')}</span><span className="font-mono text-stone-400 dark:text-zinc-600 font-bold">{fmt(Number(invoice.timbreFiscal || 1))}</span></div>
+            <div className="flex items-center justify-between text-sm border-t border-stone-100 dark:border-zinc-800 pt-3"><span className="text-stone-500 dark:text-zinc-400">{t('timbre')}</span><span className="font-mono text-stone-400 dark:text-zinc-600 font-bold">{fmt(Number(invoice.timbreFiscal ?? 1))}</span></div>
             <div className="p-4 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 rounded-xl">
               <p className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">{t('total_ttc_bold')}</p>
               <p className="text-2xl font-black text-teal-900 dark:text-teal-400 mt-1">{fmt(Number(invoice.totalTTC))}</p>

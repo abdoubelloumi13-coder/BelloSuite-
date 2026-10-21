@@ -62,8 +62,10 @@ export function calculateLine(line: LineItem): CalculatedLine {
 
 /**
  * Calculate grand totals for an invoice
+ * @param opts.applyStamp droit de timbre (1,000 DT) appliqué — true par défaut (comportement historique).
+ *   Décocher « Timbre fiscal » dans le formulaire → false → timbre 0.
  */
-export function calculateInvoiceTotals(lines: LineItem[]): InvoiceTotals {
+export function calculateInvoiceTotals(lines: LineItem[], opts: { applyStamp?: boolean } = {}): InvoiceTotals {
   const calculatedLines = lines.map(calculateLine)
   
   let subtotalHT = 0
@@ -89,7 +91,8 @@ export function calculateInvoiceTotals(lines: LineItem[]): InvoiceTotals {
   const totalBeforeStamp = subtotalHT + totalFodec + totalVAT
   
   // Timbre fiscal is applied if TTC > 0 (usually per law, some conditions apply but 1 DT is standard)
-  const timbreFiscal = totalBeforeStamp > 0 ? FISCAL_STAMP : 0
+  const applyStamp = opts.applyStamp ?? true
+  const timbreFiscal = applyStamp && totalBeforeStamp > 0 ? FISCAL_STAMP : 0
   const totalTTC = totalBeforeStamp + timbreFiscal
 
   return {

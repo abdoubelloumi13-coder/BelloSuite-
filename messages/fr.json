@@ -802,7 +802,9 @@
         "currency": "DT",
         "total_ttc": "Total Net TTC",
         "taxes_detail": "Détail Taxes (TEIF)",
-        "vat_base": "Base TVA {rate}%"
+        "vat_base": "Base TVA {rate}%",
+        "timbre_checkbox": "Timbre fiscal ({amount} DT)",
+        "timbre_hint": "Droit de timbre dû sur les factures ; décochez si le document en est exonéré."
       },
       "validation": {
         "select_client": "Veuillez sélectionner un client",

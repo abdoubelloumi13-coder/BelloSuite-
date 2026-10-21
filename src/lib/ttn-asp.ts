@@ -175,7 +175,7 @@ export async function submitToTTN(
       subtotalHT: Number(invoice.subtotalHT),
       totalFodec: Number(invoice.totalFodec),
       totalVAT: Number(invoice.totalVAT),
-      timbreFiscal: Number(invoice.timbreFiscal || 1),
+      timbreFiscal: Number(invoice.timbreFiscal ?? 1),
       totalTTC: Number(invoice.totalTTC),
       vatSummary: invoice.vatSummary || {},
     },

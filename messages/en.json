@@ -802,7 +802,9 @@
         "currency": "TND",
         "total_ttc": "Total Net TTC",
         "taxes_detail": "Tax Detail (TEIF)",
-        "vat_base": "VAT Base {rate}%"
+        "vat_base": "VAT Base {rate}%",
+        "timbre_checkbox": "Fiscal stamp ({amount} TND)",
+        "timbre_hint": "Stamp duty is due on invoices; untick if the document is exempt."
       },
       "validation": {
         "select_client": "Please select a client",

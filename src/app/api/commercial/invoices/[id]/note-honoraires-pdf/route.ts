@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       subtotalHT: Number(invoice.subtotalHT),
       totalFodec: Number(invoice.totalFodec),
       totalVAT: Number(invoice.totalVAT),
-      timbreFiscal: Number(invoice.timbreFiscal || 1),
+      timbreFiscal: Number(invoice.timbreFiscal ?? 1),
       totalTTC: Number(invoice.totalTTC),
       rsAmount,
       rsRate,

@@ -49,7 +49,9 @@ export default function NewInvoicePage() {
     items: [
       { productId: '', description: '', quantity: 1, unitPriceHT: 0, discount: 0, vatRate: 19, fodecApply: false, unit: 'EA' }
     ],
-    notes: ''
+    notes: '',
+    // Droit de timbre fiscal (1,000 DT) : coché par défaut (comportement historique)
+    applyTimbre: true,
   })
 
   useEffect(() => {
@@ -198,7 +200,7 @@ export default function NewInvoicePage() {
     })
   }
 
-  const totals = calculateInvoiceTotals(invoiceData.items)
+  const totals = calculateInvoiceTotals(invoiceData.items, { applyStamp: invoiceData.applyTimbre })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -545,9 +547,19 @@ export default function NewInvoicePage() {
                     <span className="text-stone-600 dark:text-zinc-400 font-mono text-sm font-bold">{fmt(totals.totalVAT)} <span className="text-[10px] text-stone-400">{t('summary.currency')}</span></span>
                  </div>
                  <div className="flex items-center justify-between border-t border-stone-100 dark:border-zinc-800 pt-4">
-                    <span className="text-stone-400 text-[10px] font-black uppercase tracking-widest">{t('summary.timbre')}</span>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={invoiceData.applyTimbre}
+                        onChange={e => setInvoiceData(d => ({ ...d, applyTimbre: e.target.checked }))}
+                        className="w-4 h-4 accent-teal-600"
+                        aria-describedby="timbre-hint"
+                      />
+                      <span className="text-stone-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest">{t('summary.timbre_checkbox', { amount: fmt(FISCAL_STAMP) })}</span>
+                    </label>
                     <span className="text-stone-400 font-mono text-sm font-bold">{fmt(totals.timbreFiscal)} <span className="text-[10px] text-stone-400">{t('summary.currency')}</span></span>
                  </div>
+                 <p id="timbre-hint" className="text-[10px] text-stone-400 -mt-2">{t('summary.timbre_hint')}</p>
                  
                  <div className="p-6 bg-teal-50 dark:bg-teal-500/10 border border-teal-100 dark:border-teal-500/20 rounded-3xl mt-4 space-y-1">
                     <span className="text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest">{t('summary.total_ttc')}</span>
