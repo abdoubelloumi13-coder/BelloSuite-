@@ -1,0 +1,28 @@
+// ============================================
+// FACTURE ÉLECTRONIQUE — SIMULATION (El Fatoora)
+// ============================================
+// Une ligne par facture : TEIF signé (XAdES-B, clé de test ou DigiGo simulé) puis
+// TEIF « validé » par le simulateur TTN (RefTtnVal + cachets SigCEv/SigTTN).
+// ⚠ Mode simulation — non valable fiscalement.
+// Table créée par supabase/migrations/20261021100000_einvoice_simulation.sql
+// (clés étrangères Invoice/Tenant ON DELETE CASCADE côté SQL ; pas de relation
+// Prisma déclarée pour ne pas modifier les modèles Invoice et Tenant).
+// Accès applicatif : src/lib/einvoice/store.ts (SQL paramétré, tolère la table absente).
+
+model EInvoiceSimulation {
+  id           String    @id @default(uuid())
+  invoiceId    String    @unique
+  tenantId     String
+  /// local | digigo-mock
+  mode         String
+  signedXml    String?   @db.Text
+  signedAt     DateTime?
+  validatedXml String?   @db.Text
+  referenceTTN String?
+  qrDataUrl    String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, referenceTTN])
+}
