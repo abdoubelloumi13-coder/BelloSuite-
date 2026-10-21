@@ -1396,6 +1396,39 @@
       "type": "Type",
       "from": "Du",
       "to": "Au"
+    },
+    "entries": {
+      "title": "Écritures comptables",
+      "subtitle": "Brouillard : consultez et saisissez des écritures manuelles équilibrées",
+      "new": "Nouvelle écriture",
+      "cancel": "Annuler",
+      "journal": "Journal",
+      "period": "Exercice",
+      "date": "Date",
+      "reference": "Référence / pièce",
+      "description": "Libellé",
+      "account": "Compte",
+      "line_label": "Libellé ligne",
+      "debit": "Débit",
+      "credit": "Crédit",
+      "totals": "Totaux",
+      "add_line": "Ajouter une ligne",
+      "remove_line": "Supprimer la ligne",
+      "balanced": "✓ Écriture équilibrée",
+      "unbalanced": "Écart débit/crédit : {diff}",
+      "save": "Enregistrer l'écriture",
+      "saving": "Enregistrement...",
+      "all_journals": "Tous les journaux",
+      "all_periods": "Tous les exercices",
+      "empty_title": "Aucune écriture",
+      "empty_desc": "Les écritures générées (factures, paie…) et manuelles apparaîtront ici.",
+      "load_error": "Impossible de charger les écritures",
+      "no_journal_hint": "Aucun journal : créez-en un dans l'onglet « Journaux ».",
+      "errors": {
+        "journal_required": "Choisissez un journal",
+        "description_required": "Le libellé est obligatoire",
+        "save": "Impossible d'enregistrer l'écriture"
+      }
     }
   },
   "Notifications": {

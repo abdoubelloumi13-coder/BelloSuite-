@@ -1396,6 +1396,39 @@
       "type": "Type",
       "from": "From",
       "to": "To"
+    },
+    "entries": {
+      "title": "Journal entries",
+      "subtitle": "Day book: view and record balanced manual entries",
+      "new": "New entry",
+      "cancel": "Cancel",
+      "journal": "Journal",
+      "period": "Period",
+      "date": "Date",
+      "reference": "Reference",
+      "description": "Description",
+      "account": "Account",
+      "line_label": "Line label",
+      "debit": "Debit",
+      "credit": "Credit",
+      "totals": "Totals",
+      "add_line": "Add line",
+      "remove_line": "Remove line",
+      "balanced": "✓ Entry balanced",
+      "unbalanced": "Debit/credit difference: {diff}",
+      "save": "Save entry",
+      "saving": "Saving...",
+      "all_journals": "All journals",
+      "all_periods": "All periods",
+      "empty_title": "No entries",
+      "empty_desc": "Generated (invoices, payroll…) and manual entries will appear here.",
+      "load_error": "Unable to load entries",
+      "no_journal_hint": "No journal: create one in the Journals tab.",
+      "errors": {
+        "journal_required": "Choose a journal",
+        "description_required": "Description is required",
+        "save": "Unable to save the entry"
+      }
     }
   },
   "Notifications": {
