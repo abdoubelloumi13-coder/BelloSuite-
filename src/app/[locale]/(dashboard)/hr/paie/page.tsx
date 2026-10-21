@@ -36,6 +36,7 @@ export default function PaiePage() {
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
 
   const fetchPayrollData = useCallback(async () => {
@@ -73,6 +74,7 @@ export default function PaiePage() {
 
   async function handleGeneratePayslips() {
     setError("");
+    setNotice("");
     const employeeIds: string[] = Array.isArray(summary?.employeeIds) ? summary.employeeIds : [];
     if (!employeeIds.length) {
       setError(t("no_employees"));
@@ -95,6 +97,14 @@ export default function PaiePage() {
         setError(apiErrorMessage(data, t("generate_error")));
       } else {
         await fetchPayrollData();
+        // Employés ignorés (sans salaire, bulletin déjà payé/comptabilisé…) : message explicite
+        const skipped = Array.isArray(data?.skipped) ? data.skipped : [];
+        const parts = [
+          data?.generated ? `${data.generated} bulletin(s) généré(s)` : "",
+          data?.updated ? `${data.updated} bulletin(s) brouillon recalculé(s)` : "",
+          skipped.length ? `ignorés : ${skipped.map((s: { employee: string; reason: string }) => `${s.employee} (${s.reason})`).join(", ")}` : "",
+        ].filter(Boolean);
+        if (parts.length) setNotice(parts.join(" — "));
       }
     } catch (err) {
       console.error("Error generating payslips:", err);
@@ -176,6 +186,12 @@ export default function PaiePage() {
       {error && (
         <div role="alert" className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium">
           {error}
+        </div>
+      )}
+
+      {notice && !error && (
+        <div role="status" className="p-4 rounded-xl border border-teal-200 bg-teal-50 text-teal-800 text-sm">
+          {notice}
         </div>
       )}
 
