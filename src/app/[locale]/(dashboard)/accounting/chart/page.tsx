@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Search, BookOpen, AlertCircle, CheckCircle2, ChevronRight, ChevronDown, Download } from 'lucide-react'
+import { Plus, Search, BookOpen, AlertCircle, CheckCircle2, ChevronRight, ChevronDown, Download, RefreshCw } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 import { useTranslations } from 'next-intl'
 
@@ -31,6 +31,25 @@ export default function ChartOfAccountsPage() {
   const [initLoading, setInitLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const handleSync = async () => {
+    setSyncing(true); setSyncMsg(null)
+    try {
+      const res = await fetch('/api/accounting/chart/sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenantId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) { setSyncMsg({ ok: false, text: data?.error || t('sync_error') }); return }
+      setSyncMsg({ ok: true, text: data?.created ? t('sync_done', { count: data.created }) : t('sync_up_to_date') })
+      if (data?.created) fetchAccounts(tenantId)
+    } catch {
+      setSyncMsg({ ok: false, text: t('sync_error') })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
     fetchAccounts(tenantId)
@@ -150,12 +169,22 @@ export default function ChartOfAccountsPage() {
           <h1 className="text-3xl font-black text-white tracking-tighter">{t('title')}</h1>
           <p className="text-zinc-400 text-sm mt-1">{t('subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <button type="button" onClick={handleSync} disabled={syncing}
+            className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl transition-all font-semibold text-sm flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> {t('sync_tn')}
+          </button>
           <button className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white rounded-xl transition-all font-semibold text-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> {t('add')}
           </button>
         </div>
       </div>
+
+      {syncMsg && (
+        <p role={syncMsg.ok ? 'status' : 'alert'} className={`flex items-center gap-2 text-sm font-bold ${syncMsg.ok ? 'text-emerald-500' : 'text-red-500'}`}>
+          {syncMsg.ok ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />} {syncMsg.text}
+        </p>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div></div>

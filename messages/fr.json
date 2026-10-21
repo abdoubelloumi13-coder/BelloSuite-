@@ -1318,7 +1318,11 @@
       },
       "title": "Plan Comptable",
       "collapse_all": "Tout réduire",
-      "edit": "Modifier"
+      "edit": "Modifier",
+      "sync_tn": "Compléter le plan comptable tunisien",
+      "sync_done": "{count} compte(s) ajouté(s) depuis le plan comptable tunisien",
+      "sync_up_to_date": "Plan comptable déjà complet",
+      "sync_error": "Impossible de compléter le plan comptable"
     },
     "journals": {
       "subtitle": "Gérez vos journaux de saisie pour ventiler vos écritures (Achats, Ventes, BQ, OD...)",

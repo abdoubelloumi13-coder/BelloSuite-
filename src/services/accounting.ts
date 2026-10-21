@@ -6,7 +6,7 @@ import { computeVatDeclaration, monthRange, SALES_VAT_TYPES, EXCLUDED_SALE_STATU
 import { PURCHASE_INVOICE_TYPES } from '@/lib/firm-dashboard'
 import { assertBelongsToTenant, assertAllBelongToTenant } from '@/lib/tenant-scope'
 import { BusinessError } from '@/lib/errors'
-import { TN_ACCOUNTS, findChartAccount } from '@/lib/tunisian-chart-of-accounts'
+import { TN_ACCOUNTS, findChartAccount, TUNISIAN_CHART_OF_ACCOUNTS } from '@/lib/tunisian-chart-of-accounts'
 import { buildAutoEntryLines } from '@/lib/accounting-auto'
 
 type Db = Prisma.TransactionClient | typeof prisma
@@ -98,6 +98,25 @@ export async function getPeriods(tenantId: string) {
     where: { tenantId },
     orderBy: { startDate: 'desc' },
   })
+}
+
+/**
+ * Complète le plan comptable d'un tenant EXISTANT avec les comptes du modèle tunisien qui lui manquent
+ * (ex. 431, 4368, 4371 ajoutés au modèle après la création du tenant). Idempotent : une seule lecture
+ * des numéros existants (actifs ou non), puis createMany skipDuplicates sur l'unique (tenantId, accountNumber).
+ * Ne touche jamais aux comptes existants (libellé, statut). Ne fait rien pour un plan vide (onboarding).
+ */
+export async function syncTunisianChartOfAccounts(tenantId: string, opts: { evenIfEmpty?: boolean } = {}, db: Db = prisma) {
+  const existing = await db.accountingAccount.findMany({ where: { tenantId }, select: { accountNumber: true } })
+  if (existing.length === 0 && !opts.evenIfEmpty) return { created: 0, missing: [] as string[] }
+  const have = new Set(existing.map(a => a.accountNumber))
+  const missing = TUNISIAN_CHART_OF_ACCOUNTS.filter(a => !have.has(a.accountNumber))
+  if (missing.length === 0) return { created: 0, missing: [] as string[] }
+  const res = await db.accountingAccount.createMany({
+    data: missing.map(a => ({ tenantId, accountNumber: a.accountNumber, name: a.name, type: a.type as AccountType })),
+    skipDuplicates: true,
+  })
+  return { created: res.count, missing: missing.map(a => a.accountNumber) }
 }
 
 /**

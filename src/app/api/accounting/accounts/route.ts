@@ -1,6 +1,7 @@
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/db";
+import { syncTunisianChartOfAccounts } from '@/services/accounting'
 
 
 export async function GET(request: Request) {
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
     }
+
+    // Plan comptable d'un tenant existant : ajouter les comptes manquants du modèle tunisien (idempotent, peu coûteux)
+    await syncTunisianChartOfAccounts(tenantId).catch(e => console.error('Chart sync error:', e))
 
     const accounts = await prisma.accountingAccount.findMany({
       where: {

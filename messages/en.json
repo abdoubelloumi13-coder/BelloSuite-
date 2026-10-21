@@ -1318,7 +1318,11 @@
       },
       "title": "Chart of accounts",
       "collapse_all": "Collapse all",
-      "edit": "Edit"
+      "edit": "Edit",
+      "sync_tn": "Complete Tunisian chart of accounts",
+      "sync_done": "{count} account(s) added from the Tunisian chart",
+      "sync_up_to_date": "Chart of accounts already complete",
+      "sync_error": "Could not complete the chart of accounts"
     },
     "journals": {
       "subtitle": "Manage your entry journals to split your entries (purchases, sales, bank, misc....)",

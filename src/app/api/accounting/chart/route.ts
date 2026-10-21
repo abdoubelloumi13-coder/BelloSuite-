@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
-import { getChartOfAccounts, initChartOfAccounts } from '@/services/accounting'
+import { getChartOfAccounts, initChartOfAccounts, syncTunisianChartOfAccounts } from '@/services/accounting'
 
 // GET /api/accounting/chart
 export async function GET(req: NextRequest) {
@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     const ctx = await getApiContext(req, tenantId)
     if (ctx instanceof NextResponse) return ctx
 
+    // Tenants existants : compléter les comptes ajoutés au modèle tunisien (431, 4368, 4371…)
+    await syncTunisianChartOfAccounts(ctx.tenantId).catch(e => console.error('Chart sync error:', e))
     let accounts = await getChartOfAccounts(ctx.tenantId)
 
     // Auto-init if empty
