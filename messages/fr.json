@@ -576,7 +576,8 @@
         "zip_placeholder": "1000",
         "saving": "Enregistrement...",
         "save": "Enregistrer le Client",
-        "cancel": "Annuler"
+        "cancel": "Annuler",
+        "save_error": "Impossible d'enregistrer le client"
       }
     },
     "Suppliers": {
@@ -610,7 +611,8 @@
         "saving": "Enregistrement...",
         "save": "Enregistrer le Fournisseur",
         "cancel": "Annuler",
-        "phone_placeholder": "+216 -- --- ---"
+        "phone_placeholder": "+216 -- --- ---",
+        "save_error": "Impossible d'enregistrer le fournisseur"
       }
     },
     "Invoices": {
@@ -774,7 +776,8 @@
         "vat_base": "Base TVA {rate}%"
       },
       "validation": {
-        "select_client": "Veuillez sélectionner un client"
+        "select_client": "Veuillez sélectionner un client",
+        "add_item": "Ajoutez au moins une ligne (article ou description)"
       },
       "warehouse": {
         "label": "Dépôt de sortie",

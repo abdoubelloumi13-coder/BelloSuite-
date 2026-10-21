@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { Plus, Trash2, Save, ArrowLeft, Search, User, Package, Calendar, Info, CreditCard, FileText, Warehouse, AlertTriangle, Mic, X } from 'lucide-react'
-import { calculateInvoiceTotals, VAT_RATES, FISCAL_STAMP } from '@/lib/fiscal'
+import { calculateInvoiceTotals, calculateLine, VAT_RATES, FISCAL_STAMP } from '@/lib/fiscal'
+import { apiErrorMessage } from '@/lib/zod-helpers'
 import { Link } from '@/i18n/routing'
 import { useSession } from '@/hooks/useSession'
 import { findShortages, aggregateQuantities } from '@/lib/delivery-note-logic'
@@ -31,6 +32,11 @@ export default function NewInvoicePage() {
   const [warehouseId, setWarehouseId] = useState('')
   const [allowNegative, setAllowNegative] = useState(false)
   const [error, setError] = useState('')
+  const errorRef = useRef<HTMLDivElement>(null)
+  // Toute erreur est affichée en haut du formulaire : on la ramène dans le champ de vision
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
   const [dictateOpen, setDictateOpen] = useState(false)
   
   const [invoiceData, setInvoiceData] = useState({
@@ -112,7 +118,8 @@ export default function NewInvoicePage() {
       case 'WAREHOUSE_INACTIVE': return t('errors.warehouse_inactive')
     }
     if (status === 409 && /déjà utilisé/i.test(data?.error || '')) return t('errors.duplicate_number')
-    return t('errors.generic')
+    // message de l'API (validation, droits, référence invalide…) plutôt qu'un message générique
+    return apiErrorMessage(data, `${t('errors.generic')} (HTTP ${status})`)
   }
 
   const fetchClients = async (tid: string) => {
@@ -195,8 +202,16 @@ export default function NewInvoicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!invoiceData.clientId) return alert(t('validation.select_client'))
     setError('')
+    // alert() est bloqué/ignoré dans certains navigateurs (et en automatisation) : erreur affichée dans la page
+    if (!invoiceData.clientId) {
+      setError(t('validation.select_client'))
+      return
+    }
+    if (!invoiceData.items.some(it => String(it.description).trim() || it.productId)) {
+      setError(t('validation.add_item'))
+      return
+    }
     if (shortages.length) {
       setError(t('errors.insufficient_stock', { products: shortages.map(s => productName(s.productId)).join(', ') }))
       return
@@ -209,6 +224,8 @@ export default function NewInvoicePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...invoiceData,
+          // montants de ligne calculés (FODEC, TVA, totaux) : sinon enregistrés à 0
+          items: invoiceData.items.map(it => ({ ...it, ...calculateLine(it) })),
           tenantId,
           ...totals,
           ...(isDeliveryNote && warehouseId ? { warehouseId } : {}),
@@ -247,7 +264,7 @@ export default function NewInvoicePage() {
       </div>
 
       {error && (
-        <div role="alert" className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-bold">
+        <div ref={errorRef} role="alert" className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-bold">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
           <span className="flex-1">{error}</span>
           <button type="button" onClick={() => setError('')} className="text-red-400 hover:text-red-700" aria-label="×">×</button>

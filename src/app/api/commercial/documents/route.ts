@@ -121,7 +121,7 @@ export async function POST(request: Request) {
               discount: Number(item.discount) || 0,
               fodecApply: item.fodecApply || false,
               fodecAmount: Number(item.fodecAmount) || 0,
-              vatRate: Number(item.vatRate) || 19,
+              vatRate: Number.isFinite(Number(item.vatRate)) && item.vatRate !== '' && item.vatRate != null ? Number(item.vatRate) : 19,
               vatAmount: Number(item.vatAmount) || 0,
               totalHT: Number(item.totalHT) || 0,
               totalTTC: Number(item.totalTTC) || 0,

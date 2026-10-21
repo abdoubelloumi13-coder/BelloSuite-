@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { X, Save, User, Mail, Phone, MapPin, Building2, ShieldCheck, Truck } from 'lucide-react'
 import gsap from 'gsap'
+import { readApiError } from '@/lib/zod-helpers'
 
 interface SupplierModalProps {
   isOpen: boolean
@@ -16,6 +17,7 @@ interface SupplierModalProps {
 export default function SupplierModal({ isOpen, onClose, onSuccess, tenantId, supplier }: SupplierModalProps) {
   const t = useTranslations('Commercial.Suppliers.modal')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -52,6 +54,7 @@ export default function SupplierModal({ isOpen, onClose, onSuccess, tenantId, su
 
   useEffect(() => {
     if (isOpen) {
+      setError('')
       gsap.fromTo('.modal-content-sup', 
         { scale: 0.9, opacity: 0, y: 20 }, 
         { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: 'back.out(1.7)' }
@@ -63,6 +66,7 @@ export default function SupplierModal({ isOpen, onClose, onSuccess, tenantId, su
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     setLoading(true)
     
     try {
@@ -78,9 +82,13 @@ export default function SupplierModal({ isOpen, onClose, onSuccess, tenantId, su
       if (res.ok) {
         onSuccess()
         onClose()
+      } else {
+        // Ne jamais échouer en silence : afficher le message renvoyé par l'API (validation, doublon, droits…)
+        setError(await readApiError(res, t('save_error')))
       }
-    } catch (error) {
-      console.error(error)
+    } catch (err) {
+      console.error(err)
+      setError(t('save_error'))
     } finally {
       setLoading(false)
     }
@@ -185,6 +193,12 @@ export default function SupplierModal({ isOpen, onClose, onSuccess, tenantId, su
                  placeholder={t('city_placeholder')}
                />
           </div>
+
+          {error && (
+            <div role="alert" className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 rounded-2xl text-sm font-bold">
+              {error}
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="flex gap-4 pt-4">

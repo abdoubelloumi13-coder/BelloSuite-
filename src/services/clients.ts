@@ -1,24 +1,34 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { BusinessError } from '@/lib/errors'
+import { optionalText, optionalEmail } from '@/lib/zod-helpers'
 
 // ─── Zod Schemas ────────────────────────────────────────────
 
+const clientFields = {
+  code: optionalText(),
+  name: z.string().trim().min(1, 'nom requis'),
+  email: optionalEmail(),
+  phone: optionalText(),
+  address: optionalText(),
+  city: optionalText(),
+  zipCode: optionalText(),
+  matriculeFiscal: optionalText(),
+}
+
 export const createClientSchema = z.object({
   tenantId: z.string().min(1, 'tenantId requis'),
-  code: z.string().optional(),
-  name: z.string().min(1, 'nom requis'),
-  email: z.string().email('email invalide').optional().nullable(),
-  phone: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  zipCode: z.string().optional().nullable(),
-  country: z.string().default('Tunisie'),
-  matriculeFiscal: z.string().optional().nullable(),
+  ...clientFields,
+  country: z.preprocess((v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined), z.string().default('Tunisie')),
   isActive: z.boolean().default(true),
 })
 
-export const updateClientSchema = createClientSchema.partial().omit({ tenantId: true })
+// Mise à jour : mêmes règles, sans valeurs par défaut (un champ absent n'est pas modifié)
+export const updateClientSchema = z.object({
+  ...clientFields,
+  country: optionalText(),
+  isActive: z.boolean().optional(),
+}).partial()
 
 export type CreateClientData = z.infer<typeof createClientSchema>
 export type UpdateClientData = z.infer<typeof updateClientSchema>
@@ -74,12 +84,13 @@ export async function createClient(data: CreateClientData) {
 export async function updateClient(id: string, tenantId: string, data: UpdateClientData) {
   await getClientById(id, tenantId) // throws 404 if not found/wrong tenant
 
+  const { code, country, ...rest } = data
   return prisma.client.update({
     where: { id },
     data: {
-      ...data,
-      email: data.email ?? undefined,
-      phone: data.phone ?? undefined,
+      ...rest,
+      ...(code ? { code } : {}),
+      ...(country ? { country } : {}),
     },
   })
 }

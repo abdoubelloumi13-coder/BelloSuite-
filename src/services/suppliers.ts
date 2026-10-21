@@ -1,23 +1,33 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { BusinessError } from '@/lib/errors'
+import { optionalText, optionalEmail } from '@/lib/zod-helpers'
 
 // ─── Zod Schemas ────────────────────────────────────────────
 
+const supplierFields = {
+  code: optionalText(),
+  name: z.string().trim().min(1, 'nom requis'),
+  email: optionalEmail(),
+  phone: optionalText(),
+  address: optionalText(),
+  city: optionalText(),
+  matriculeFiscal: optionalText(),
+}
+
 export const createSupplierSchema = z.object({
   tenantId: z.string().min(1, 'tenantId requis'),
-  code: z.string().optional(),
-  name: z.string().min(1, 'nom requis'),
-  email: z.string().email('email invalide').optional().nullable(),
-  phone: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  country: z.string().default('Tunisie'),
-  matriculeFiscal: z.string().optional().nullable(),
+  ...supplierFields,
+  country: z.preprocess((v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined), z.string().default('Tunisie')),
   isActive: z.boolean().default(true),
 })
 
-export const updateSupplierSchema = createSupplierSchema.partial().omit({ tenantId: true })
+// Mise à jour : mêmes règles, sans valeurs par défaut (un champ absent n'est pas modifié)
+export const updateSupplierSchema = z.object({
+  ...supplierFields,
+  country: optionalText(),
+  isActive: z.boolean().optional(),
+}).partial()
 
 export type CreateSupplierData = z.infer<typeof createSupplierSchema>
 export type UpdateSupplierData = z.infer<typeof updateSupplierSchema>
@@ -70,12 +80,13 @@ export async function createSupplier(data: CreateSupplierData) {
 export async function updateSupplier(id: string, tenantId: string, data: UpdateSupplierData) {
   await getSupplierById(id, tenantId)
 
+  const { code, country, ...rest } = data
   return prisma.supplier.update({
     where: { id },
     data: {
-      ...data,
-      email: data.email ?? undefined,
-      phone: data.phone ?? undefined,
+      ...rest,
+      ...(code ? { code } : {}),
+      ...(country ? { country } : {}),
     },
   })
 }

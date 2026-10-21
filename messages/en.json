@@ -576,7 +576,8 @@
         "zip_placeholder": "1000",
         "saving": "Saving...",
         "save": "Save Client",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "save_error": "Unable to save the client"
       }
     },
     "Suppliers": {
@@ -610,7 +611,8 @@
         "saving": "Saving...",
         "save": "Save Supplier",
         "cancel": "Cancel",
-        "phone_placeholder": "+216 -- --- ---"
+        "phone_placeholder": "+216 -- --- ---",
+        "save_error": "Unable to save the supplier"
       }
     },
     "Invoices": {
@@ -774,7 +776,8 @@
         "vat_base": "VAT Base {rate}%"
       },
       "validation": {
-        "select_client": "Please select a client"
+        "select_client": "Please select a client",
+        "add_item": "Add at least one line (product or description)"
       },
       "warehouse": {
         "label": "Shipping warehouse",

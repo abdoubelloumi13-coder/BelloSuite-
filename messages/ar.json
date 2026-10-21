@@ -572,7 +572,8 @@
         "zip_placeholder": "1000",
         "saving": "جاري الحفظ...",
         "save": "حفظ العميل",
-        "cancel": "إلغاء"
+        "cancel": "إلغاء",
+        "save_error": "تعذر حفظ الحريف"
       }
     },
     "Suppliers": {
@@ -606,7 +607,8 @@
         "saving": "جاري الحفظ...",
         "save": "حفظ المزود",
         "cancel": "إلغاء",
-        "phone_placeholder": "+216 -- --- ---"
+        "phone_placeholder": "+216 -- --- ---",
+        "save_error": "تعذر حفظ المزود"
       }
     },
     "Invoices": {
@@ -770,7 +772,8 @@
         "vat_base": "قاعدة الأداء {rate}%"
       },
       "validation": {
-        "select_client": "يرجى اختيار حريف"
+        "select_client": "يرجى اختيار حريف",
+        "add_item": "أضف سطرا واحدا على الأقل (منتج أو وصف)"
       },
       "warehouse": {
         "label": "مستودع الإخراج",
