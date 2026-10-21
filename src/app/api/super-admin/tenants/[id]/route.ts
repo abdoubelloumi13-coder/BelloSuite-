@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logAudit, clientIp } from '@/lib/super-admin-audit'
 import { Prisma } from '@prisma/client'
+import { invalidateIdentityCache } from '@/lib/session-guard'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdmin(req)
@@ -38,6 +39,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id },
       data: { isActive, name, email, phone, city, address }
     })
+    invalidateIdentityCache({ tenantId: id })
 
     if (isActive !== undefined && isActive !== before.isActive) {
       await logAudit(auth.id, isActive ? 'TENANT_ACTIVATE' : 'TENANT_SUSPEND', {
@@ -96,6 +98,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     // Soft : on désactive le tenant + ses users (les données restent, récupérables)
     await prisma.tenant.update({ where: { id }, data: { isActive: false } })
     await prisma.user.updateMany({ where: { tenantId: id }, data: { isActive: false } })
+    invalidateIdentityCache() // tenant + tous ses utilisateurs
     await logAudit(auth.id, 'TENANT_SUSPEND', {
       target: 'tenant', targetId: id, tenantId: id,
       details: { name: tenant.name, subdomain: tenant.subdomain, soft: true }, ip: clientIp(req),

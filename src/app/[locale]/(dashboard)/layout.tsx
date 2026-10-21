@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/session'
+import { getLiveSession } from '@/lib/api-auth'
 import Sidebar from '@/components/layout/Sidebar'
 import { SessionProvider } from '@/components/providers/SessionProvider'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession()
+  const session = await getLiveSession()
 
   if (!session) redirect('/login')
   if (session.role === 'SUPER_ADMIN') redirect('/super-admin')

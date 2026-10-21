@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     if (!identity.isActive) {
       return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 })
     }
+    if (identity.tenantActive === false && identity.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Entreprise suspendue : contactez le support BelloSuite' }, { status: 403 })
+    }
     const { role, tenantId, firstName } = identity
 
     const session = {

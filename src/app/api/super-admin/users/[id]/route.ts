@@ -2,14 +2,16 @@ import { requireSuperAdmin } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logAudit, clientIp } from '@/lib/super-admin-audit'
+import { invalidateIdentityCache } from '@/lib/session-guard'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdmin(req)
   if (auth instanceof NextResponse) return auth
   try {
     const { id } = await params
-    const { isActive, role } = await req.json()
-    if (role !== undefined && !['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role)) {
+    const body = await req.json().catch(() => ({}))
+    const { isActive, role } = (body && typeof body === 'object' ? body : {}) as { isActive?: unknown; role?: unknown }
+    if (role !== undefined && !['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role as string)) {
       return NextResponse.json({ error: 'Rôle invalide' }, { status: 400 })
     }
     if (isActive !== undefined && typeof isActive !== 'boolean') {
@@ -17,8 +19,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     const user = await prisma.user.update({
       where: { id },
-      data: { ...(isActive !== undefined ? { isActive } : {}), ...(role ? { role } : {}) }
+      data: { ...(isActive !== undefined ? { isActive: isActive as boolean } : {}), ...(role ? { role: role as 'SUPER_ADMIN' | 'ADMIN' | 'USER' } : {}) }
     })
+    invalidateIdentityCache({ email: user.email })
     if (isActive !== undefined) {
       await logAudit(auth.id, isActive ? 'USER_ACTIVATE' : 'USER_DEACTIVATE', {
         target: 'user', targetId: id, tenantId: user.tenantId, ip: clientIp(req),
@@ -27,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (role !== undefined) {
       await logAudit(auth.id, 'USER_ROLE_CHANGE', {
         target: 'user', targetId: id, tenantId: user.tenantId,
-        details: { role }, ip: clientIp(req),
+        details: { role: role as string }, ip: clientIp(req),
       })
     }
     const { password: _, ...safe } = user
@@ -59,6 +62,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     if (mode === 'hard') {
       await prisma.user.delete({ where: { id } })
+      invalidateIdentityCache({ email: user.email })
       await logAudit(auth.id, 'USER_DELETE_HARD', {
         target: 'user', targetId: id, tenantId: user.tenantId,
         details: { email: user.email }, ip: clientIp(req),
@@ -77,6 +81,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       )
     }
     await prisma.user.update({ where: { id }, data: { isActive: false } })
+    invalidateIdentityCache({ email: user.email })
     await logAudit(auth.id, 'USER_DEACTIVATE', {
       target: 'user', targetId: id, tenantId: user.tenantId,
       details: { email: user.email, soft: true }, ip: clientIp(req),

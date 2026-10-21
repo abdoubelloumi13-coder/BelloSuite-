@@ -38,6 +38,9 @@ export async function GET(request: Request) {
       if (!identity.isActive) {
         return NextResponse.redirect(`${origin}/${locale}/login?error=account_disabled`)
       }
+      if (identity.tenantActive === false && identity.role !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(`${origin}/${locale}/login?error=tenant_suspended`)
+      }
       const { role, tenantId, firstName } = identity
 
       const session = { id: data.user.id, email: data.user.email!, role, tenantId, firstName }

@@ -12,6 +12,8 @@ export interface DbIdentity {
   tenantId: string | null
   firstName: string
   isActive: boolean
+  /** Tenant.isActive (null si l'utilisateur n'a pas d'entreprise). Une entreprise suspendue ne peut plus se connecter. */
+  tenantActive: boolean | null
 }
 
 export async function resolveIdentityFromDb(
@@ -37,7 +39,14 @@ export async function resolveIdentityFromDb(
     })
   }
 
+  let tenantActive: boolean | null = null
+  if (dbUser.tenantId) {
+    const t = await prisma.tenant.findUnique({ where: { id: dbUser.tenantId }, select: { isActive: true } })
+    tenantActive = t ? t.isActive : false
+  }
+
   return {
+    tenantActive,
     role: dbUser.role,
     tenantId: dbUser.tenantId ?? null,
     firstName: dbUser.firstName || '',

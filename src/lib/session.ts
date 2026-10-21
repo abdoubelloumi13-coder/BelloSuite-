@@ -26,13 +26,20 @@ export interface SessionPayload {
    */
   firmId?: string | null
   homeTenantId?: string | null
+  /** Rôle dans le cabinet (OWNER | STAFF) — informatif ; le rôle effectif est revérifié en base (api-auth). */
+  firmRole?: string | null
+  /** Session du compte de démonstration publique (lecture seule pour les actions sensibles). */
+  demo?: boolean
+  /** Impersonation : id (Prisma) du SUPER_ADMIN qui a ouvert la session — tracé dans les journaux. */
+  impersonatorId?: string | null
 }
 
-export async function signSession(payload: SessionPayload): Promise<string> {
+export async function signSession(payload: SessionPayload, opts: { expiresInSeconds?: number } = {}): Promise<string> {
+  const ttl = opts.expiresInSeconds && opts.expiresInSeconds > 0 ? Math.min(opts.expiresInSeconds, SESSION_DURATION) : SESSION_DURATION
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION}s`)
+    .setExpirationTime(`${ttl}s`)
     .setSubject(payload.id)
     .sign(getSecretKey())
 }
@@ -49,19 +56,22 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
       tenantId: (payload.tenantId as string | null) || null,
       firstName: (payload.firstName as string) || '',
       ...(payload.firmId ? { firmId: payload.firmId as string, homeTenantId: (payload.homeTenantId as string | null) || null } : {}),
+      ...(payload.firmId && payload.firmRole ? { firmRole: payload.firmRole as string } : {}),
+      ...(payload.demo === true ? { demo: true } : {}),
+      ...(payload.impersonatorId ? { impersonatorId: payload.impersonatorId as string } : {}),
     }
   } catch {
     return null
   }
 }
 
-export async function createSessionCookie(payload: SessionPayload): Promise<void> {
+export async function createSessionCookie(payload: SessionPayload, opts: { expiresInSeconds?: number } = {}): Promise<void> {
   const cookieStore = await cookies()
-  const token = await signSession(payload)
+  const token = await signSession(payload, opts)
   const isProd = process.env.NODE_ENV === 'production'
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true, secure: isProd, sameSite: 'lax',
-    maxAge: SESSION_DURATION, path: '/',
+    maxAge: opts.expiresInSeconds && opts.expiresInSeconds > 0 ? Math.min(opts.expiresInSeconds, SESSION_DURATION) : SESSION_DURATION, path: '/',
   })
 }
 

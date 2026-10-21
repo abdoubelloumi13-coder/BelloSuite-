@@ -37,3 +37,17 @@ export async function firmSessionStillValid(session: Pick<SessionPayload, 'id' |
   ])
   return member > 0 && access > 0
 }
+
+/**
+ * Comme firmSessionStillValid, mais renvoie le rôle ACTUEL du collaborateur dans le cabinet (OWNER | STAFF),
+ * ou null si l'accès n'est plus valable (membre retiré ou dossier révoqué).
+ */
+export async function firmSessionRole(session: Pick<SessionPayload, 'id' | 'firmId' | 'tenantId' | 'homeTenantId'>): Promise<string | null> {
+  if (!session.firmId || !session.tenantId) return null
+  const [member, access] = await Promise.all([
+    prisma.firmMember.findFirst({ where: { firmId: session.firmId, userId: session.id }, select: { role: true } }),
+    prisma.firmClientAccess.count({ where: { firmId: session.firmId, tenantId: session.tenantId, status: 'ACTIVE' } }),
+  ])
+  if (!member || access <= 0) return null
+  return member.role || 'STAFF'
+}

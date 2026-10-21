@@ -17,6 +17,7 @@ import type { NextRequest } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { verifySessionToken, getSession, type SessionPayload } from './session'
 import { MissingSessionSecretError } from './session-secret'
+import { checkSessionLive, isFirmClientSession, firmEffectiveRole } from './session-guard'
 
 export const SESSION_COOKIE_NAME = 'bello_session'
 
@@ -47,13 +48,37 @@ export async function requireSession(req?: NextRequest | Request): Promise<Sessi
       session = await getSession()
     }
     if (!session || !session.id) return jsonError('Non authentifié', 401)
-    return session
+    // Révocation : utilisateur actif, rôle actuel, entreprise non suspendue (revérifiés en base, cache court).
+    let verdict
+    try {
+      verdict = await checkSessionLive(session)
+    } catch (dbErr) {
+      console.error('[api-auth] revalidation de session impossible (base indisponible ?)', dbErr)
+      return jsonError('Service momentanément indisponible', 503)
+    }
+    if ('error' in verdict) return jsonError(verdict.error, verdict.status)
+    return verdict.session
   } catch (err) {
     if (err instanceof MissingSessionSecretError) {
       console.error('[api-auth] ' + err.message)
       return jsonError('Configuration serveur invalide : SESSION_SECRET manquant', 500)
     }
     return jsonError('Non authentifié', 401)
+  }
+}
+
+/**
+ * Pour les composants serveur (layouts) : session vérifiée ET revalidée en base, ou null.
+ * Ne lève pas : un problème de base → null (l'utilisateur est renvoyé vers la connexion).
+ */
+export async function getLiveSession(): Promise<SessionPayload | null> {
+  try {
+    const session = await getSession()
+    if (!session || !session.id) return null
+    const verdict = await checkSessionLive(session)
+    return 'error' in verdict ? null : verdict.session
+  } catch {
+    return null
   }
 }
 
@@ -92,9 +117,13 @@ export async function requireTenant(
   const ctx = resolveTenantContext(session, requestedTenantId)
   if ('error' in ctx) return jsonError(ctx.error, ctx.status)
   // Collaborateur de cabinet dans le dossier d'un client : accès revérifié en base (révocation immédiate)
-  if (session.firmId && session.tenantId !== (session.homeTenantId ?? null)) {
-    const { firmSessionStillValid } = await import('./firm-access')
-    if (!(await firmSessionStillValid(session))) return jsonError('Accès du cabinet révoqué', 403)
+  // Le rôle dans le dossier est dérivé du rôle ACTUEL dans le cabinet (OWNER → ADMIN, STAFF → USER limité).
+  if (isFirmClientSession(session)) {
+    const { firmSessionRole } = await import('./firm-access')
+    const firmRole = await firmSessionRole(session)
+    if (!firmRole) return jsonError('Accès du cabinet révoqué', 403)
+    const role = firmEffectiveRole(firmRole)
+    return { user: { ...ctx.user, role, firmRole }, tenantId: ctx.tenantId, userRole: role }
   }
   return ctx
 }
