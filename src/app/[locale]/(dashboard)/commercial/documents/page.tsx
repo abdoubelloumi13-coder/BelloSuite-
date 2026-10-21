@@ -148,7 +148,7 @@ export default function InvoicesPage() {
                       inv.status === 'DRAFT' ? 'bg-stone-100 dark:bg-zinc-800/80 text-zinc-500 border border-stone-200 dark:border-zinc-700' :
                       'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
                     }`}>
-                      {dt(`STATUS.${inv.status}`) || inv.status}
+                      {dt.has(`STATUS.${inv.status}`) ? dt(`STATUS.${inv.status}`) : inv.status}
                     </span>
                   </td>
                   <td className="px-8 py-6 text-end">

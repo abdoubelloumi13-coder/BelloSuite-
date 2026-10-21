@@ -747,7 +747,22 @@
       "INVOICE": "Facture",
       "CREDIT_NOTE": "Avoir",
       "SUPPLIER_ORDER": "Commande Fournisseur",
-      "SUPPLIER_INVOICE": "Facture Fournisseur"
+      "SUPPLIER_INVOICE": "Facture Fournisseur",
+      "STATUS": {
+        "DRAFT": "Brouillon",
+        "PENDING": "En attente",
+        "SUBMITTED": "Soumise",
+        "CONFIRMED": "Confirmée",
+        "VALIDATED": "Validée",
+        "SENT": "Envoyée",
+        "ACCEPTED": "Acceptée",
+        "PARTIAL": "Payée partiellement",
+        "PARTIALLY_PAID": "Payée partiellement",
+        "PAID": "Payée",
+        "OVERDUE": "En retard",
+        "REJECTED": "Rejetée",
+        "CANCELLED": "Annulée"
+      }
     },
     "DocumentEditor": {
       "title": "Éditeur de Document",

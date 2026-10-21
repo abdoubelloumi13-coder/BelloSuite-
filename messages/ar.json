@@ -747,7 +747,22 @@
       "INVOICE": "فاتورة",
       "CREDIT_NOTE": "فاتورة خصم",
       "SUPPLIER_ORDER": "طلب شراء مزود",
-      "SUPPLIER_INVOICE": "فاتورة مزود"
+      "SUPPLIER_INVOICE": "فاتورة مزود",
+      "STATUS": {
+        "DRAFT": "مسودة",
+        "PENDING": "في الانتظار",
+        "SUBMITTED": "مُرسلة للمصادقة",
+        "CONFIRMED": "مؤكدة",
+        "VALIDATED": "مصادق عليها",
+        "SENT": "مُرسلة",
+        "ACCEPTED": "مقبولة",
+        "PARTIAL": "مدفوعة جزئيًا",
+        "PARTIALLY_PAID": "مدفوعة جزئيًا",
+        "PAID": "مدفوعة",
+        "OVERDUE": "متأخرة",
+        "REJECTED": "مرفوضة",
+        "CANCELLED": "ملغاة"
+      }
     },
     "DocumentEditor": {
       "title": "محرر الوثائق",

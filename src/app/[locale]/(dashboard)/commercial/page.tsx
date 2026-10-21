@@ -265,7 +265,7 @@ export default function CommercialDashboard() {
                         doc.status === 'CANCELLED' ? 'bg-red-50 text-red-700 border border-red-100 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/30' :
                         'bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/30'
                       }`}>
-                        {doc.status}
+                        {t.has(`DocumentTypes.STATUS.${doc.status}`) ? t(`DocumentTypes.STATUS.${doc.status}`) : doc.status}
                       </span>
                     </td>
                   </tr>

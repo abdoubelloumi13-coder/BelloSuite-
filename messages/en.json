@@ -747,7 +747,22 @@
       "INVOICE": "Invoice",
       "CREDIT_NOTE": "Credit Note",
       "SUPPLIER_ORDER": "Supplier Order",
-      "SUPPLIER_INVOICE": "Supplier Invoice"
+      "SUPPLIER_INVOICE": "Supplier Invoice",
+      "STATUS": {
+        "DRAFT": "Draft",
+        "PENDING": "Pending",
+        "SUBMITTED": "Submitted",
+        "CONFIRMED": "Confirmed",
+        "VALIDATED": "Validated",
+        "SENT": "Sent",
+        "ACCEPTED": "Accepted",
+        "PARTIAL": "Partially paid",
+        "PARTIALLY_PAID": "Partially paid",
+        "PAID": "Paid",
+        "OVERDUE": "Overdue",
+        "REJECTED": "Rejected",
+        "CANCELLED": "Cancelled"
+      }
     },
     "DocumentEditor": {
       "title": "Document Editor",

@@ -47,6 +47,7 @@ export default function DocumentList({
   const [dateTo, setDateTo] = useState('')
 
   const docName = dt(type)
+  const statusLabel = (s: string) => (dt.has(`STATUS.${s}`) ? dt(`STATUS.${s}`) : s)
   const displayTitle = title || docName
 
   const fetchDocs = async () => {
@@ -157,7 +158,7 @@ export default function DocumentList({
         <div className="flex gap-2 flex-wrap">
           <select value={status} onChange={e => setStatus(e.target.value)}
             className="ps-3 pe-8 py-2.5 border border-stone-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-stone-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 shadow-sm appearance-none cursor-pointer hover:bg-stone-50 dark:hover:bg-zinc-800 transition-all">
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s === 'TOUT' ? t('filter_status') : s}</option>)}
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s === 'TOUT' ? t('filter_status') : statusLabel(s)}</option>)}
           </select>
           <button onClick={() => setShowFilters(!showFilters)}
             className={`p-2.5 border rounded-xl text-sm font-bold transition-all shadow-sm ${showFilters ? `${c.bg} text-white border-transparent` : 'border-stone-200 dark:border-zinc-800 text-stone-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800'}`}>
@@ -245,7 +246,7 @@ export default function DocumentList({
                   </td>
                   <td className="px-6 py-4 text-start">
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${STATUS_COLORS[doc.status] || STATUS_COLORS.DRAFT}`}>
-                      {doc.status}
+                      {statusLabel(doc.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-end">

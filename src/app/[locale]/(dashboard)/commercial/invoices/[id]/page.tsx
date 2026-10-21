@@ -28,6 +28,7 @@ export default function InvoiceDetailPage() {
   const tc = useTranslations('Common.errors')
   const t = useTranslations('Commercial.InvoiceDetail')
   const ti = useTranslations('Commercial.Invoices')
+  const dt = useTranslations('Commercial.DocumentTypes')
   const locale = useLocale()
   const params = useParams()
   const router = useRouter()
@@ -349,7 +350,7 @@ export default function InvoiceDetailPage() {
           <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800 pb-6">
             <div>
               <p className="text-[10px] font-black text-stone-500 dark:text-zinc-500 uppercase tracking-widest">{t('number', { number: invoice.number })}</p>
-              <p className="text-xs text-stone-400 dark:text-zinc-600 mt-1">{invoice.type} — {invoice.status}</p>
+              <p className="text-xs text-stone-400 dark:text-zinc-600 mt-1">{dt.has(invoice.type) ? dt(invoice.type) : invoice.type} — {dt.has(`STATUS.${invoice.status}`) ? dt(`STATUS.${invoice.status}`) : invoice.status}</p>
             </div>
             <div className="text-end">
               <p className="text-[10px] font-black text-stone-500 dark:text-zinc-500 uppercase tracking-widest">{t('date')}</p>

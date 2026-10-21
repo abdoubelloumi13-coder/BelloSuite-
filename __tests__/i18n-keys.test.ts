@@ -53,3 +53,17 @@ describe('i18n', () => {
     }
   })
 })
+
+describe('statuts de documents (Commercial.DocumentTypes.STATUS)', () => {
+  it('chaque valeur de enum InvoiceStatus a un libellé en fr / en / ar', () => {
+    const schema = fs.readFileSync(path.join(process.cwd(), 'prisma', 'schema', 'commercial.prisma'), 'utf8')
+    const body = /enum InvoiceStatus \{([^}]*)\}/.exec(schema)?.[1] ?? ''
+    const values = body.split(/\s+/).filter(v => /^[A-Z_]+$/.test(v))
+    expect(values.length).toBeGreaterThan(0)
+    for (const l of ['fr', 'en', 'ar']) {
+      const d = load(l)
+      const missing = [...values, 'OVERDUE', 'PARTIAL', 'VALIDATED'].filter(v => !has(d, `Commercial.DocumentTypes.STATUS.${v}`))
+      expect({ lang: l, missing }).toEqual({ lang: l, missing: [] })
+    }
+  })
+})
