@@ -127,3 +127,27 @@ test('table EInvoiceSimulation absente → 503 avec message « Exécutez le scri
   const st = await (await STATUS(new NextRequest(url('')), params())).json()
   expect(st.tableMissing).toBe(true)
 })
+
+test('facture non conforme TEIF : statut liste les problèmes (cibles émetteur/client) et la signature renvoie 422 + issues', async () => {
+  const saved = { tenant: invoice.tenant, client: invoice.client }
+  Object.assign(invoice, {
+    tenant: { name: 'BelloSuite SARL', matriculeFiscal: '1234567', address: '', city: 'Tunis' },
+    client: { name: 'Client Test', matriculeFiscal: '', address: 'Av. Bourguiba', city: 'Sfax' },
+    clientId: 'c1',
+  })
+  try {
+    const st = await (await STATUS(new NextRequest(url('')), params())).json()
+    expect(st.clientId).toBe('c1')
+    const targets = st.teifIssues.map((i: { target: string }) => i.target)
+    expect(targets).toEqual(expect.arrayContaining(['emitter', 'client']))
+    const s = await SIGN(post('/sign', { mode: 'digigo-mock', otp: '123456' }), params())
+    expect(s.status).toBe(422)
+    const sj = await s.json()
+    expect(sj.code).toBe('TEIF_INVALID')
+    expect(sj.error).toMatch(/Facture non conforme TEIF/)
+    expect(sj.issues.some((i: { target: string }) => i.target === 'emitter')).toBe(true)
+    expect(sj.clientId).toBe('c1')
+  } finally {
+    Object.assign(invoice, saved)
+  }
+})

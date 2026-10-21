@@ -6,7 +6,7 @@
  */
 import { prisma } from '@/lib/db'
 import { BusinessError } from '@/lib/errors'
-import { generateTEIFXml, TEIFValidationError } from '@/lib/teif-generator'
+import { generateTEIFXml, validateTEIFData, TEIFValidationError } from '@/lib/teif-generator'
 import { invoiceToTeifData } from './invoice-teif'
 import {
   signTeifXml, LocalTestSigner, DigiGoMockSigner, DigiGoMockError, SIMULATION_LABEL,
@@ -40,7 +40,14 @@ export async function buildUnsignedTeif(tenantId: string, invoiceId: string): Pr
   try {
     return { xml: generateTEIFXml(invoiceToTeifData(invoice)), number: invoice.number }
   } catch (e) {
-    if (e instanceof TEIFValidationError) throw new BusinessError(e.message, 422, { code: 'TEIF_INVALID', errors: e.errors })
+    if (e instanceof TEIFValidationError) {
+      throw new BusinessError(e.message, 422, {
+        code: 'TEIF_INVALID',
+        errors: e.errors,
+        issues: e.errors.map(message => ({ message, target: teifIssueTarget(message) })),
+        clientId: invoice.clientId ?? null,
+      })
+    }
     throw e
   }
 }
@@ -112,11 +119,34 @@ export async function submitInvoice(tenantId: string, invoiceId: string) {
   }
 }
 
+export type TeifIssueTarget = 'emitter' | 'client' | 'invoice'
+
+/** Classe une erreur de conformité TEIF selon ce qu'il faut corriger (fiche société, fiche client, facture). */
+export function teifIssueTarget(message: string): TeifIssueTarget {
+  if (/émetteur/i.test(message)) return 'emitter'
+  if (/^client/i.test(message.trim())) return 'client'
+  return 'invoice'
+}
+
+/** Erreurs de conformité TEIF (vide = facture signable). Ne lève jamais. */
+export async function getTeifIssues(tenantId: string, invoiceId: string): Promise<{ message: string; target: TeifIssueTarget }[]> {
+  try {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      include: { client: true, items: true, tenant: true },
+    })
+    if (!invoice || /QUOTE|DEVIS|DELIVERY|ORDER|PROFORMA/i.test(invoice.type || '')) return []
+    return validateTEIFData(invoiceToTeifData(invoice)).map(message => ({ message, target: teifIssueTarget(message) }))
+  } catch {
+    return []
+  }
+}
+
 /** État affiché sur la fiche facture. Ne lève pas si la table manque : renvoie tableMissing. */
 export async function getEInvoiceStatus(tenantId: string, invoiceId: string) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, tenantId },
-    select: { id: true, ttnStatus: true, ttnReference: true, ttnQRCode: true, ttnSubmittedAt: true, ttnAcceptedAt: true, ttnErrorMessage: true },
+    select: { id: true, clientId: true, ttnStatus: true, ttnReference: true, ttnQRCode: true, ttnSubmittedAt: true, ttnAcceptedAt: true, ttnErrorMessage: true },
   })
   if (!invoice) throw new BusinessError('Facture introuvable', 404)
   let sim = null
@@ -132,6 +162,8 @@ export async function getEInvoiceStatus(tenantId: string, invoiceId: string) {
     : invoice.ttnStatus === 'REJECTED' && sim?.signedXml
       ? 'rejected'
       : sim?.signedXml ? 'signed' : 'teif'
+  // Conformité TEIF : seulement utile tant que la facture n'est pas signée
+  const teifIssues = sim?.signedXml ? [] : await getTeifIssues(tenantId, invoiceId)
   return {
     step,
     tableMissing,
@@ -143,6 +175,8 @@ export async function getEInvoiceStatus(tenantId: string, invoiceId: string) {
     submittedAt: invoice.ttnSubmittedAt?.toISOString() ?? null,
     acceptedAt: invoice.ttnAcceptedAt?.toISOString() ?? null,
     errorMessage: step === 'rejected' ? invoice.ttnErrorMessage : null,
+    clientId: invoice.clientId ?? null,
+    teifIssues,
     simulated: true,
     label: SIMULATION_LABEL,
   }

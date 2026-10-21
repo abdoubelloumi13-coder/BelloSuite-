@@ -3107,6 +3107,11 @@
       "save_failed": "Enregistrement impossible",
       "load_failed": "Chargement des paramètres impossible",
       "asp_link": "Prestataire TTN (ASP) — configuration"
-    }
+    },
+    "fix_emitter": "Compléter le profil société",
+    "fix_client": "Modifier la fiche client",
+    "non_conforming_title": "Facture non conforme TEIF — signature impossible",
+    "non_conforming_detail": "Corrigez les points ci-dessous, puis revenez sur cette facture pour la signer.",
+    "sign_disabled_hint": "Signature désactivée : la facture n'est pas conforme TEIF (voir ci-dessous)"
   }
 }

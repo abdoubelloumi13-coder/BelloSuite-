@@ -3107,6 +3107,11 @@
       "save_failed": "Could not save",
       "load_failed": "Could not load settings",
       "asp_link": "TTN provider (ASP) — configuration"
-    }
+    },
+    "fix_emitter": "Complete company profile",
+    "fix_client": "Edit client record",
+    "non_conforming_title": "Invoice not TEIF-compliant — signing unavailable",
+    "non_conforming_detail": "Fix the points below, then come back to this invoice to sign it.",
+    "sign_disabled_hint": "Signing disabled: the invoice is not TEIF-compliant (see below)"
   }
 }

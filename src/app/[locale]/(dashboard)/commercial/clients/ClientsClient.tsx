@@ -18,6 +18,14 @@ export default function ClientsClient({ initialClients, tenantId }: { initialCli
     setClients(initialClients)
   }, [initialClients])
 
+  // Lien direct « Modifier la fiche client » (ex. depuis la facture électronique) : ?edit=<clientId>
+  useEffect(() => {
+    const editId = new URLSearchParams(window.location.search).get('edit')
+    if (!editId) return
+    const c = initialClients.find(x => x.id === editId)
+    if (c) { setSelectedClient(c); setIsModalOpen(true) }
+  }, [initialClients])
+
   const fetchClients = async () => {
     try {
       const res = await fetch(`/api/commercial/clients`)

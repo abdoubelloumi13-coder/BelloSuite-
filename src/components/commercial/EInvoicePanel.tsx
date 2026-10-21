@@ -7,9 +7,13 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, CheckCircle, Download, FileCode, KeyRound, Loader2, PenLine, Send, ShieldCheck, X, XCircle } from 'lucide-react'
+import { Link } from '@/i18n/routing'
+import { fetchWithTimeout } from '@/lib/fetch-timeout'
+import { AlertTriangle, ArrowRight, CheckCircle, Download, FileCode, KeyRound, Loader2, PenLine, Send, ShieldCheck, X, XCircle } from 'lucide-react'
 
 type Step = 'teif' | 'signed' | 'submitted' | 'validated' | 'rejected'
+type IssueTarget = 'emitter' | 'client' | 'invoice'
+interface TeifIssue { message: string; target: IssueTarget }
 
 interface EInvoiceStatus {
   step: Step
@@ -22,6 +26,14 @@ interface EInvoiceStatus {
   submittedAt: string | null
   acceptedAt: string | null
   errorMessage: string | null
+  clientId?: string | null
+  teifIssues?: TeifIssue[]
+}
+
+const FIX_LINK: Record<IssueTarget, ((clientId: string | null) => string) | null> = {
+  emitter: () => '/settings#company',
+  client: (clientId) => (clientId ? `/commercial/clients?edit=${encodeURIComponent(clientId)}` : '/commercial/clients'),
+  invoice: null,
 }
 
 const STEPS: Step[] = ['teif', 'signed', 'submitted', 'validated']
@@ -38,7 +50,7 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
   const [status, setStatus] = useState<EInvoiceStatus | null>(null)
   const [busy, setBusy] = useState<null | 'sign' | 'submit'>(null)
   const [error, setError] = useState<string | null>(null)
-  const [errorList, setErrorList] = useState<string[]>([])
+  const [errorList, setErrorList] = useState<TeifIssue[]>([])
   const [otpOpen, setOtpOpen] = useState(false)
   const [otp, setOtp] = useState('')
   const [defaultMode, setDefaultMode] = useState<'local' | 'digigo-mock'>('local')
@@ -47,7 +59,7 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(base)
+      const res = await fetchWithTimeout(base, {}, 20_000)
       if (res.ok) setStatus(await res.json())
     } catch { /* hors ligne : section masquée */ }
   }, [base])
@@ -60,29 +72,34 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
       .catch(() => undefined)
   }, [load])
 
-  const showError = (data: { error?: string; errors?: string[] } | null, fallback: string) => {
+  const showError = (data: { error?: string; errors?: string[]; issues?: TeifIssue[] } | null, fallback: string) => {
     setError(data?.error || fallback)
-    setErrorList(Array.isArray(data?.errors) ? data!.errors! : [])
+    setErrorList(
+      Array.isArray(data?.issues) ? data!.issues!
+        : Array.isArray(data?.errors) ? data!.errors!.map(message => ({ message, target: 'invoice' as IssueTarget }))
+          : [],
+    )
   }
 
   const sign = async (mode: 'local' | 'digigo-mock', code?: string) => {
     setBusy('sign'); setError(null); setErrorList([])
     try {
-      const res = await fetch(`${base}/sign`, {
+      const res = await fetchWithTimeout(`${base}/sign`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, ...(code ? { otp: code } : {}) }),
-      })
+      }, 30_000)
       const data = await res.json().catch(() => null)
-      if (!res.ok) { showError(data, t('sign_failed')); return }
+      // Toujours fermer la fenêtre OTP : l'erreur s'affiche dans le panneau (sinon masquée par la modale)
       setOtpOpen(false); setOtp('')
+      if (!res.ok) { showError(data, t('sign_failed')); await load(); return }
       await load(); onChanged?.()
-    } catch { setError(t('network_error')) } finally { setBusy(null) }
+    } catch { setOtpOpen(false); setError(t('network_error')) } finally { setBusy(null) }
   }
 
   const submit = async () => {
     setBusy('submit'); setError(null); setErrorList([])
     try {
-      const res = await fetch(`${base}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const res = await fetchWithTimeout(`${base}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }, 30_000)
       const data = await res.json().catch(() => null)
       if (!res.ok) showError(data, t('submit_failed'))
       await load(); onChanged?.()
@@ -106,6 +123,26 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
   const idx = stepIndex(status.step)
   const signed = idx >= 1
   const validated = status.step === 'validated'
+  const issues = !signed ? (status.teifIssues ?? []) : []
+  const nonConforming = issues.length > 0
+  const fixLabel = (target: IssueTarget) => (target === 'emitter' ? t('fix_emitter') : t('fix_client'))
+  const renderIssues = (list: TeifIssue[]) => (
+    <ul className="list-disc ms-5 mt-1 text-xs space-y-1">
+      {list.map((e, i) => {
+        const href = FIX_LINK[e.target]?.(status.clientId ?? null)
+        return (
+          <li key={i}>
+            {e.message}
+            {href && (
+              <Link href={href} className="ms-2 inline-flex items-center gap-1 font-black underline underline-offset-2 hover:no-underline">
+                {fixLabel(e.target)} <ArrowRight className="w-3 h-3 rtl:rotate-180" />
+              </Link>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
   const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString('fr-TN', { timeZone: 'Africa/Tunis' }) : '')
 
   return (
@@ -151,6 +188,14 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
         })}
       </ol>
 
+      {nonConforming && !validated && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+          <p className="font-black flex items-center gap-2"><XCircle className="w-4 h-4" /> {t('non_conforming_title')}</p>
+          <p className="text-xs mt-1">{t('non_conforming_detail')}</p>
+          {renderIssues(issues)}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => download('')}
@@ -159,11 +204,11 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
         </button>
         {!validated && (
           <>
-            <button type="button" disabled={!!busy || status.tableMissing} onClick={() => sign('local')}
+            <button type="button" disabled={!!busy || status.tableMissing || nonConforming} title={nonConforming ? t('sign_disabled_hint') : undefined} onClick={() => sign('local')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50 ${defaultMode === 'local' ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'border border-purple-200 text-purple-700 dark:border-purple-500/30 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10'}`}>
               {busy === 'sign' ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenLine className="w-4 h-4" />} {t('sign_local')}
             </button>
-            <button type="button" disabled={!!busy || status.tableMissing} onClick={() => { setOtp(''); setOtpOpen(true) }}
+            <button type="button" disabled={!!busy || status.tableMissing || nonConforming} title={nonConforming ? t('sign_disabled_hint') : undefined} onClick={() => { setOtp(''); setOtpOpen(true) }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50 ${defaultMode === 'digigo-mock' ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'border border-purple-200 text-purple-700 dark:border-purple-500/30 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10'}`}>
               <KeyRound className="w-4 h-4" /> {t('sign_digigo')}
             </button>
@@ -196,9 +241,9 @@ export function EInvoicePanel({ invoiceId, onChanged }: { invoiceId: string; onC
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           <p className="font-bold">{error}</p>
-          {errorList.length > 0 && <ul className="list-disc ms-5 mt-1 text-xs space-y-0.5">{errorList.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+          {errorList.length > 0 && renderIssues(errorList)}
         </div>
       )}
       {status.step === 'rejected' && status.errorMessage && !error && (
