@@ -17,6 +17,8 @@
  *   I-180 total TTC, I-181 total taxes
  */
 
+import { normalizeMatricule, isValidCin } from '@/lib/matricule'
+
 export interface TEIFData {
   invoiceNumber: string
   type: string
@@ -59,13 +61,13 @@ export const FODEC_RATE = 1
  * « 0736202/X/A/M/000 » → « 0736202XAM000 ». Renvoie null si incomplet.
  */
 export function teifMatricule(mf: string | null | undefined): string | null {
-  const m = (mf || '').toUpperCase().replace(/[\s/.\-]/g, '')
+  const m = normalizeMatricule(mf)
   return /^\d{7}[A-HJ-NP-TV-Z][APBFN][MPCNE]\d{3}$/.test(m) ? m : null
 }
 
 export function teifCin(id: string | null | undefined): string | null {
   const c = (id || '').replace(/\s/g, '')
-  return /^\d{8}$/.test(c) ? c : null
+  return isValidCin(c) ? c : null
 }
 
 export function teifDocumentType(type: string): { code: string; label: string } {

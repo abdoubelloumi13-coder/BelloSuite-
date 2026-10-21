@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { BusinessError } from '@/lib/errors'
-import { optionalText, optionalEmail } from '@/lib/zod-helpers'
+import { optionalText, optionalEmail, blankToNull } from '@/lib/zod-helpers'
+import { normalizeFiscalId } from '@/lib/matricule'
 
 // ─── Zod Schemas ────────────────────────────────────────────
 
@@ -13,7 +14,11 @@ const clientFields = {
   address: optionalText(),
   city: optionalText(),
   zipCode: optionalText(),
-  matriculeFiscal: optionalText(),
+  // « 1234567/A/A/M/000 » → « 1234567AAM000 » ; CIN (8 chiffres) conservé tel quel
+  matriculeFiscal: z.preprocess(
+    v => { const b = blankToNull(v); return typeof b === 'string' ? normalizeFiscalId(b) || null : b },
+    z.string().nullable().optional(),
+  ),
 }
 
 export const createClientSchema = z.object({

@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { X, Save, User, Mail, Phone, MapPin, Building2, ShieldCheck } from 'lucide-react'
 import gsap from 'gsap'
 import { readApiError } from '@/lib/zod-helpers'
+import { isValidMatricule, isValidCin, normalizeFiscalId } from '@/lib/matricule'
 
 interface ClientModalProps {
   isOpen: boolean
@@ -70,6 +71,12 @@ export default function ClientModal({ isOpen, onClose, onSuccess, tenantId, clie
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    // Matricule fiscal (13 caractères, séparateurs acceptés) ou CIN (8 chiffres)
+    const mf = formData.matriculeFiscal.trim()
+    if (mf && !isValidMatricule(mf) && !isValidCin(mf)) {
+      setError(t('matricule_invalid'))
+      return
+    }
     setLoading(true)
     
     try {
@@ -79,7 +86,7 @@ export default function ClientModal({ isOpen, onClose, onSuccess, tenantId, clie
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, tenantId }),
+        body: JSON.stringify({ ...formData, matriculeFiscal: normalizeFiscalId(mf), tenantId }),
       })
 
       if (res.ok) {
@@ -141,8 +148,10 @@ export default function ClientModal({ isOpen, onClose, onSuccess, tenantId, clie
                   onChange={e => setFormData({...formData, matriculeFiscal: e.target.value})}
                   className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl ps-12 pe-4 py-3 text-stone-900 dark:text-white focus:border-teal-500 shadow-inner transition-all outline-none font-mono text-start"
                   placeholder={t('matricule_placeholder')}
+                  aria-describedby="client-mf-hint"
                 />
               </div>
+              <p id="client-mf-hint" className="text-[11px] text-stone-500 dark:text-zinc-500 ms-1">{t('matricule_hint')}</p>
             </div>
 
             <div className="space-y-2">

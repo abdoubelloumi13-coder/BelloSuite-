@@ -574,7 +574,7 @@
         "name_label": "Name / Company Name",
         "name_placeholder": "e.g. South Distribution Company",
         "matricule_label": "Fiscal ID",
-        "matricule_placeholder": "1234567/A/M/000",
+        "matricule_placeholder": "1234567/A/A/M/000 or CIN",
         "email_label": "Business Email",
         "email_placeholder": "contact@client.tn",
         "phone_label": "Phone",
@@ -588,7 +588,9 @@
         "saving": "Saving...",
         "save": "Save Client",
         "cancel": "Cancel",
-        "save_error": "Unable to save the client"
+        "save_error": "Unable to save the client",
+        "matricule_hint": "13 characters, e.g. 1234567/A/A/M/000 — or national ID (8 digits)",
+        "matricule_invalid": "Invalid tax ID: 13 characters expected (7 digits + 3 letters + 3 digits, e.g. 1234567/A/A/M/000) or an 8-digit national ID"
       }
     },
     "Suppliers": {
@@ -2990,6 +2992,10 @@
       "stock": {
         "title": "Stock settings",
         "desc": "Valuation, warehouses, alert thresholds"
+      },
+      "company": {
+        "title": "Company profile",
+        "desc": "Legal name, tax ID, address, bank account"
       }
     },
     "modules_title": "Active modules",
@@ -3011,6 +3017,29 @@
       "inactive": "Inactive",
       "load_error": "Unable to load users",
       "hint": "Adding and removing users is handled by BelloSuite support."
+    },
+    "company": {
+      "title": "Company profile (issuer)",
+      "hint": "This information appears on your printed invoices and in the TEIF file (El Fatoora).",
+      "name": "Legal name",
+      "matricule": "Tax ID (matricule fiscal)",
+      "matricule_hint": "13 characters, e.g. 1234567/A/A/M/000",
+      "matricule_invalid": "Invalid tax ID: 7 digits + 3 letters + 3 digits (e.g. 1234567/A/A/M/000)",
+      "address": "Address",
+      "city": "City",
+      "zip": "Postal code",
+      "phone": "Phone",
+      "email": "Email",
+      "rib": "Bank account (RIB)",
+      "rib_hint": "20 digits",
+      "rib_invalid": "Invalid RIB: 20 digits expected",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Profile saved",
+      "load_error": "Could not load the company profile",
+      "save_error": "Save failed",
+      "teif_ok": "TEIF-ready: tax ID and address filled in",
+      "teif_missing": "To sign e-invoices, fill in a complete tax ID and the address."
     }
   },
   "EInvoice": {

@@ -574,7 +574,7 @@
         "name_label": "Nom / Raison Sociale",
         "name_placeholder": "Ex: Société de Distribution du Sud",
         "matricule_label": "Matricule Fiscal",
-        "matricule_placeholder": "1234567/A/M/000",
+        "matricule_placeholder": "1234567/A/A/M/000 ou CIN",
         "email_label": "Email Professionnel",
         "email_placeholder": "contact@client.tn",
         "phone_label": "Téléphone",
@@ -588,7 +588,9 @@
         "saving": "Enregistrement...",
         "save": "Enregistrer le Client",
         "cancel": "Annuler",
-        "save_error": "Impossible d'enregistrer le client"
+        "save_error": "Impossible d'enregistrer le client",
+        "matricule_hint": "13 caractères, ex. 1234567/A/A/M/000 — ou CIN (8 chiffres)",
+        "matricule_invalid": "Matricule fiscal invalide : 13 caractères attendus (7 chiffres + 3 lettres + 3 chiffres, ex. 1234567/A/A/M/000) ou CIN à 8 chiffres"
       }
     },
     "Suppliers": {
@@ -2990,6 +2992,10 @@
       "stock": {
         "title": "Paramètres du stock",
         "desc": "Valorisation, dépôts, seuils d'alerte"
+      },
+      "company": {
+        "title": "Profil de l'entreprise",
+        "desc": "Raison sociale, matricule fiscal, adresse, RIB"
       }
     },
     "modules_title": "Modules actifs",
@@ -3011,6 +3017,29 @@
       "inactive": "Inactif",
       "load_error": "Impossible de charger les utilisateurs",
       "hint": "L'ajout et la suppression d'utilisateurs se font auprès du support BelloSuite."
+    },
+    "company": {
+      "title": "Profil de l'entreprise (émetteur)",
+      "hint": "Ces informations figurent sur vos factures imprimées et dans le fichier TEIF (El Fatoora).",
+      "name": "Raison sociale",
+      "matricule": "Matricule fiscal",
+      "matricule_hint": "13 caractères, ex. 1234567/A/A/M/000",
+      "matricule_invalid": "Matricule fiscal invalide : 7 chiffres + 3 lettres + 3 chiffres (ex. 1234567/A/A/M/000)",
+      "address": "Adresse",
+      "city": "Ville",
+      "zip": "Code postal",
+      "phone": "Téléphone",
+      "email": "E-mail",
+      "rib": "RIB",
+      "rib_hint": "20 chiffres",
+      "rib_invalid": "RIB invalide : 20 chiffres attendus",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Profil enregistré",
+      "load_error": "Impossible de charger le profil de l'entreprise",
+      "save_error": "Échec de l'enregistrement",
+      "teif_ok": "Conforme TEIF : matricule et adresse renseignés",
+      "teif_missing": "Pour signer vos factures électroniques, renseignez un matricule fiscal complet et l'adresse."
     }
   },
   "EInvoice": {

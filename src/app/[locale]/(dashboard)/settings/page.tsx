@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
-import { Settings, Users, FileCheck2, Calendar, BookOpen, Warehouse, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Settings, Building2, Users, FileCheck2, Calendar, BookOpen, Warehouse, CheckCircle2, ArrowRight } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
+import { CompanyProfileForm } from '@/components/settings/CompanyProfileForm'
 
 const LINKS = [
+  { href: '/settings#company', key: 'company', icon: Building2 },
   { href: '/users', key: 'users', icon: Users },
   { href: '/commercial/settings/ttn', key: 'einvoice', icon: FileCheck2 },
   { href: '/accounting/periods', key: 'periods', icon: Calendar },
@@ -55,6 +57,8 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      <CompanyProfileForm tenantId={tenantId} />
 
       <section className="p-6 rounded-2xl border border-stone-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40">
         <h2 className="font-black text-stone-900 dark:text-white mb-1">{t('modules_title')}</h2>
