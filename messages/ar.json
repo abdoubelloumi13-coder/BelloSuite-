@@ -51,6 +51,10 @@
       "production": {
         "title": "الإنتاج (GPAO)",
         "description": "مراكز العمل، المسارات، قوائم المواد (BOM) وتنفيذ أوامر التصنيع."
+      },
+      "crm": {
+        "description": "مسار العملاء المحتملين، كانبان تجاري، متابعات آلية، تحويل إلى حرفاء.",
+        "title": "إدارة العلاقات والاستكشاف"
       }
     },
     "features": {
@@ -96,7 +100,9 @@
     "scan_document": "مسح وثيقة",
     "fiscal_assistant": "المساعد الجبائي",
     "anomalies": "نقاط للمراجعة",
-    "firm_space": "فضاء المكتب"
+    "firm_space": "فضاء المكتب",
+    "close": "إغلاق القائمة",
+    "open": "فتح القائمة"
   },
   "Common": {
     "dashboard": "لوحة القيادة",
@@ -1624,7 +1630,9 @@
         "email": "البريد الإلكتروني",
         "position": "الخطة",
         "cin": "بطاقة التعريف",
-        "last_name": "اللقب"
+        "last_name": "اللقب",
+        "department_placeholder": "مثال: الإنتاج",
+        "position_placeholder": "مثال: فني صيانة"
       }
     },
     "payroll": {
@@ -2031,7 +2039,12 @@
       "actions": "الإجراءات",
       "status": "الحالة",
       "active": "نشط",
-      "role": "الدور"
+      "role": "الدور",
+      "delete": "حذف",
+      "details": "التفاصيل",
+      "impersonate": "الدخول باسم",
+      "role_admin": "مسؤول",
+      "role_user": "مستخدم"
     },
     "dashboard": {
       "no_modules": "لا توجد وحدات في الكتالوج. اتصل بمسؤول النظام.",
@@ -2065,7 +2078,46 @@
       "active": "نشط",
       "role_admin": "مشرف",
       "role": "الدور",
-      "role_user": "مستخدم"
+      "role_user": "مستخدم",
+      "action": "الإجراء",
+      "admin": "المسؤول",
+      "all_actions": "كل الإجراءات",
+      "all_tenants": "كل المؤسسات",
+      "cancel": "إلغاء",
+      "continue_typing": "واصل الكتابة...",
+      "date": "التاريخ",
+      "delete": "حذف",
+      "delete_hard_btn": "حذف نهائي",
+      "delete_mode_hard": "حذف نهائي",
+      "delete_mode_hard_desc": "حذف فعلي لكل البيانات (مستخدمون، منتجات، فواتير…). لا رجعة فيه.",
+      "delete_mode_soft": "تعليق (حذف مؤقت)",
+      "delete_mode_soft_desc": "يعطل الحساب. تحفظ البيانات ويمكن استرجاعها، ويحظر الدخول.",
+      "delete_soft_btn": "تعليق",
+      "delete_tenant_action_log": "سيتم تسجيل هذا الإجراء في سجل التدقيق.",
+      "delete_tenant_title": "حذف الحريف: {name}",
+      "delete_tenant_warning": "اختر طريقة الحذف. يتم تسجيل الطريقتين في سجل التدقيق.",
+      "delete_user_title": "حذف المستخدم: {email}",
+      "delete_user_warning": "اختر طريقة الحذف.",
+      "details": "التفاصيل",
+      "export": "تصدير",
+      "filter_action": "تصفية حسب الإجراء",
+      "filter_tenant": "تصفية حسب المؤسسة",
+      "filters": "المرشحات",
+      "impersonate": "الدخول باسم",
+      "loading": "جار التحميل...",
+      "no_logs": "لا يوجد سجل تدقيق",
+      "no_results": "لا توجد نتائج",
+      "refresh": "تحديث",
+      "results": "{count} نتيجة",
+      "search_placeholder": "بحث شامل (الاسم، البريد، النطاق الفرعي، المعرف الجبائي)...",
+      "searching": "جار البحث...",
+      "section_tenants": "الحرفاء",
+      "section_users": "المستخدمون",
+      "show_inactive": "عرض المعلقين",
+      "showing": "عرض {from} إلى {to} من {total}",
+      "tab_audit": "📋 التدقيق",
+      "target": "الهدف",
+      "tenant": "المؤسسة"
     },
     "create_tenant": {
       "modules_hint": "ستكون هذه الوحدات متاحة للعميل فورًا",
@@ -2124,6 +2176,62 @@
       "updating": "جارٍ التحديث...",
       "save": "حفظ",
       "cancel": "إلغاء"
+    },
+    "auditLogs": {
+      "action": "الإجراء",
+      "admin": "المسؤول",
+      "all_actions": "كل الإجراءات",
+      "all_tenants": "كل الحرفاء",
+      "date": "التاريخ",
+      "details": "التفاصيل",
+      "export": "تصدير",
+      "filter_action": "الإجراء",
+      "filter_tenant": "الحريف",
+      "filters": "المرشحات",
+      "loading": "جار تحميل السجل…",
+      "no_logs": "لا يوجد سجل تدقيق لهذه المرشحات",
+      "no_results": "لا توجد نتائج",
+      "refresh": "تحديث",
+      "showing": "{from}–{to} من {total}",
+      "target": "الهدف",
+      "tenant": "الحريف"
+    },
+    "globalSearch": {
+      "continue_typing": "واصل الكتابة لتدقيق البحث",
+      "placeholder": "بحث شامل: حريف، بريد، مستخدم، معرف جبائي…",
+      "results": "{count} نتيجة",
+      "searching": "جار البحث…",
+      "section_tenants": "الحرفاء",
+      "section_users": "المستخدمون"
+    },
+    "tenantDetail": {
+      "action": "الإجراء",
+      "actions": "الإجراءات",
+      "active": "نشط",
+      "add_note": "إضافة الملاحظة",
+      "admin": "المسؤول",
+      "confirm_delete_note": "حذف هذه الملاحظة؟",
+      "created_at": "تاريخ الإنشاء",
+      "date": "التاريخ",
+      "delete_note": "حذف الملاحظة",
+      "details": "التفاصيل",
+      "inactive": "غير نشط",
+      "new_note": "ملاحظة داخلية جديدة",
+      "no_audit_logs": "لا توجد إجراءات مسجلة",
+      "no_members": "لا يوجد أعضاء لدى هذا الحريف",
+      "no_notes": "لا توجد ملاحظات داخلية",
+      "note_placeholder": "دعم، حادث، متابعة، سياق…",
+      "role": "الدور",
+      "role_admin": "مسؤول",
+      "role_user": "مستخدم",
+      "status": "الحالة",
+      "subtitle": "عرض مفصل للحريف — الأعضاء، الملاحظات الداخلية، السجل",
+      "tab_audit": "التدقيق",
+      "tab_members": "الأعضاء",
+      "tab_notes": "ملاحظات داخلية",
+      "target": "الهدف",
+      "user": "المستخدم",
+      "view_details": "عرض التفاصيل"
     }
   },
   "StockMod": {
@@ -2592,7 +2700,35 @@
     "review_loading": "جار التحقق من الفاتورة…",
     "review_error": "فشل التحقق من الفاتورة",
     "review_timeout": "استغرق التحقق من الفاتورة وقتا طويلا",
-    "review_retry": "إعادة المحاولة"
+    "review_retry": "إعادة المحاولة",
+    "all_docs": "كل الوثائق",
+    "clear": "مسح",
+    "no_results": "لم يتم العثور على أي وثيقة",
+    "search_error": "خطأ في البحث",
+    "search_placeholder": "ابحث في الوثائق الممسوحة (المزود، الرقم، المبلغ…)",
+    "semantic_search": "بحث دلالي (ذكاء اصطناعي)",
+    "sort_amount_asc": "المبلغ تصاعديا",
+    "sort_amount_desc": "المبلغ تنازليا",
+    "sort_date_asc": "الأقدم أولا",
+    "sort_date_desc": "الأحدث أولا",
+    "sort_relevance": "الصلة",
+    "supplier_filter": "تصفية حسب المزود",
+    "scan_search": {
+      "all_docs": "كل الوثائق",
+      "clear": "مسح المرشحات",
+      "no_results": "لا توجد وثيقة ممسوحة تطابق بحثك",
+      "placeholder": "ابحث بكلمة مفتاحية، مزود، مرجع، مبلغ…",
+      "result_count": "{count} نتيجة",
+      "search_error": "خطأ في البحث",
+      "semantic_search": "بحث دلالي (ذكاء اصطناعي)",
+      "sort_amount_asc": "المبلغ تصاعديا",
+      "sort_amount_desc": "المبلغ تنازليا",
+      "sort_date_asc": "الأقدم أولا",
+      "sort_date_desc": "الأحدث أولا",
+      "sort_relevance": "حسب الصلة",
+      "supplier_filter": "تصفية حسب المزود",
+      "title": "البحث في الوثائق الممسوحة"
+    }
   },
   "FiscalAssistant": {
     "title": "المساعد الجبائي",

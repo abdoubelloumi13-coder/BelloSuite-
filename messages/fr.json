@@ -100,7 +100,9 @@
     "scan_document": "Scanner un document",
     "fiscal_assistant": "Assistant fiscal",
     "anomalies": "Points à vérifier",
-    "firm_space": "Espace cabinet"
+    "firm_space": "Espace cabinet",
+    "close": "Fermer le menu",
+    "open": "Ouvrir le menu"
   },
   "Common": {
     "dashboard": "Tableau de Bord",
@@ -1628,7 +1630,9 @@
         "email": "Email",
         "position": "Poste",
         "cin": "CIN",
-        "last_name": "Nom"
+        "last_name": "Nom",
+        "department_placeholder": "Ex : Production",
+        "position_placeholder": "Ex : Technicien de maintenance"
       }
     },
     "payroll": {
@@ -2712,7 +2716,19 @@
     "review_loading": "Contrôle de la facture en cours…",
     "review_error": "Le contrôle de la facture a échoué",
     "review_timeout": "Le contrôle de la facture a pris trop de temps",
-    "review_retry": "Réessayer"
+    "review_retry": "Réessayer",
+    "all_docs": "Tous les documents",
+    "clear": "Effacer",
+    "no_results": "Aucun document trouvé",
+    "search_error": "Erreur de recherche",
+    "search_placeholder": "Rechercher dans les documents scannés (fournisseur, n°, montant…)",
+    "semantic_search": "Recherche sémantique (IA)",
+    "sort_amount_asc": "Montant croissant",
+    "sort_amount_desc": "Montant décroissant",
+    "sort_date_asc": "Plus anciens d'abord",
+    "sort_date_desc": "Plus récents d'abord",
+    "sort_relevance": "Pertinence",
+    "supplier_filter": "Filtrer par fournisseur"
   },
   "FiscalAssistant": {
     "title": "Assistant fiscal",
