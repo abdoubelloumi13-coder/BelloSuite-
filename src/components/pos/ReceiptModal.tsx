@@ -5,7 +5,7 @@ import { X, Printer } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
 interface ReceiptModalProps {
-  order: any
+  order: any // eslint-disable-line @typescript-eslint/no-explicit-any
   onClose: () => void
 }
 
@@ -52,9 +52,11 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
       <table>
         <tr><td>${t('ht')}</td><td class="right">${Number(order.subtotalHT).toFixed(3)}</td></tr>
         <tr><td>${t('vat')}</td><td class="right">${Number(order.totalVAT).toFixed(3)}</td></tr>
-        <tr><td>${t('stamp')}</td><td class="right">${Number(order.timbreFiscal || 1).toFixed(3)}</td></tr>
+        ${Number(order.discountAmount) > 0 ? `<tr><td>Remise</td><td class="right">-${Number(order.discountAmount).toFixed(3)}</td></tr>` : ''}
+        ${Number(order.timbreFiscal) > 0 ? `<tr><td>${t('stamp')}</td><td class="right">${Number(order.timbreFiscal).toFixed(3)}</td></tr>` : ''}
         <tr class="total-row"><td>${t('total_ttc')}</td><td class="right">${Number(order.totalTTC).toFixed(3)} DT</td></tr>
       </table>
+      ${Number(order.changeGiven) > 0 ? `<table><tr><td>Reçu</td><td class="right">${Number(order.paidAmount).toFixed(3)}</td></tr><tr><td>Rendu</td><td class="right">${Number(order.changeGiven).toFixed(3)}</td></tr></table>` : ''}
       ${order.isPaid ? `<div class="center bold">${t('paid')}</div>` : ''}
       <div class="center border-top">${t('thanks')}</div>
       </body></html>`)
@@ -88,7 +90,9 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
             <div className="border-t border-dashed border-stone-300 pt-2 mt-2 space-y-1 text-xs">
               <div className="flex justify-between"><span>{t('ht')}</span><span>{formatMoney(Number(order.subtotalHT), locale)}</span></div>
               <div className="flex justify-between"><span>{t('vat')}</span><span>{formatMoney(Number(order.totalVAT), locale)}</span></div>
-              <div className="flex justify-between"><span>{t('stamp')}</span><span>{formatMoney(Number(order.timbreFiscal || 1), locale)}</span></div>
+              {Number(order.discountAmount) > 0 && <div className="flex justify-between"><span>Remise</span><span>-{formatMoney(Number(order.discountAmount), locale)}</span></div>}
+              {/* Timbre affiché uniquement s'il a été appliqué (réglage caisse, défaut : non) */}
+              {Number(order.timbreFiscal) > 0 && <div className="flex justify-between"><span>{t('stamp')}</span><span>{formatMoney(Number(order.timbreFiscal), locale)}</span></div>}
               <div className="flex justify-between font-bold text-base border-t border-dashed border-stone-300 pt-1 mt-1">
                 <span>{t('total_ttc')}</span><span>{formatMoney(Number(order.totalTTC), locale)}</span>
               </div>
