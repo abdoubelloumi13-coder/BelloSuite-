@@ -70,19 +70,33 @@ export async function getPayrollSummary(tenantId: string, month: number, year: n
     annee: year,
   }
 
-  const [payslips, params] = await Promise.all([
+  const [payslips, params, employees] = await Promise.all([
     prisma.paySlip.findMany({ where }),
     prisma.paieParameters.findFirst({ where: { tenantId } }),
+    prisma.employee.findMany({ where: { tenantId, isActive: true }, select: { id: true } }),
   ])
 
+  const sum = (pick: (p: (typeof payslips)[number]) => unknown) =>
+    Math.round(payslips.reduce((s, p) => s + (Number(pick(p)) || 0), 0) * 1000) / 1000
+  const pending = payslips.filter((p) => p.statut === PaymentStatus.PENDING).length
+
+  // Forme complète et stable, même sans bulletin pour la période (la page affiche des zéros)
   return {
+    month,
+    year,
     totalEmployees: payslips.length,
-    totalGross: payslips.reduce((sum, p) => sum + Number(p.brutGlobal), 0),
-    totalNet: payslips.reduce((sum, p) => sum + Number(p.netAPayer), 0),
-    totalCNSS: payslips.reduce((sum, p) => sum + Number(p.cnssSalaire), 0),
-    totalIRPP: payslips.reduce((sum, p) => sum + Number(p.irpp), 0),
+    activeEmployees: employees.length,
+    employeeIds: employees.map((e) => e.id),
+    totalGross: sum((p) => p.brutGlobal),
+    totalNet: sum((p) => p.netAPayer),
+    totalCNSS: sum((p) => p.cnssSalaire),
+    totalIRPP: sum((p) => p.irpp),
+    totalOvertime: sum((p) => p.heuresSupMontant),
+    totalTransport: sum((p) => p.primeTransport),
+    totalMeal: sum((p) => p.primePanier),
     statusBreakdown: {
-      pending: payslips.filter((p) => p.statut === PaymentStatus.PENDING).length,
+      pending,
+      draft: pending,
       paid: payslips.filter((p) => p.statut === PaymentStatus.PAID).length,
       cancelled: payslips.filter((p) => p.statut === PaymentStatus.CANCELLED).length,
     },

@@ -1690,7 +1690,12 @@
         "overtime": "Heures Supp.",
         "total_irpp": "Total IRPP",
         "employees": "Employés"
-      }
+      },
+      "load_error": "Impossible de charger la paie de cette période",
+      "generate_error": "Impossible de générer les bulletins",
+      "no_employees": "Aucun employé actif : ajoutez des employés avant de générer la paie",
+      "empty_period": "Aucun bulletin pour cette période. Cliquez sur « Générer » pour calculer la paie.",
+      "cancelled_count": "Annulé ({count})"
     }
   },
   "GPAO": {

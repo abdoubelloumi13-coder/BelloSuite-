@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PayrollSummary } from "./components/PayrollSummary";
 import { PaySlipTable } from "./components/PaySlipTable";
 import { PaySlipModal } from "./components/PaySlipModal";
 import { DollarSign, FileText, Users, Settings, Plus } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useTranslations } from 'next-intl'
+import { apiErrorMessage } from "@/lib/zod-helpers";
 
 const MONTHS = [
   { value: 1 },
@@ -34,46 +35,72 @@ export default function PaiePage() {
   const [loading, setLoading] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  const fetchPayrollData = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    setError("");
+    try {
+      // mois/année toujours transmis (l'API exige une période ; mois en cours par défaut)
+      const qs = new URLSearchParams({ tenantId, month: String(selectedMonth), year: String(selectedYear) });
+      const [summaryRes, payslipsRes] = await Promise.all([
+        fetch(`/api/hr/payroll?${qs}`),
+        fetch(`/api/hr/payslips?${qs}`),
+      ]);
+      const summaryData = await summaryRes.json().catch(() => null);
+      const payslipsData = await payslipsRes.json().catch(() => null);
+      if (!summaryRes.ok) {
+        setSummary(null);
+        setError(apiErrorMessage(summaryData, t("load_error")));
+      } else {
+        setSummary(summaryData && typeof summaryData === "object" ? summaryData : null);
+      }
+      setPayslips(Array.isArray(payslipsData) ? payslipsData : []);
+    } catch (err) {
+      console.error("Error fetching payroll data:", err);
+      setError(t("load_error"));
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId, selectedMonth, selectedYear, t]);
 
   useEffect(() => {
-    fetchPayrollData();
-  }, [selectedMonth, selectedYear, tenantId]);
-
-  async function fetchPayrollData() {
-    setLoading(true);
-    try {
-      const [summaryRes, payslipsRes] = await Promise.all([
-        fetch(`/api/hr/payroll?month=${selectedMonth}&year=${selectedYear}`),
-        fetch(`/api/hr/payslips?month=${selectedMonth}&year=${selectedYear}`),
-      ]);
-      const summaryData = await summaryRes.json();
-      const payslipsData = await payslipsRes.json();
-      setSummary(summaryData);
-      setPayslips(Array.isArray(payslipsData) ? payslipsData : []);
-    } catch (error) {
-      console.error("Error fetching payroll data:", error);
-    }
-    setLoading(false);
-  }
+    const id = setTimeout(() => { void fetchPayrollData(); }, 0);
+    return () => clearTimeout(id);
+  }, [fetchPayrollData]);
 
   async function handleGeneratePayslips() {
+    setError("");
+    const employeeIds: string[] = Array.isArray(summary?.employeeIds) ? summary.employeeIds : [];
+    if (!employeeIds.length) {
+      setError(t("no_employees"));
+      return;
+    }
+    setGenerating(true);
     try {
       const res = await fetch("/api/hr/payslips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeIds: summary?.employeeIds || [],
+          employeeIds,
           month: selectedMonth,
           year: selectedYear,
           tenantId,
         }),
       });
-      const data = await res.json();
-      if (data.generated > 0) {
-        fetchPayrollData();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(apiErrorMessage(data, t("generate_error")));
+      } else {
+        await fetchPayrollData();
       }
-    } catch (error) {
-      console.error("Error generating payslips:", error);
+    } catch (err) {
+      console.error("Error generating payslips:", err);
+      setError(t("generate_error"));
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -97,7 +124,8 @@ export default function PaiePage() {
           </button>
           <button
             onClick={handleGeneratePayslips}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg"
+            disabled={generating || loading}
+            className="disabled:opacity-50 flex items-center gap-2 px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg"
           >
             <Plus className="w-4 h-4" />
             {t('generate')}
@@ -123,7 +151,7 @@ export default function PaiePage() {
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             className="px-3 py-2 border rounded-lg text-sm"
           >
-            {[2024, 2025, 2026].map((y) => (
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i).map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
@@ -135,8 +163,8 @@ export default function PaiePage() {
             <span className="text-gray-600">{t('draft_count', { count: summary?.statusBreakdown?.draft || 0 })}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-blue-400" />
-            <span className="text-gray-600">{t('validated_count', { count: summary?.statusBreakdown?.validated || 0 })}</span>
+            <div className="w-3 h-3 rounded bg-gray-400" />
+            <span className="text-gray-600">{t('cancelled_count', { count: summary?.statusBreakdown?.cancelled || 0 })}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-green-400" />
@@ -145,8 +173,20 @@ export default function PaiePage() {
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium">
+          {error}
+        </div>
+      )}
+
       {/* Summary Cards */}
       {summary && <PayrollSummary summary={summary} />}
+
+      {!loading && !error && payslips.length === 0 && (
+        <div className="p-6 rounded-xl border border-dashed text-center text-sm text-gray-500">
+          {t("empty_period")}
+        </div>
+      )}
 
       {/* Payslips Table */}
       <div className="bg-white rounded-xl border">

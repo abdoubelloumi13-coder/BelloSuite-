@@ -5,62 +5,64 @@ import { useTranslations, useLocale } from 'next-intl'
 
 interface PayrollSummaryProps {
   summary: {
-    totalEmployees: number;
-    totalGross: number;
-    totalNet: number;
-    totalCNSS: number;
-    totalIRPP: number;
-    totalTransport: number;
-    totalMeal: number;
-    totalFamily: number;
-    totalOvertime: number;
-    cnssEmployer: number;
-    cnssEmployee: number;
+    totalEmployees?: number;
+    totalGross?: number;
+    totalNet?: number;
+    totalCNSS?: number;
+    totalIRPP?: number;
+    totalTransport?: number;
+    totalMeal?: number;
+    totalFamily?: number;
+    totalOvertime?: number;
+    cnssEmployer?: number;
+    cnssEmployee?: number;
   };
 }
 
 export function PayrollSummary({ summary }: PayrollSummaryProps) {
   const t = useTranslations('HR.payroll.summary')
   const locale = useLocale()
+  // Valeurs absentes (période sans bulletin, réponse partielle) → 0 au lieu d'un plantage
+  const money = (v: unknown) => (opts: Intl.NumberFormatOptions) => (Number(v) || 0).toLocaleString(`${locale}-TN`, opts)
   const cards = [
     {
       label: t('total_gross'),
-      value: summary.totalGross.toLocaleString(`${locale}-TN`, { style: "currency", currency: "TND" }),
+      value: money(summary.totalGross)({ style: "currency", currency: "TND" }),
       icon: DollarSign,
       color: "text-teal-600",
       bg: "bg-teal-50",
     },
     {
       label: t('total_net'),
-      value: summary.totalNet.toLocaleString(`${locale}-TN`, { style: "currency", currency: "TND" }),
+      value: money(summary.totalNet)({ style: "currency", currency: "TND" }),
       icon: TrendingUp,
       color: "text-green-600",
       bg: "bg-green-50",
     },
     {
       label: t('employees'),
-      value: summary.totalEmployees.toString(),
+      value: String(Number(summary.totalEmployees) || 0),
       icon: Users,
       color: "text-blue-600",
       bg: "bg-blue-50",
     },
     {
       label: t('total_cnss'),
-      value: summary.totalCNSS.toLocaleString(`${locale}-TN`, { style: "currency", currency: "TND" }),
+      value: money(summary.totalCNSS)({ style: "currency", currency: "TND" }),
       icon: Building2,
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
     {
       label: t('total_irpp'),
-      value: summary.totalIRPP.toLocaleString(`${locale}-TN`, { style: "currency", currency: "TND" }),
+      value: money(summary.totalIRPP)({ style: "currency", currency: "TND" }),
       icon: FileText,
       color: "text-red-600",
       bg: "bg-red-50",
     },
     {
       label: t('overtime'),
-      value: summary.totalOvertime.toLocaleString(`${locale}-TN`, { style: "currency", currency: "TND" }),
+      value: money(summary.totalOvertime)({ style: "currency", currency: "TND" }),
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-50",

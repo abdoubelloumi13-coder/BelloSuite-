@@ -1690,7 +1690,12 @@
         "overtime": "Overtime",
         "total_irpp": "Total income tax (IRPP)",
         "employees": "Employees"
-      }
+      },
+      "load_error": "Unable to load payroll for this period",
+      "generate_error": "Unable to generate payslips",
+      "no_employees": "No active employees: add employees before generating payroll",
+      "empty_period": "No payslips for this period. Click Generate to compute payroll.",
+      "cancelled_count": "Cancelled ({count})"
     }
   },
   "GPAO": {
