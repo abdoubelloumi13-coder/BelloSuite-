@@ -1293,7 +1293,8 @@
       "chart": "Chart of accounts",
       "ledger": "General ledger",
       "periods": "Fiscal years",
-      "journals": "Journals"
+      "journals": "Journals",
+      "vat": "VAT return"
     },
     "chart": {
       "empty_desc": "Your database has no accounts yet. You can automatically set up the official Tunisian chart of accounts with classes 1 to 7.",
@@ -1440,6 +1441,30 @@
         "description_required": "Description is required",
         "save": "Unable to save the entry"
       }
+    },
+    "vat": {
+      "title": "Monthly VAT return",
+      "subtitle": "Output VAT by rate, input VAT, FODEC and stamp duty",
+      "month": "Month",
+      "previous_credit": "VAT credit carried forward",
+      "compute": "Compute",
+      "load_error": "Unable to compute the VAT return",
+      "collected_title": "Output VAT by rate",
+      "no_sales": "No sales invoices this month",
+      "rate": "Rate",
+      "base": "Taxable base",
+      "vat_amount": "VAT",
+      "total": "Total",
+      "docs_count": "{invoices} invoice(s), {credits} credit note(s)",
+      "collected_total": "Output VAT",
+      "deductible": "Input VAT ({count} supplier invoice(s))",
+      "vat_due": "VAT payable",
+      "vat_credit": "VAT credit",
+      "fodec": "FODEC collected (1%)",
+      "stamp": "Stamp duty",
+      "total_to_pay": "Total payable",
+      "credit_hint": "Credit of {amount} to carry forward to next month's return.",
+      "disclaimer": "Indicative computation from validated invoices (sales, credit notes, validated supplier invoices). Check before filing online."
     }
   },
   "Notifications": {

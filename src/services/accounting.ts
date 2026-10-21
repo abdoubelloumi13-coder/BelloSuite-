@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { AccountType, JournalType, Prisma } from '@prisma/client'
 import { buildLedger, parseDateParam, type LedgerResult } from '@/lib/ledger'
+import { computeVatDeclaration, monthRange, SALES_VAT_TYPES, EXCLUDED_SALE_STATUSES } from '@/lib/vat-declaration'
+import { PURCHASE_INVOICE_TYPES } from '@/lib/firm-dashboard'
 import { assertBelongsToTenant, assertAllBelongToTenant } from '@/lib/tenant-scope'
 
 // ─── Zod Schemas ────────────────────────────────────────────
@@ -485,6 +487,22 @@ export async function getVATSummary(month: number, year: number, tenantId: strin
     netVAT: collectedTotal - deductibleTotal,
     status: (collectedTotal - deductibleTotal) > 0 ? 'TO_PAY' : 'CREDIT'
   }
+}
+
+/** Déclaration mensuelle de TVA à partir des documents (ventes, avoirs, factures fournisseurs) — voir lib/vat-declaration. */
+export async function getVATDeclaration(month: number, year: number, tenantId: string, previousCredit = 0) {
+  const { start, end } = monthRange(month, year)
+  const [sales, purchases] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { tenantId, type: { in: [...SALES_VAT_TYPES] }, status: { notIn: [...EXCLUDED_SALE_STATUSES] }, date: { gte: start, lte: end } },
+      select: { type: true, totalFodec: true, totalVAT: true, timbreFiscal: true, subtotalHT: true, items: { select: { vatRate: true, vatAmount: true, totalHT: true, fodecAmount: true } } },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { tenantId, type: { in: PURCHASE_INVOICE_TYPES }, status: { notIn: ['CANCELLED', 'DRAFT'] }, date: { gte: start, lte: end } },
+      select: { subtotal: true, taxAmount: true, total: true },
+    }),
+  ])
+  return computeVatDeclaration({ month, year, sales, purchases, previousCredit })
 }
 
 export async function postVATLiquidationToAccounting(month: number, year: number, tenantId: string) {

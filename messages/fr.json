@@ -1293,7 +1293,8 @@
       "chart": "Plan Comptable",
       "ledger": "Grand Livre",
       "periods": "Exercices",
-      "journals": "Journaux"
+      "journals": "Journaux",
+      "vat": "Déclaration TVA"
     },
     "chart": {
       "empty_desc": "Votre base de données ne contient aucun compte. Vous pouvez initialiser automatiquement le Plan Comptable Tunisien officiel contenant les classes 1 à 7.",
@@ -1440,6 +1441,30 @@
         "description_required": "Le libellé est obligatoire",
         "save": "Impossible d'enregistrer l'écriture"
       }
+    },
+    "vat": {
+      "title": "Déclaration mensuelle de TVA",
+      "subtitle": "TVA collectée par taux, TVA déductible, FODEC et droit de timbre",
+      "month": "Mois",
+      "previous_credit": "Crédit de TVA reporté",
+      "compute": "Calculer",
+      "load_error": "Impossible de calculer la déclaration de TVA",
+      "collected_title": "TVA collectée par taux",
+      "no_sales": "Aucune facture de vente sur ce mois",
+      "rate": "Taux",
+      "base": "Base imposable",
+      "vat_amount": "TVA",
+      "total": "Total",
+      "docs_count": "{invoices} facture(s), {credits} avoir(s)",
+      "collected_total": "TVA collectée",
+      "deductible": "TVA déductible ({count} facture(s) fournisseur)",
+      "vat_due": "TVA due",
+      "vat_credit": "Crédit de TVA",
+      "fodec": "FODEC collecté (1 %)",
+      "stamp": "Droit de timbre",
+      "total_to_pay": "Total à payer",
+      "credit_hint": "Crédit de {amount} à reporter sur la déclaration du mois suivant.",
+      "disclaimer": "Calcul indicatif à partir des factures validées (ventes, avoirs, factures fournisseurs validées). À contrôler avant dépôt sur la plateforme de télédéclaration."
     }
   },
   "Notifications": {

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Link, usePathname } from '@/i18n/routing'
-import { BookOpen, Calendar, Settings2, FileText, CheckCircle2 } from 'lucide-react'
+import { BookOpen, Calendar, Settings2, FileText, CheckCircle2, Percent } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 export default function AccountingLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,8 @@ export default function AccountingLayout({ children }: { children: React.ReactNo
     { name: t('journals'), path: '/accounting/journals', icon: Settings2 },
     { name: t('periods'), path: '/accounting/periods', icon: Calendar },
     { name: t('entries'), path: '/accounting/entries', icon: FileText },
-    { name: t('ledger'), path: '/accounting/ledger', icon: CheckCircle2 }
+    { name: t('ledger'), path: '/accounting/ledger', icon: CheckCircle2 },
+    { name: t('vat'), path: '/accounting/tva', icon: Percent }
   ]
 
   return (
