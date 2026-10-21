@@ -271,3 +271,47 @@ export function validatePayrollParamsInput(input: Record<string, unknown>): stri
   }
   return null
 }
+
+/** Champs de PaieParameters modifiables par le tenant (liste blanche). */
+export const PAIE_PARAM_FIELDS = [
+  'annee',
+  'irppTranche1Max', 'irppTranche2Max', 'irppTranche3Max', 'irppTranche4Max', 'irppTranche5Max', 'irppTranche6Max', 'irppTranche7Max',
+  'irppTaux1', 'irppTaux2', 'irppTaux3', 'irppTaux4', 'irppTaux5', 'irppTaux6', 'irppTaux7', 'irppTaux8',
+  'tauxCnssSalarial', 'tauxCnssPatronal', 'fraisProTaux', 'fraisProPlafond', 'cssTaux', 'cssSeuilExoneration',
+  'deductionChefFamille', 'deductionParEnfant', 'enfantsMaxDeductible', 'smigMensuel', 'smigHoraire',
+  'heuresSup25', 'heuresSup50', 'heuresSup75',
+] as const
+
+const INT_PARAM_FIELDS = new Set(['annee', 'enfantsMaxDeductible'])
+
+/**
+ * Paramètres saisis → données à enregistrer : champs hors liste blanche ignorés, valeurs vides ignorées,
+ * nombres décimaux à virgule acceptés. Retourne { data } ou { error } (message français).
+ * `current` (enregistrement existant) sert au contrôle de cohérence du barème (bornes croissantes).
+ */
+export function sanitizePaieParamsInput(
+  input: Record<string, unknown>,
+  current?: Record<string, unknown> | null,
+): { data: Record<string, number>; error?: undefined } | { error: string; data?: undefined } {
+  const data: Record<string, number> = {}
+  for (const k of PAIE_PARAM_FIELDS) {
+    const raw = input[k]
+    if (raw === undefined || raw === null || raw === '') continue
+    const n = Number(typeof raw === 'string' ? raw.replace(',', '.').trim() : raw)
+    if (!Number.isFinite(n)) return { error: `Valeur numérique attendue pour ${k}` }
+    if (INT_PARAM_FIELDS.has(k) && !Number.isInteger(n)) return { error: `Nombre entier attendu pour ${k}` }
+    data[k] = n
+  }
+  if (data.annee !== undefined && (data.annee < 2000 || data.annee > 2100)) return { error: 'Année invalide' }
+  const err = validatePayrollParamsInput(data)
+  if (err) return { error: err }
+  const maxKeys = ['irppTranche1Max', 'irppTranche2Max', 'irppTranche3Max', 'irppTranche4Max', 'irppTranche5Max', 'irppTranche6Max', 'irppTranche7Max']
+  if (maxKeys.some(k => data[k] !== undefined)) {
+    const merged = maxKeys.map(k => (data[k] !== undefined ? data[k] : Number(current?.[k] ?? NaN)))
+    if (merged.every(Number.isFinite)) {
+      const ok = merged.every((m, i) => m > 0 && (i === 0 || m > merged[i - 1]))
+      if (!ok) return { error: 'Barème IRPP incohérent : les bornes des tranches doivent être strictement croissantes' }
+    }
+  }
+  return { data }
+}

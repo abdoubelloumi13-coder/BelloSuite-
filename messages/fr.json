@@ -1772,7 +1772,30 @@
       "generate_error": "Impossible de générer les bulletins",
       "no_employees": "Aucun employé actif : ajoutez des employés avant de générer la paie",
       "empty_period": "Aucun bulletin pour cette période. Cliquez sur « Générer » pour calculer la paie.",
-      "cancelled_count": "Annulé ({count})"
+      "cancelled_count": "Annulé ({count})",
+      "params": {
+        "title": "Paramètres de paie",
+        "subtitle": "Taux appliqués au calcul des bulletins (défauts 2026)",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "load_error": "Impossible de charger les paramètres de paie",
+        "save_error": "Impossible d'enregistrer les paramètres de paie",
+        "disclaimer": "Valeurs 2026 par défaut (CNSS 9,68 % / 17,07 %, SMIG 554,736 DT / 2,667 DT/h) : à faire valider par votre comptable. Les bulletins brouillons sont recalculés en cliquant à nouveau sur « Générer ».",
+        "saved": "Paramètres enregistrés",
+        "fields": {
+          "tauxCnssSalarial": "CNSS salariale (%)",
+          "tauxCnssPatronal": "CNSS patronale (%)",
+          "smigMensuel": "SMIG mensuel 48 h (DT)",
+          "smigHoraire": "SMIG horaire 48 h (DT)",
+          "deductionChefFamille": "Déduction chef de famille (DT/an)",
+          "deductionParEnfant": "Déduction par enfant (DT/an)",
+          "enfantsMaxDeductible": "Enfants ouvrant droit à déduction (max)",
+          "fraisProTaux": "Frais professionnels (%)",
+          "fraisProPlafond": "Plafond frais professionnels (DT/an)",
+          "cssTaux": "CSS (%)",
+          "cssSeuilExoneration": "Seuil d'exonération CSS (DT/an)"
+        }
+      }
     }
   },
   "GPAO": {

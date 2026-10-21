@@ -1772,7 +1772,30 @@
       "generate_error": "Unable to generate payslips",
       "no_employees": "No active employees: add employees before generating payroll",
       "empty_period": "No payslips for this period. Click Generate to compute payroll.",
-      "cancelled_count": "Cancelled ({count})"
+      "cancelled_count": "Cancelled ({count})",
+      "params": {
+        "title": "Payroll settings",
+        "subtitle": "Rates used to compute payslips (2026 defaults)",
+        "save": "Save",
+        "cancel": "Cancel",
+        "load_error": "Unable to load payroll settings",
+        "save_error": "Unable to save payroll settings",
+        "disclaimer": "2026 defaults (CNSS 9.68% / 17.07%, minimum wage 554.736 TND / 2.667 TND/h): have them validated by your accountant. Draft payslips are recomputed when you click “Generate” again.",
+        "saved": "Settings saved",
+        "fields": {
+          "tauxCnssSalarial": "Employee CNSS (%)",
+          "tauxCnssPatronal": "Employer CNSS (%)",
+          "smigMensuel": "Monthly minimum wage, 48 h (TND)",
+          "smigHoraire": "Hourly minimum wage, 48 h (TND)",
+          "deductionChefFamille": "Head-of-family deduction (TND/year)",
+          "deductionParEnfant": "Per-child deduction (TND/year)",
+          "enfantsMaxDeductible": "Max children eligible",
+          "fraisProTaux": "Professional expenses (%)",
+          "fraisProPlafond": "Professional expenses cap (TND/year)",
+          "cssTaux": "Solidarity contribution CSS (%)",
+          "cssSeuilExoneration": "CSS exemption threshold (TND/year)"
+        }
+      }
     }
   },
   "GPAO": {

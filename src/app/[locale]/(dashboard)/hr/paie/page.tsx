@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { PayrollSummary } from "./components/PayrollSummary";
 import { PaySlipTable } from "./components/PaySlipTable";
 import { PaySlipModal } from "./components/PaySlipModal";
+import { PaieParametersModal } from "./components/PaieParametersModal";
 import { DollarSign, FileText, Users, Settings, Plus } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useTranslations } from 'next-intl'
@@ -27,6 +28,7 @@ const MONTHS = [
 export default function PaiePage() {
   const t = useTranslations('HR.payroll')
   const tm = useTranslations('Commercial.months')
+  const tp = useTranslations('HR.payroll.params')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { tenantId } = useSession();
@@ -37,6 +39,7 @@ export default function PaiePage() {
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showParams, setShowParams] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const fetchPayrollData = useCallback(async () => {
@@ -128,7 +131,11 @@ export default function PaiePage() {
           <p className="text-gray-500">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg">
+          <button
+            onClick={() => setShowParams(true)}
+            disabled={!tenantId}
+            className="disabled:opacity-50 flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
             <Settings className="w-4 h-4" />
             {t('settings')}
           </button>
@@ -215,6 +222,17 @@ export default function PaiePage() {
           onViewPayslip={handleViewPayslip}
         />
       </div>
+
+      {showParams && tenantId && (
+        <PaieParametersModal
+          tenantId={tenantId}
+          onClose={() => setShowParams(false)}
+          onSaved={() => {
+            setShowParams(false);
+            setNotice(tp("saved"));
+          }}
+        />
+      )}
 
       {/* PaySlip Modal */}
       {showModal && selectedPayslip && (
