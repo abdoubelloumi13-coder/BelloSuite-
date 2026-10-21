@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
 import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Star, Eye } from 'lucide-react'
 import { StockPage, StockNav, PageHeader, Card, Loading, EmptyState, Badge, Alert, Modal, Field, cls, useStockFormat, api } from '@/components/stock/ui'
+import { apiFormError } from '@/lib/form-errors'
 
 type Warehouse = {
   id: string; code: string; name: string; address: string | null; manager: string | null; phone: string | null
@@ -24,6 +25,9 @@ export default function WarehousesPage() {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
+  // Erreurs affichées DANS la modale (avant : bannière de page masquée derrière la modale → échec « muet »)
+  const [formError, setFormError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [confirmDelete, setConfirmDelete] = useState<Warehouse | null>(null)
 
   const load = useCallback(async () => {
@@ -36,21 +40,28 @@ export default function WarehousesPage() {
   useEffect(() => { load() }, [load])
   useEffect(() => { if (new URLSearchParams(window.location.search).get('new')) openCreate() }, [])
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setOpen(true) }
+  function openCreate() { setEditing(null); setForm(EMPTY); setFormError(''); setFieldErrors({}); setOpen(true) }
   function openEdit(w: Warehouse) {
     setEditing(w)
+    setFormError(''); setFieldErrors({})
     setForm({ code: w.code, name: w.name, address: w.address ?? '', manager: w.manager ?? '', phone: w.phone ?? '', isDefault: w.isDefault })
     setOpen(true)
   }
 
   async function save() {
-    if (!form.code.trim() || !form.name.trim()) { setError(t('required_fields')); return }
-    setSaving(true)
+    const missing: Record<string, string> = {}
+    if (!form.code.trim()) missing.code = 'Champ obligatoire'
+    if (!form.name.trim()) missing.name = 'Champ obligatoire'
+    if (Object.keys(missing).length) { setFieldErrors(missing); setFormError(t('required_fields')); return }
+    setSaving(true); setFormError(''); setFieldErrors({})
     const r = editing
       ? await api(`/api/stock/warehouses/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
       : await api('/api/stock/warehouses', { method: 'POST', body: JSON.stringify(form) })
     setSaving(false)
-    if (!r.ok) { setError(r.error || t('error_generic')); return }
+    if (!r.ok) {
+      const fe = apiFormError(r.status, r.data, { code: t('code'), name: t('name'), address: t('address'), manager: t('manager'), phone: t('phone') })
+      setFormError(fe.message); setFieldErrors(fe.fields); return
+    }
     setOpen(false); setNotice(t('saved')); load()
   }
 
@@ -135,11 +146,12 @@ export default function WarehousesPage() {
       <Modal open={open} title={editing ? t('edit_warehouse') : t('new_warehouse')} onClose={() => setOpen(false)}
         footer={<>
           <button onClick={() => setOpen(false)} className={cls.btnSecondary}>{t('cancel')}</button>
-          <button onClick={save} disabled={saving} className={cls.btnPrimary}>{t('save')}</button>
+          <button onClick={save} disabled={saving} className={cls.btnPrimary}>{saving ? '…' : t('save')}</button>
         </>}>
+        {formError && <Alert onClose={() => setFormError('')}>{formError}</Alert>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label={`${t('code')} *`}><input className={cls.input} value={form.code} maxLength={30} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="DEP-01" /></Field>
-          <Field label={`${t('name')} *`}><input className={cls.input} value={form.name} maxLength={120} onChange={e => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label={`${t('code')} *`}><input className={`${cls.input} ${fieldErrors.code ? 'border-red-500' : ''}`} aria-invalid={!!fieldErrors.code} value={form.code} maxLength={30} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="DEP-01" />{fieldErrors.code && <span className="block mt-1 text-xs text-red-600 text-start">{fieldErrors.code}</span>}</Field>
+          <Field label={`${t('name')} *`}><input className={`${cls.input} ${fieldErrors.name ? 'border-red-500' : ''}`} aria-invalid={!!fieldErrors.name} value={form.name} maxLength={120} onChange={e => setForm({ ...form, name: e.target.value })} />{fieldErrors.name && <span className="block mt-1 text-xs text-red-600 text-start">{fieldErrors.name}</span>}</Field>
           <div className="sm:col-span-2"><Field label={t('address')}><input className={cls.input} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></Field></div>
           <Field label={t('manager')}><input className={cls.input} value={form.manager} onChange={e => setForm({ ...form, manager: e.target.value })} /></Field>
           <Field label={t('phone')}><input className={cls.input} dir="ltr" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></Field>

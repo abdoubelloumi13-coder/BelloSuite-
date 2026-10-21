@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { createProductSchema } from '@/lib/stock-api'
 import { BusinessError } from '@/lib/errors'
-import { StockMovementType } from '@prisma/client'
-import { applyMovementTx, getDefaultWarehouseId } from '@/services/stock'
+import { Prisma, StockMovementType } from '@prisma/client'
+import { applyMovementTx, ensureDefaultWarehouseId } from '@/services/stock'
 import { assertBelongsToTenant } from '@/lib/tenant-scope'
 
 type CreateProductData = z.infer<typeof createProductSchema>
@@ -33,8 +33,12 @@ export async function createProduct(data: CreateProductData, userId?: string | n
   let warehouseId: string | null = null
   if (initialStock > 0) {
     await assertBelongsToTenant('warehouse', data.warehouseId, tenantId)
-    warehouseId = data.warehouseId || (await getDefaultWarehouseId(tenantId))
+    // Aucun dépôt ? un « Dépôt principal » est créé automatiquement (sinon le stock initial serait orphelin)
+    warehouseId = data.warehouseId || (await ensureDefaultWarehouseId(tenantId))
   }
+
+  // Catégorie en texte libre : on l'associe à la catégorie existante (insensible à la casse) ou on la crée.
+  const categoryName = await resolveCategoryName(tenantId, category)
 
   // Transaction : création du produit + mouvement d'entrée initial (le stock ne bouge que par mouvement)
   return prisma.$transaction(async (tx) => {
@@ -45,7 +49,7 @@ export async function createProduct(data: CreateProductData, userId?: string | n
         barcode: barcode || null,
         name,
         description: description || null,
-        category: category || null,
+        category: categoryName,
         unit,
         purchasePrice,
         averageCost: purchasePrice,
@@ -56,6 +60,8 @@ export async function createProduct(data: CreateProductData, userId?: string | n
         reorderPoint,
         reorderQty,
         currentStock: 0,
+        ...(data.images?.length ? { images: data.images.filter(Boolean) } : {}),
+        ...(data.variants?.length ? { variants: data.variants as Prisma.InputJsonValue } : {}),
       },
     })
 
@@ -77,4 +83,27 @@ export async function createProduct(data: CreateProductData, userId?: string | n
 
     return tx.product.findUnique({ where: { id: product.id } })
   })
+}
+
+/**
+ * Normalise une catégorie saisie librement : renvoie le nom de la catégorie existante (même casse que le
+ * référentiel) ou crée la catégorie. Une erreur sur le référentiel (table absente en base dérivée…)
+ * n'empêche pas la création de l'article : le texte est conservé tel quel.
+ */
+export async function resolveCategoryName(tenantId: string, raw: string | null | undefined): Promise<string | null> {
+  const name = (raw ?? '').trim().replace(/\s+/g, ' ')
+  if (!name) return null
+  try {
+    const found = await prisma.productCategory.findFirst({
+      where: { tenantId, name: { equals: name, mode: 'insensitive' } },
+      select: { name: true },
+    })
+    if (found) return found.name
+    const created = await prisma.productCategory.create({ data: { tenantId, name }, select: { name: true } })
+    return created.name
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'P2002') return name
+    console.warn('[products] catégorie non enregistrée dans le référentiel :', (err as Error)?.message)
+    return name
+  }
 }

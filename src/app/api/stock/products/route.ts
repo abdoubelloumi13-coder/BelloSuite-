@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getProducts, createProduct } from '@/services/products'
-import { createProductSchema } from '@/lib/stock-api'
+import { createProductSchema, schemaDriftResponse, forbiddenStockAdmin } from '@/lib/stock-api'
 import { handleApiError } from '@/lib/errors'
-import { requirePermission, Permission } from '@/lib/auth'
+import { requirePermission, hasPermission, Permission } from '@/lib/auth'
 import { requireTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -26,10 +26,12 @@ export async function GET(req: NextRequest) {
 // POST /api/stock/products
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Corps de requête JSON invalide' }, { status: 400 })
     const ctx = await requireTenant(req, body?.tenantId)
     if (ctx instanceof NextResponse) return ctx
-    requirePermission(ctx.userRole, Permission.CREATE_PRODUCT)
+    // Auparavant requirePermission levait une Error générique → 500 « Internal Server Error » masqué côté client.
+    if (!hasPermission(ctx.userRole, Permission.CREATE_PRODUCT)) return forbiddenStockAdmin('créer un article')
 
     let validatedData
     try {
@@ -47,6 +49,6 @@ export async function POST(req: NextRequest) {
     const product = await createProduct(validatedData, ctx.user.id)
     return NextResponse.json(product, { status: 201 })
   } catch (err) {
-    return handleApiError(err, 'POST product')
+    return schemaDriftResponse(err) ?? handleApiError(err, 'POST product')
   }
 }

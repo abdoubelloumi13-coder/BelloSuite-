@@ -41,15 +41,16 @@ const num0 = z.preprocess(v => (v === '' || v === null || v === undefined ? unde
 
 export const createProductSchema = z.object({
   tenantId: z.string().min(1, 'tenantId requis'),
-  code: z.string().trim().min(1, 'code requis'),
-  name: z.string().trim().min(1, 'name requis'),
+  code: z.string().trim().min(1, 'Code requis').max(60, '60 caractères maximum'),
+  name: z.string().trim().min(1, 'Nom requis').max(200, '200 caractères maximum'),
   description: z.string().optional(),
-  category: z.string().optional(),
-  unit: z.string().default('unit'),
+  /** Catégorie en texte libre (facultative) : créée/associée dans ProductCategory à l'enregistrement */
+  category: z.string().trim().max(80, '80 caractères maximum').optional().nullable(),
+  unit: z.preprocess(v => (v === '' || v === null ? undefined : v), z.string().trim().max(20).default('unit')),
   purchasePrice: num0,
   salePrice: num0,
   vatRate: z.preprocess(v => (v === '' || v === null || v === undefined ? undefined : v), z.coerce.number().min(0).max(100).default(19)),
-  fodec: z.boolean().default(false),
+  fodec: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean().default(false)),
   minStock: num0,
   reorderPoint: num0,
   reorderQty: num0,
@@ -57,4 +58,28 @@ export const createProductSchema = z.object({
   /** Dépôt recevant le stock initial (défaut : dépôt par défaut) */
   warehouseId: z.string().optional().nullable(),
   barcode: z.string().optional(),
+  /** URLs d'images (envoyées par le formulaire, auparavant ignorées) */
+  images: z.array(z.string().trim().max(2000)).max(20).optional(),
+  /** Variantes libres (taille, couleur…) */
+  variants: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
 })
+
+/**
+ * Erreur Prisma « colonne / table absente » (P2022 / P2021) : la base de production a dérivé du schéma.
+ * Renvoie un message français explicite (code DB_SCHEMA_DRIFT) au lieu d'un 500 muet.
+ */
+export function schemaDriftResponse(err: unknown): NextResponse | null {
+  const e = err as { code?: unknown; meta?: { column?: unknown; table?: unknown } } | null
+  if (!e || (e.code !== 'P2022' && e.code !== 'P2021')) return null
+  const what = e.code === 'P2022' ? `colonne manquante ${String(e.meta?.column ?? '')}` : `table manquante ${String(e.meta?.table ?? '')}`
+  console.error('[stock] dérive schéma/base :', what)
+  return NextResponse.json({
+    error: `La base de données n'est pas à jour (${what.trim()}). L'administrateur doit exécuter la migration supabase/migrations/20261022000500_stock_pos_reminders_sync.sql.`,
+    code: 'DB_SCHEMA_DRIFT',
+  }, { status: 500 })
+}
+
+/** 403 français pour les opérations stock réservées aux administrateurs. */
+export function forbiddenStockAdmin(action: string) {
+  return NextResponse.json({ error: `Droits insuffisants : seul un administrateur peut ${action}.` }, { status: 403 })
+}

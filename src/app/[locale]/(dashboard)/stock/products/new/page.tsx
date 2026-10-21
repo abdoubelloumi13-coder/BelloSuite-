@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { apiFormError, fetchJson } from '@/lib/form-errors'
 import { useRouter } from '@/i18n/routing'
 import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
@@ -36,6 +37,14 @@ export default function NewProductPage() {
   const [variants, setVariants] = useState<Variant[]>([])
   const [newVariant, setNewVariant] = useState({ name: '', sku: '', price: '', stock: '', size: '', color: '' })
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const errorRef = useRef<HTMLDivElement>(null)
+  // Affiche l'erreur À L'ÉCRAN : la bannière est en haut d'un long formulaire, le bouton en bas.
+  const showError = (msg: string, fields: Record<string, string> = {}) => {
+    setError(msg); setFieldErrors(fields)
+    requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
+  const fieldErr = (k: string) => fieldErrors[k] ? <p className="mt-1 text-xs font-bold text-red-600 text-start">{fieldErrors[k]}</p> : null
 
   useEffect(() => {
     const tid = tenantId
@@ -65,21 +74,28 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.code || !form.name) { setError(t('Stock.required_fields_error')); return }
+    const missing: Record<string, string> = {}
+    if (!form.code.trim()) missing.code = 'Champ obligatoire'
+    if (!form.name.trim()) missing.name = 'Champ obligatoire'
+    if (Object.keys(missing).length) { showError(t('Stock.required_fields_error'), missing); return }
     setLoading(true)
-    setError('')
-    const res = await fetch('/api/stock/products', {
+    setError(''); setFieldErrors({})
+    // Ne jamais ignorer une réponse non-OK : bannière + erreurs par champ, en français.
+    const r = await fetchJson('/api/stock/products', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, tenantId, images, variants }),
     })
-    if (res.ok) {
+    if (r.ok) {
       router.push('/stock/products')
-    } else {
-      const d = await res.json()
-      setError(d.error || t('Common.error'))
-      setLoading(false)
+      return
     }
+    const fe = apiFormError(r.status, r.data, {
+      code: t('Stock.code_sku'), name: t('Stock.product_name'), category: t('Stock.category_label'), unit: t('Stock.unit'),
+      purchasePrice: t('Stock.purchase_price_ht'), salePrice: t('Stock.sale_price_ht'), vatRate: t('Stock.tva'),
+      initialStock: t('Stock.initial_stock'), minStock: t('Stock.min_stock_alert'), warehouseId: tm('initial_warehouse'),
+    })
+    showError(fe.message, fe.fields)
+    setLoading(false)
   }
 
   const inputCls = "w-full bg-white border border-zinc-300 rounded-xl px-4 py-3 text-zinc-900 text-sm outline-none focus:border-teal-500/50"
@@ -97,9 +113,9 @@ export default function NewProductPage() {
         </div>
       </div>
 
-      {error && <div className="mb-6 px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-700 text-sm font-bold text-start">{error}</div>}
+      {error && <div ref={errorRef} role="alert" className="mb-6 px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-700 text-sm font-bold text-start">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} noValidate className="space-y-8">
         {/* Infos générales */}
         <div className="bg-white border border-zinc-200 rounded-[2rem] p-8">
           <h2 className="text-lg font-black text-zinc-900 flex items-center gap-2 mb-6 rtl:flex-row-reverse">
@@ -110,8 +126,9 @@ export default function NewProductPage() {
               <label className={labelCls}>{t('Stock.code_sku')} *</label>
               <div className="relative">
                 <Hash className="w-4 h-4 absolute inset-inline-start-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="PROD-001" className={inputCls + " ps-10"} required />
+                <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="PROD-001" className={inputCls + " ps-10" + (fieldErrors.code ? ' border-red-500' : '')} aria-invalid={!!fieldErrors.code} required />
               </div>
+              {fieldErr('code')}
             </div>
             <div>
               <label className={labelCls}>{t('Stock.barcode')}</label>
@@ -119,7 +136,8 @@ export default function NewProductPage() {
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>{t('Stock.product_name')} *</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('Stock.product_name')} className={inputCls} required />
+              <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('Stock.product_name')} className={inputCls + (fieldErrors.name ? ' border-red-500' : '')} aria-invalid={!!fieldErrors.name} required />
+              {fieldErr('name')}
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>{t('Stock.description_label')}</label>
@@ -128,10 +146,13 @@ export default function NewProductPage() {
             <div>
               <label className={labelCls}>{t('Stock.category_label')}</label>
               <CategoryInput value={form.category} onChange={v => set('category', v)} className={inputCls} categories={refs.categories} />
+              <p className="mt-1 text-[11px] text-zinc-500 text-start">Facultatif — une nouvelle catégorie est créée automatiquement.</p>
+              {fieldErr('category')}
             </div>
             <div>
               <label className={labelCls}>{t('Stock.unit')}</label>
               <UnitSelect value={form.unit} onChange={v => set('unit', v)} className={inputCls} units={refs.units} />
+              {fieldErr('unit')}
             </div>
           </div>
         </div>
@@ -145,10 +166,12 @@ export default function NewProductPage() {
             <div>
               <label className={labelCls}>{t('Stock.purchase_price_ht')}</label>
               <input type="number" step="0.001" value={form.purchasePrice} onChange={e => set('purchasePrice', e.target.value)} placeholder="0.000" className={inputCls} />
+              {fieldErr('purchasePrice')}
             </div>
             <div>
               <label className={labelCls}>{t('Stock.sale_price_ht')}</label>
               <input type="number" step="0.001" value={form.salePrice} onChange={e => set('salePrice', e.target.value)} placeholder="0.000" className={inputCls} />
+              {fieldErr('salePrice')}
             </div>
             <div>
               <label className={labelCls}>{t('Stock.tva')}</label>
@@ -161,11 +184,13 @@ export default function NewProductPage() {
             </div>
             <div>
               <label className={labelCls}>{t('Stock.initial_stock')}</label>
-              <input type="number" step="1" value={form.initialStock} onChange={e => set('initialStock', e.target.value)} placeholder="0" className={inputCls} />
+              <input type="number" step="any" value={form.initialStock} onChange={e => set('initialStock', e.target.value)} placeholder="0" className={inputCls} />
+              {fieldErr('initialStock')}
             </div>
             <div>
               <label className={labelCls}>{t('Stock.min_stock_alert')}</label>
-              <input type="number" step="1" value={form.minStock} onChange={e => set('minStock', e.target.value)} placeholder="0" className={inputCls} />
+              <input type="number" step="any" value={form.minStock} onChange={e => set('minStock', e.target.value)} placeholder="0" className={inputCls} />
+              {fieldErr('minStock')}
             </div>
             <div>
               <label className={labelCls}>{tm('reorder_point')}</label>
@@ -181,6 +206,8 @@ export default function NewProductPage() {
                 <option value="">{tm('default_warehouse')}</option>
                 {refs.warehouses.map(w => <option key={w.id} value={w.id}>{w.name} ({w.code})</option>)}
               </select>
+              {refs.warehouses.length === 0 && <p className="mt-1 text-[11px] text-zinc-500 text-start">Aucun dépôt : un « Dépôt principal » sera créé automatiquement.</p>}
+              {fieldErr('warehouseId')}
             </div>
             <div className="flex items-center gap-3 pt-6 text-start">
               <input type="checkbox" id="fodec" checked={form.fodec} onChange={e => set('fodec', e.target.checked)} className="w-5 h-5 rounded accent-teal-500" />

@@ -216,6 +216,32 @@ export async function getDefaultWarehouseId(tenantId: string, db: Db = prisma): 
   return w?.id ?? null
 }
 
+/** Code et nom du dépôt créé automatiquement quand le tenant n'en a aucun. */
+export const DEFAULT_WAREHOUSE_CODE = 'DEP-PRINCIPAL'
+export const DEFAULT_WAREHOUSE_NAME = 'Dépôt principal'
+
+/**
+ * Dépôt par défaut du tenant ; si le tenant n'a AUCUN dépôt (actif ou archivé), crée un « Dépôt principal »
+ * (isDefault) pour que produits, mouvements, inventaires et POS ne restent pas bloqués.
+ * Idempotent : la contrainte unique (tenantId, code) protège des créations concurrentes.
+ */
+export async function ensureDefaultWarehouseId(tenantId: string, db: Db = prisma): Promise<string | null> {
+  const existing = await getDefaultWarehouseId(tenantId, db)
+  if (existing) return existing
+  const any = await db.warehouse.count({ where: { tenantId } })
+  if (any > 0) return null // seulement des dépôts archivés : on ne recrée pas dans le dos de l'utilisateur
+  try {
+    const w = await db.warehouse.create({
+      data: { tenantId, code: DEFAULT_WAREHOUSE_CODE, name: DEFAULT_WAREHOUSE_NAME, isDefault: true, isActive: true },
+      select: { id: true },
+    })
+    return w.id
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'P2002') return getDefaultWarehouseId(tenantId, db)
+    throw err
+  }
+}
+
 async function assertActiveWarehouse(tenantId: string, warehouseId: string, db: Db = prisma) {
   const w = await db.warehouse.findFirst({ where: { id: warehouseId, tenantId }, select: { isActive: true } })
   if (!w) throw new BusinessError('Référence invalide (warehouse)', 400)
@@ -226,8 +252,8 @@ async function assertActiveWarehouse(tenantId: string, warehouseId: string, db: 
 export async function createStockMovement(data: CreateStockMovementData, userId?: string | null) {
   const { tenantId, productId } = data
   await assertBelongsToTenant('product', productId, tenantId)
-  const warehouseId = data.warehouseId || (await getDefaultWarehouseId(tenantId))
-  if (!warehouseId) throw new BusinessError('Créez d\'abord un dépôt', 400)
+  const warehouseId = data.warehouseId || (await ensureDefaultWarehouseId(tenantId))
+  if (!warehouseId) throw new BusinessError('Aucun dépôt actif : réactivez ou créez un dépôt', 400)
   await assertActiveWarehouse(tenantId, warehouseId)
   const settings = await getStockSettings(tenantId)
 
