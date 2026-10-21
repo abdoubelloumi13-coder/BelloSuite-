@@ -46,4 +46,20 @@ ALTER TABLE "ProductCategory" ENABLE ROW LEVEL SECURITY;
 -- ─── Stock : ProductWarehouse ────────────────────────────────
 ALTER TABLE "ProductWarehouse" ADD COLUMN IF NOT EXISTS "minStock" DECIMAL(65,30);
 
+-- ─── POS : colonnes utilisées par la caisse (remise, monnaie, timbre, multi-paiements) ─
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "discountPercent" DECIMAL(65,30) NOT NULL DEFAULT 0;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "discountAmount" DECIMAL(65,30) NOT NULL DEFAULT 0;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "changeGiven" DECIMAL(65,30) NOT NULL DEFAULT 0;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "paidAmount" DECIMAL(65,30) NOT NULL DEFAULT 0;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "timbreFiscal" DECIMAL(65,30) NOT NULL DEFAULT 1;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "isPaid" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "POSOrder" ADD COLUMN IF NOT EXISTS "notes" TEXT;
+ALTER TABLE "POSOrderItem" ADD COLUMN IF NOT EXISTS "discount" DECIMAL(65,30) NOT NULL DEFAULT 0;
+ALTER TABLE "POSOrderItem" ADD COLUMN IF NOT EXISTS "productCode" TEXT;
+ALTER TABLE "POSSession" ADD COLUMN IF NOT EXISTS "notes" TEXT;
+ALTER TABLE "POSSession" ADD COLUMN IF NOT EXISTS "closingCash" DECIMAL(65,30);
+ALTER TABLE "POSSession" ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3);
+CREATE INDEX IF NOT EXISTS "POSSession_tenantId_status_openedAt_idx" ON "POSSession"("tenantId", "status", "openedAt");
+CREATE INDEX IF NOT EXISTS "POSOrder_tenantId_sessionId_idx" ON "POSOrder"("tenantId", "sessionId");
+
 COMMIT;
