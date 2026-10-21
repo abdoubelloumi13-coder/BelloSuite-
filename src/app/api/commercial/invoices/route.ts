@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const data = parseBody(createInvoiceSchema, { ...body, tenantId: ctx.tenantId })
     if (data instanceof NextResponse) return data
 
-    const invoice = await createInvoice(data)
+    const invoice = await createInvoice(data, { userId: ctx.user?.id ?? null })
     return NextResponse.json(invoice, { status: 201 })
   } catch (err) {
     return handleApiError(err, 'POST invoice')

@@ -1,10 +1,42 @@
 /**
- * Fiscal Utilities for Tunisian Law (Loi 2024)
+ * Fiscal Utilities for Tunisian Law (Loi de finances 2026)
+ * Montants arrondis au millime (3 décimales) à chaque étape : ligne puis totaux.
  */
 
-export const VAT_RATES = [19, 13, 7]
+/** Taux de TVA applicables (%). 0 = exonéré / suspension / export, avec mention légale obligatoire. */
+export const VAT_RATES = [19, 13, 7, 0]
 export const FODEC_RATE = 0.01 // 1%
 export const FISCAL_STAMP = 1.000 // 1 DT
+
+/** Arrondi au millime (dinar tunisien : 3 décimales). */
+export const r3 = (n: number): number => {
+  const x = Number(n) || 0
+  const v = (Math.sign(x) * Math.round(Number((Math.abs(x) * 1000).toFixed(6)))) / 1000
+  return v === 0 ? 0 : v
+}
+
+/**
+ * Régimes TVA à 0 % et mention légale à porter sur la facture.
+ *  - EXEMPT     : opération exonérée, art. 4 du Code de la TVA (tableau « A » annexé)
+ *  - SUSPENSION : vente en suspension, art. 11 du Code de la TVA (n° et date de l'attestation / décision)
+ *  - EXPORT     : vente à l'exportation, art. 11 du Code de la TVA
+ */
+export type VatExemptionKind = 'EXEMPT' | 'SUSPENSION' | 'EXPORT'
+export const VAT_EXEMPTION_KINDS: VatExemptionKind[] = ['EXEMPT', 'SUSPENSION', 'EXPORT']
+
+export function vatExemptionMention(kind: VatExemptionKind | null | undefined, reference?: string | null): string | null {
+  const ref = (reference ?? '').trim()
+  switch (kind) {
+    case 'EXEMPT':
+      return `Exonéré de TVA — article 4 du Code de la TVA (tableau « A » annexé)${ref ? ` — ${ref}` : ''}`
+    case 'SUSPENSION':
+      return `Vente en suspension de la taxe sur la valeur ajoutée suivant attestation n° ${ref || '…'} (article 11 du Code de la TVA)`
+    case 'EXPORT':
+      return `Vente à l'exportation — article 11 du Code de la TVA${ref ? ` — ${ref}` : ''}`
+    default:
+      return null
+  }
+}
 
 export interface LineItem {
   quantity: number
@@ -36,20 +68,22 @@ export interface InvoiceTotals {
 export function calculateLine(line: LineItem): CalculatedLine {
   const quantity = Number(line.quantity) || 0
   const unitPriceHT = Number(line.unitPriceHT) || 0
-  const discountFactor = 1 - (Number(line.discount) || 0) / 100
-  
-  // 1. Base HT after discount
-  const totalHT = quantity * unitPriceHT * discountFactor
-  
-  // 2. FODEC (1%) applied on Net HT
-  const fodecAmount = line.fodecApply ? totalHT * FODEC_RATE : 0
-  
-  // 3. VAT Base = Total HT + FODEC
-  const vatBase = totalHT + fodecAmount
-  const vatAmount = vatBase * (Number(line.vatRate) / 100)
-  
-  // 4. Line TTC
-  const totalTTC = vatBase + vatAmount
+  const discount = Math.min(100, Math.max(0, Number(line.discount) || 0))
+  const discountFactor = 1 - discount / 100
+  const vatRate = Number(line.vatRate) || 0
+
+  // 1. Base HT après remise (millime)
+  const totalHT = r3(quantity * unitPriceHT * discountFactor)
+
+  // 2. FODEC (1 %) sur le HT net
+  const fodecAmount = line.fodecApply ? r3(totalHT * FODEC_RATE) : 0
+
+  // 3. Base TVA = HT + FODEC
+  const vatBase = r3(totalHT + fodecAmount)
+  const vatAmount = r3(vatBase * (vatRate / 100))
+
+  // 4. TTC de la ligne
+  const totalTTC = r3(vatBase + vatAmount)
   
   return {
     ...line,
@@ -74,26 +108,26 @@ export function calculateInvoiceTotals(lines: LineItem[], opts: { applyStamp?: b
   const vatSummary: { [rate: number]: { base: number, amount: number } } = {}
 
   calculatedLines.forEach(line => {
-    subtotalHT += line.totalHT
-    totalFodec += line.fodecAmount
-    totalVAT += line.vatAmount
-    
-    const rate = Number(line.vatRate)
-    const baseForVat = line.totalHT + line.fodecAmount
-    
+    subtotalHT = r3(subtotalHT + line.totalHT)
+    totalFodec = r3(totalFodec + line.fodecAmount)
+    totalVAT = r3(totalVAT + line.vatAmount)
+
+    const rate = Number(line.vatRate) || 0
+    const baseForVat = r3(line.totalHT + line.fodecAmount)
+
     if (!vatSummary[rate]) {
       vatSummary[rate] = { base: 0, amount: 0 }
     }
-    vatSummary[rate].base += baseForVat
-    vatSummary[rate].amount += line.vatAmount
+    vatSummary[rate].base = r3(vatSummary[rate].base + baseForVat)
+    vatSummary[rate].amount = r3(vatSummary[rate].amount + line.vatAmount)
   })
 
-  const totalBeforeStamp = subtotalHT + totalFodec + totalVAT
-  
+  const totalBeforeStamp = r3(subtotalHT + totalFodec + totalVAT)
+
   // Timbre fiscal is applied if TTC > 0 (usually per law, some conditions apply but 1 DT is standard)
   const applyStamp = opts.applyStamp ?? true
   const timbreFiscal = applyStamp && totalBeforeStamp > 0 ? FISCAL_STAMP : 0
-  const totalTTC = totalBeforeStamp + timbreFiscal
+  const totalTTC = r3(totalBeforeStamp + timbreFiscal)
 
   return {
     subtotalHT,
