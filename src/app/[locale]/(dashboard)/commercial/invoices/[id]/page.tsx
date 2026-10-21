@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { generateTEIFXml } from '@/lib/teif-generator'
 import { useSession } from '@/hooks/useSession'
+import { EInvoicePanel } from '@/components/commercial/EInvoicePanel'
 
 const TTN_STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-stone-100 dark:bg-zinc-800 text-stone-500 dark:text-zinc-400',
@@ -220,9 +221,9 @@ export default function InvoiceDetailPage() {
               <Receipt className="w-4 h-4" /> {t('fee_note_pdf')}
             </button>
           )}
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-50 dark:hover:bg-zinc-800 font-bold text-sm shadow-sm">
+          <a href={`/${locale}/print/invoice/${invoice.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-50 dark:hover:bg-zinc-800 font-bold text-sm shadow-sm">
             <Printer className="w-4 h-4" /> {t('print')}
-          </button>
+          </a>
         </div>
       </div>
 
@@ -265,6 +266,11 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Facture électronique El Fatoora (simulation) */}
+      {!/QUOTE|DEVIS|DELIVERY|ORDER|PROFORMA/i.test(invoice.type || '') && (
+        <EInvoicePanel invoiceId={invoice.id} onChanged={() => fetchInvoice(invoice.id, tenantId as string)} />
+      )}
 
       {/* RS / TEJ Widget */}
       <div className="bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-6 space-y-4">
