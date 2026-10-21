@@ -1,7 +1,7 @@
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { submitToTTN, testASPConnection } from '@/lib/ttn-asp'
+import { submitToTTN, testASPConnection, isAspSubmitEnabled } from '@/lib/ttn-asp'
 import { decryptAspConfig } from '@/lib/secret-crypto'
 
 // POST /api/commercial/invoices/:id/ttn-submit
@@ -12,6 +12,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const ctx = await requireTenant(req, body.tenantId)
     if (ctx instanceof NextResponse) return ctx
     const tenantId = ctx.tenantId
+
+    // Mode simulation (par défaut) : pas de dépôt réel via prestataire. Réponse immédiate, facture inchangée ;
+    // le flux El Fatoora simulé (section « Facture électronique ») est le seul proposé.
+    if (!isAspSubmitEnabled()) {
+      return NextResponse.json(
+        { error: "Dépôt TTN réel désactivé (mode simulation). Utilisez la section « Facture électronique (El Fatoora) » : signature puis dépôt simulé.", errorCode: 'SIMULATION_MODE' },
+        { status: 409 },
+      )
+    }
 
     // Fetch invoice with relations
     const invoice = await prisma.invoice.findFirst({

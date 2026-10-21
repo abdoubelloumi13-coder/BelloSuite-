@@ -12,6 +12,7 @@ import {
 import { generateTEIFXml } from '@/lib/teif-generator'
 import { useSession } from '@/hooks/useSession'
 import { EInvoicePanel } from '@/components/commercial/EInvoicePanel'
+import { fetchWithTimeout } from '@/lib/fetch-timeout'
 
 const TTN_STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-stone-100 dark:bg-zinc-800 text-stone-500 dark:text-zinc-400',
@@ -36,6 +37,17 @@ export default function InvoiceDetailPage() {
   const { tenantId } = useSession()
   const [withholdingTax, setWithholdingTax] = useState<any>(null)
   const [generatingRS, setGeneratingRS] = useState(false)
+  // Dépôt TTN réel via prestataire : uniquement si activé côté serveur (TTN_ASP_VERIFIED). Par défaut
+  // (simulation) la carte historique est masquée : seul le flux « Facture électronique » est proposé.
+  const [aspSubmitEnabled, setAspSubmitEnabled] = useState(false)
+  const [ttnError, setTtnError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchWithTimeout('/api/commercial/einvoice/settings', {}, 15_000)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setAspSubmitEnabled(d?.aspSubmitEnabled === true))
+      .catch(() => setAspSubmitEnabled(false))
+  }, [])
 
   const fetchInvoice = async (id: string, tid: string) => {
     try {
@@ -114,20 +126,21 @@ export default function InvoiceDetailPage() {
     if (!invoice) return
     if (!confirm(t('submit_ttn'))) return
     setSubmitting(true)
+    setTtnError(null)
     try {
-      const res = await fetch(`/api/commercial/invoices/${invoice.id}/ttn-submit`, {
+      const res = await fetchWithTimeout(`/api/commercial/invoices/${invoice.id}/ttn-submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantId }),
-      })
-      const result = await res.json()
+      }, 30_000)
+      const result = await res.json().catch(() => ({}))
       if (res.ok) {
         setInvoice(result)
       } else {
-        alert(tc('error_prefix', { error: result.error || tc('submit_failed') }))
+        setTtnError(tc('error_prefix', { error: result.error || tc('submit_failed') }))
       }
     } catch (e) {
-      alert(tc('connection_error'))
+      setTtnError(e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError') ? t('ttn_timeout') : tc('connection_error'))
     } finally {
       setSubmitting(false)
     }
@@ -227,7 +240,8 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* TTN Status Banner */}
+      {/* TTN Status Banner — dépôt réel via prestataire, masqué en mode simulation */}
+      {aspSubmitEnabled && (
       <div className={`rounded-2xl border p-6 ${invoice.ttnStatus === 'ACCEPTED' ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20' : invoice.ttnStatus === 'REJECTED' ? 'bg-red-50 dark:bg-red-500/5 border-red-200 dark:border-red-500/20' : 'bg-blue-50 dark:bg-blue-500/5 border-blue-200 dark:border-blue-500/20'}`}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -243,6 +257,9 @@ export default function InvoiceDetailPage() {
               </p>
               {invoice.ttnErrorMessage && (
                 <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-bold">⚠ {invoice.ttnErrorMessage}</p>
+              )}
+              {ttnError && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1 font-bold">⚠ {ttnError}</p>
               )}
             </div>
           </div>
@@ -266,6 +283,7 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Facture électronique El Fatoora (simulation) */}
       {!/QUOTE|DEVIS|DELIVERY|ORDER|PROFORMA/i.test(invoice.type || '') && (

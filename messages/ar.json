@@ -701,7 +701,8 @@
       "date": "التاريخ",
       "fee_note_pdf": "مذكرة الأتعاب PDF",
       "ttn_ref": "— المرجع: {ref}",
-      "number": "رقم {number}"
+      "number": "رقم {number}",
+      "ttn_timeout": "لم يستجب إيداع TTN خلال 30 ثانية. أعد المحاولة لاحقًا."
     },
     "DocumentList": {
       "ttc_total": "إجمالي مع الأداءات",

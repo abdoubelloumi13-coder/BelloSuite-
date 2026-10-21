@@ -701,7 +701,8 @@
       "date": "Date",
       "fee_note_pdf": "Note Honoraires PDF",
       "ttn_ref": "— Réf: {ref}",
-      "number": "N° {number}"
+      "number": "N° {number}",
+      "ttn_timeout": "Le dépôt TTN n'a pas répondu en 30 s. Réessayez plus tard."
     },
     "DocumentList": {
       "ttc_total": "Total TTC",

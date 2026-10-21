@@ -46,8 +46,17 @@ export interface TTNSubmissionResult {
 
 // ─── Provider API clients ──────────────────────────────────────────────────
 
+/** Délai maximal d'un appel prestataire (évite une requête pendante côté UI). */
+export const ASP_TIMEOUT_MS = 20_000
+
+/** Dépôt TTN réel via prestataire (ASP) activé ? Sinon seul le flux El Fatoora simulé est proposé. */
+export function isAspSubmitEnabled(): boolean {
+  return process.env.TTN_ASP_VERIFIED === 'true'
+}
+
 async function submitViaTTNHub(config: ASPConfig, teifXml: string, invoiceNumber: string): Promise<TTNSubmissionResult> {
   const res = await fetch(`${'https://api.ttnhub.tn/v1'}/invoices/submit`, {
+    signal: AbortSignal.timeout(ASP_TIMEOUT_MS),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -85,6 +94,7 @@ async function submitViaTTNHub(config: ASPConfig, teifXml: string, invoiceNumber
 
 async function submitViaEFactureTN(config: ASPConfig, teifXml: string, invoiceNumber: string): Promise<TTNSubmissionResult> {
   const res = await fetch(`${'https://api.efacturetn.com/v1'}/invoices`, {
+    signal: AbortSignal.timeout(ASP_TIMEOUT_MS),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -130,7 +140,7 @@ export async function submitToTTN(
     return { success: false, errorCode: 'CONFIG_DISABLED', errorMessage: 'ASP configuration is not active' }
   }
 
-  if (process.env.TTN_ASP_VERIFIED !== 'true') {
+  if (!isAspSubmitEnabled()) {
     return {
       success: false,
       errorCode: 'ASP_NOT_VERIFIED',
@@ -174,14 +184,25 @@ export async function submitToTTN(
     return { success: false, errorCode: 'TEIF_INVALID', errorMessage: e?.message || 'TEIF invalide' }
   }
 
-  // Submit based on provider
-  switch (config.provider) {
-    case 'ttnhub':
-      return submitViaTTNHub(config, teifXml, invoice.number)
-    case 'efacturetn':
-      return submitViaEFactureTN(config, teifXml, invoice.number)
-    default:
-      return { success: false, errorCode: 'UNKNOWN_PROVIDER', errorMessage: `Provider ${config.provider} not supported` }
+  // Submit based on provider (délai maximal : ASP_TIMEOUT_MS)
+  try {
+    switch (config.provider) {
+      case 'ttnhub':
+        return await submitViaTTNHub(config, teifXml, invoice.number)
+      case 'efacturetn':
+        return await submitViaEFactureTN(config, teifXml, invoice.number)
+      default:
+        return { success: false, errorCode: 'UNKNOWN_PROVIDER', errorMessage: `Provider ${config.provider} not supported` }
+    }
+  } catch (e: any) {
+    const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
+    return {
+      success: false,
+      errorCode: timeout ? 'ASP_TIMEOUT' : 'ASP_UNREACHABLE',
+      errorMessage: timeout
+        ? `Le prestataire TTN n'a pas répondu en ${ASP_TIMEOUT_MS / 1000} s. Réessayez plus tard.`
+        : `Prestataire TTN injoignable : ${e?.message || 'erreur réseau'}`,
+    }
   }
 }
 
@@ -198,6 +219,7 @@ export async function testASPConnection(config: ASPConfig): Promise<{ ok: boolea
       : 'https://api.efacturetn.com/v1'
 
     const res = await fetch(`${baseUrl}/ping`, {
+      signal: AbortSignal.timeout(ASP_TIMEOUT_MS),
       method: 'GET',
       headers: config.provider === 'ttnhub'
         ? { 'Authorization': `Bearer ${config.apiKey}` }

@@ -3,6 +3,7 @@ import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { getEInvoiceSettings, saveEInvoiceSettings } from '@/lib/einvoice/store'
 import { testCertificateDetails } from '@/lib/einvoice/xades-signer'
+import { isAspSubmitEnabled } from '@/lib/ttn-asp'
 
 export const runtime = 'nodejs'
 
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await getApiContext(req, new URL(req.url).searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
-    return NextResponse.json({ settings: await getEInvoiceSettings(ctx.tenantId), testCertificate: testCertificateDetails() })
+    return NextResponse.json({ settings: await getEInvoiceSettings(ctx.tenantId), testCertificate: testCertificateDetails(), aspSubmitEnabled: isAspSubmitEnabled() })
   } catch (err) {
     return handleApiError(err, 'GET einvoice settings')
   }
@@ -23,7 +24,7 @@ export async function PUT(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const ctx = await getApiContext(req, body?.tenantId ?? new URL(req.url).searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
-    return NextResponse.json({ settings: await saveEInvoiceSettings(ctx.tenantId, body), testCertificate: testCertificateDetails() })
+    return NextResponse.json({ settings: await saveEInvoiceSettings(ctx.tenantId, body), testCertificate: testCertificateDetails(), aspSubmitEnabled: isAspSubmitEnabled() })
   } catch (err) {
     return handleApiError(err, 'PUT einvoice settings')
   }

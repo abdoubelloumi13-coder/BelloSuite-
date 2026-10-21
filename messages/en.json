@@ -701,7 +701,8 @@
       "date": "Date",
       "fee_note_pdf": "Fee note PDF",
       "ttn_ref": "— Ref: {ref}",
-      "number": "No. {number}"
+      "number": "No. {number}",
+      "ttn_timeout": "TTN submission did not respond within 30 s. Please try again later."
     },
     "DocumentList": {
       "ttc_total": "Total TTC",
