@@ -135,7 +135,11 @@
     "actions": "Actions",
     "close": "Fermer",
     "back": "Retour",
-    "error": "Erreur"
+    "error": "Erreur",
+    "states": {
+      "retry": "Réessayer",
+      "not_found": "Élément introuvable ou supprimé."
+    }
   },
   "Auth": {
     "login_title": "Bon retour sur BelloSuite",
@@ -1809,6 +1813,15 @@
         "cancel": "Annuler",
         "code": "Code",
         "name": "Nom"
+      },
+      "detail": {
+        "back": "Retour aux postes de charge",
+        "load_error": "Impossible de charger le poste de charge.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "all_orders": "Tous les OF →",
+        "status": "Statut"
       }
     },
     "boms": {
@@ -1839,6 +1852,19 @@
         "add": "Ajouter",
         "cancel": "Annuler",
         "qty": "Qté"
+      },
+      "detail": {
+        "back": "Retour aux nomenclatures",
+        "load_error": "Impossible de charger la nomenclature.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "version": "Version {version}",
+        "active": "Active",
+        "inactive": "Inactive",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "components_count": "Nombre de composants",
+        "component": "Composant",
+        "reference": "Référence"
       }
     },
     "orders": {
@@ -1999,6 +2025,13 @@
         "linear": "Linéaire",
         "broken": "En Panne",
         "cancel": "Annuler"
+      },
+      "detail": {
+        "back": "Retour aux équipements",
+        "load_error": "Impossible de charger l'équipement.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "category": "Catégorie",
+        "all_work_orders": "Tous les ordres de travail →"
       }
     }
   },

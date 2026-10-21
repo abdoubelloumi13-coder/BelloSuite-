@@ -135,7 +135,11 @@
     "actions": "Actions",
     "close": "Close",
     "back": "Back",
-    "error": "Error"
+    "error": "Error",
+    "states": {
+      "retry": "Retry",
+      "not_found": "Item not found or deleted."
+    }
   },
   "Auth": {
     "login_title": "Login to your space",
@@ -1809,6 +1813,15 @@
         "cancel": "Cancel",
         "code": "Code",
         "name": "Name"
+      },
+      "detail": {
+        "back": "Back to workstations",
+        "load_error": "Could not load the workstation.",
+        "save_error": "Could not save. Check your connection.",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "all_orders": "All production orders →",
+        "status": "Status"
       }
     },
     "boms": {
@@ -1839,6 +1852,19 @@
         "add": "Add",
         "cancel": "Cancel",
         "qty": "Qty"
+      },
+      "detail": {
+        "back": "Back to bills of materials",
+        "load_error": "Could not load the bill of materials.",
+        "save_error": "Could not save. Check your connection.",
+        "version": "Version {version}",
+        "active": "Active",
+        "inactive": "Inactive",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "components_count": "Number of components",
+        "component": "Component",
+        "reference": "Reference"
       }
     },
     "orders": {
@@ -1999,6 +2025,13 @@
         "linear": "Straight-line",
         "broken": "Out of order",
         "cancel": "Cancel"
+      },
+      "detail": {
+        "back": "Back to equipment",
+        "load_error": "Could not load the equipment.",
+        "save_error": "Could not save. Check your connection.",
+        "category": "Category",
+        "all_work_orders": "All work orders →"
       }
     }
   },
