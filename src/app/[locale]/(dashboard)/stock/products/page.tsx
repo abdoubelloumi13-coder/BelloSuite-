@@ -7,6 +7,7 @@ import { Package, Plus, Search, RefreshCw, Filter, Trash2, Edit2, Eye, AlertTria
 import { useSession } from '@/hooks/useSession'
 import { StockNav } from '@/components/stock/ui'
 import { isLowStock } from '@/lib/stock-logic'
+import { apiFormError, fetchJson } from '@/lib/form-errors'
 
 type Product = {
   id: string
@@ -53,6 +54,16 @@ export default function ProductsListPage() {
   const [showCategory, setShowCategory] = useState(false)
   const [newCategory, setNewCategory] = useState('')
   const [categories, setCategories] = useState<string[]>([])
+  const [categoryError, setCategoryError] = useState('')
+  // Catégorie ajoutée depuis la modale : enregistrée dans le référentiel (avant : état local perdu au rechargement)
+  const addCategory = async () => {
+    const cat = newCategory.trim()
+    if (!cat) return
+    setCategoryError('')
+    const r = await fetchJson('/api/stock/categories', { method: 'POST', body: JSON.stringify({ name: cat }) })
+    if (!r.ok && r.status !== 409) { setCategoryError(apiFormError(r.status, r.data, { name: 'Catégorie' }).message); return }
+    setCategories(prev => [...prev.filter(x => x !== cat), cat]); setNewCategory('')
+  }
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{created:number, errors:number}|null>(null)
 
@@ -63,8 +74,9 @@ export default function ProductsListPage() {
     formData.append('file', file)
     try {
       const res = await fetch(`/api/stock/import`, { method: 'POST', body: formData })
-      const data = await res.json()
-      setImportResult(data)
+      const data = await res.json().catch(() => ({}))
+      // L'API renvoie { imported, failed } (ou { error }) : normalisation pour l'affichage
+      setImportResult({ created: Number(data.imported ?? data.created ?? 0), errors: res.ok ? Number(data.failed ?? data.errors?.length ?? 0) : Math.max(1, Number(data.failed ?? 1)) })
       if (res.ok) { fetchProducts(tenantId); setTimeout(() => setShowImport(false), 1500) }
     } catch { setImportResult({ created: 0, errors: 1 }) }
     setImportLoading(false)
@@ -264,7 +276,8 @@ export default function ProductsListPage() {
             )}
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowImport(false)} className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl font-bold text-sm">{t('Stock.close')}</button>
-              <a href="/stock/import" className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2"><Download className="w-4 h-4" /> {t('Stock.download_template')}</a>
+              {/* Lien mort /stock/import corrigé : page d'import produits (modèle XLSX, aperçu, CSV/XLSX) */}
+              <Link href="/stock/products/import" className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2"><Download className="w-4 h-4" /> {t('Stock.download_template')}</Link>
             </div>
           </div>
         </div>
@@ -278,12 +291,13 @@ export default function ProductsListPage() {
               <button onClick={() => setShowCategory(false)} className="p-2 hover:bg-zinc-100 rounded-xl text-zinc-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="flex gap-3 mb-6">
-              <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder={t('Stock.new_category')} className="grow bg-zinc-100 border border-zinc-300 rounded-xl px-4 py-3 text-zinc-900 outline-none focus:border-teal-500" onKeyDown={e => { if (e.key === 'Enter') { const cat = newCategory.trim(); if (cat) { setCategories(prev => [...prev.filter(x => x !== cat), cat]); setNewCategory('') } } }} />
-              <button onClick={() => { const cat = newCategory.trim(); if (cat) { setCategories(prev => [...prev.filter(x => x !== cat), cat]); setNewCategory('') } }} className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold">{t('Stock.add')}</button>
+              <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder={t('Stock.new_category')} className="grow bg-zinc-100 border border-zinc-300 rounded-xl px-4 py-3 text-zinc-900 outline-none focus:border-teal-500" onKeyDown={e => { if (e.key === 'Enter') addCategory() }} />
+              <button onClick={addCategory} className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold">{t('Stock.add')}</button>
             </div>
             <div className="flex flex-wrap gap-2 text-start">
-              {cats.map(cat => <span key={cat} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 text-zinc-700 rounded-full text-sm"><Tags className="w-3 h-3 text-amber-700" /> {cat}</span>)}
-              {cats.length === 0 && <p className="text-zinc-500 text-sm">{t('Stock.no_category')}</p>}
+              {categoryError && <p role="alert" className="w-full text-sm font-bold text-red-600">{categoryError}</p>}
+              {[...new Set([...cats, ...categories])].map(cat => <span key={cat} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 text-zinc-700 rounded-full text-sm"><Tags className="w-3 h-3 text-amber-700" /> {cat}</span>)}
+              {cats.length === 0 && categories.length === 0 && <p className="text-zinc-500 text-sm">{t('Stock.no_category')}</p>}
             </div>
           </div>
         </div>
