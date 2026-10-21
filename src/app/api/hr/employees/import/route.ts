@@ -1,8 +1,9 @@
-import { requireTenant, requireSession, resolveTenantContext } from '@/lib/api-auth'
+import { requireTenant, requireSession } from '@/lib/api-auth'
+import { readImportRows, safeErrorMessage, importErrorResponse, importFileError } from '@/lib/security/import-limits'
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Genre, EstadoCivil, SituationFamiliale, TypeContrat, ModePaie } from '@prisma/client'
-import * as XLSX from 'xlsx'
 
 // Required fields for employee import
 const REQUIRED = ['employeeNumber', 'firstName', 'lastName', 'hireDate']
@@ -46,18 +47,21 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const tenantCtx = resolveTenantContext(session, formData.get('tenantId') as string | null)
-    if ('error' in tenantCtx) return NextResponse.json({ error: tenantCtx.error }, { status: tenantCtx.status })
+    // requireTenant (et non resolveTenantContext) : révocation cabinet + rôle revérifiés en base
+    const tenantCtx = await requireTenant(req, formData.get('tenantId') as string | null)
+    if (tenantCtx instanceof NextResponse) return tenantCtx
+    const denied = requireAccess(tenantCtx, 'hr:write')
+    if (denied) return denied
     const tenantId = tenantCtx.tenantId
 
     if (!file || !tenantId) {
       return NextResponse.json({ error: 'Fichier et tenantId requis' }, { status: 400 })
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+    const fileErr = importFileError(file)
+    if (fileErr) return NextResponse.json({ error: fileErr }, { status: 400 })
+    // 5 Mo / 5 000 lignes maximum
+    const rows: any[] = await readImportRows(file)
 
     if (rows.length === 0) {
       return NextResponse.json({ error: 'Fichier vide' }, { status: 400 })
@@ -160,7 +164,7 @@ export async function POST(req: NextRequest) {
           id: employee.id,
         })
       } catch (e: any) {
-        errors.push({ row: rowNum, employeeNumber: empNum, error: e.message })
+        errors.push({ row: rowNum, employeeNumber: empNum, error: safeErrorMessage(e) })
       }
     }
 
@@ -172,7 +176,6 @@ export async function POST(req: NextRequest) {
       errors,
     })
   } catch (error: any) {
-    console.error('Employee import error:', error)
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 })
+    return importErrorResponse(error, 'Employee import error:')
   }
 }

@@ -1,4 +1,5 @@
-import { requireTenant, requireSession, resolveTenantContext } from '@/lib/api-auth'
+import { requireAccess } from '@/lib/rbac'
+import { requireTenant, requireSession } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculerImpotTunisie } from "@/lib/fiscal";
@@ -9,8 +10,11 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session
   try {
     const { searchParams } = new URL(req.url);
-    const tenantCtx = resolveTenantContext(session, searchParams.get("tenantId") as string | null)
-    if ('error' in tenantCtx) return NextResponse.json({ error: tenantCtx.error }, { status: tenantCtx.status })
+    // requireTenant : révocation cabinet + rôle revérifiés en base
+    const tenantCtx = await requireTenant(req, searchParams.get("tenantId") as string | null)
+    if (tenantCtx instanceof NextResponse) return tenantCtx
+    const accessDenied = requireAccess(tenantCtx, 'hr:read')
+    if (accessDenied) return accessDenied
     const tenantId = tenantCtx.tenantId
     const year = searchParams.get("year");
     const month = searchParams.get("month");
@@ -59,6 +63,8 @@ export async function POST(req: NextRequest) {
     } = body;
     const ctx = await requireTenant(req, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'hr:write')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
 
     const mois = month !== undefined ? month : body.mois;

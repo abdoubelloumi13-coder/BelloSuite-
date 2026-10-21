@@ -1,3 +1,4 @@
+import { safeErrorMessage } from '@/lib/security/import-limits'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { BusinessError } from '@/lib/errors'
@@ -147,7 +148,7 @@ export async function bulkCreateLeads(tenantId: string, leads: CreateLeadData[])
       const lead = await createLead({ ...leadData, tenantId })
       results.push(lead)
     } catch (e: any) {
-      errors.push({ code: leadData.code, error: e.message })
+      errors.push({ code: leadData.code, error: safeErrorMessage(e) })
     }
   }
 
@@ -244,7 +245,7 @@ export async function importLeadsFromCSV(tenantId: string, rows: any[], headerMa
       })
       log.push({ row: rowNum, code, name, id: lead.id })
     } catch (e: any) {
-      errors.push({ row: rowNum, code, error: e.message })
+      errors.push({ row: rowNum, code, error: safeErrorMessage(e) })
     }
   }
 

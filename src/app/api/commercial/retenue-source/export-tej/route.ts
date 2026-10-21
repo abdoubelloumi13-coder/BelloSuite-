@@ -1,4 +1,4 @@
-import { requireTenant, requireSession, resolveTenantContext } from '@/lib/api-auth'
+import { requireTenant, requireSession } from '@/lib/api-auth'
 import { NextResponse } from 'next/server';
 import { exportTEJ, TEJValidationError } from '@/lib/tej-generator';
 
@@ -13,8 +13,9 @@ export async function GET(req: Request) {
   if (session instanceof NextResponse) return session
   try {
     const { searchParams } = new URL(req.url);
-    const tenantCtx = resolveTenantContext(session, searchParams.get('tenantId') as string | null)
-    if ('error' in tenantCtx) return NextResponse.json({ error: tenantCtx.error }, { status: tenantCtx.status })
+    // requireTenant : révocation cabinet + rôle revérifiés en base
+    const tenantCtx = await requireTenant(req, searchParams.get('tenantId') as string | null)
+    if (tenantCtx instanceof NextResponse) return tenantCtx
     const tenantId = tenantCtx.tenantId
     const periodYear  = searchParams.get('periodYear');
     const periodMonth = searchParams.get('periodMonth');
@@ -41,7 +42,8 @@ export async function GET(req: Request) {
     if (e instanceof TEJValidationError) {
       return NextResponse.json({ error: e.message, issues: e.issues }, { status: 422 });
     }
-    return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 });
+    console.error('[export-tej]', e);
+    return NextResponse.json({ error: 'Export TEJ impossible' }, { status: 500 });
   }
 }
 
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
     if (e instanceof TEJValidationError) {
       return NextResponse.json({ error: e.message, issues: e.issues }, { status: 422 });
     }
-    return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 });
+    console.error('[export-tej]', e);
+    return NextResponse.json({ error: 'Export TEJ impossible' }, { status: 500 });
   }
 }
