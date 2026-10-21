@@ -3104,7 +3104,11 @@
       "total_ttc": "Total due incl. VAT",
       "notes": "Notes",
       "ttn_reference": "TTN reference",
-      "ttn_date": "Validated on"
+      "ttn_date": "Validated on",
+      "back": "Back to invoice",
+      "rib": "RIB",
+      "amount_statement": "This invoice is closed at the sum of {amount}, all taxes included (stamp duty included).",
+      "legal_mentions": "Amounts in Tunisian dinars (TND, 3 decimals). VAT and FODEC per current Tunisian law; fiscal stamp duty per the Registration and Stamp Duties Code."
     },
     "settings": {
       "page_title": "Sales settings",

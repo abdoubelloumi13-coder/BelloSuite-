@@ -52,7 +52,8 @@ export default function InvoicesPage() {
   }
 
   const openPrint = (inv: any) => {
-    window.open(`/${locale}/print/invoice/${inv.id}`, '_blank', 'noopener')
+    // Même onglet : la page d'impression a son propre bouton « Retour » vers la facture
+    window.location.assign(`/${locale}/print/invoice/${inv.id}`)
   }
 
   const filteredInvoices = Array.isArray(invoices) ? invoices.filter(inv => 

@@ -221,7 +221,7 @@ export default function InvoiceDetailPage() {
               <Receipt className="w-4 h-4" /> {t('fee_note_pdf')}
             </button>
           )}
-          <a href={`/${locale}/print/invoice/${invoice.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-50 dark:hover:bg-zinc-800 font-bold text-sm shadow-sm">
+          <a href={`/${locale}/print/invoice/${invoice.id}`} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-50 dark:hover:bg-zinc-800 font-bold text-sm shadow-sm">
             <Printer className="w-4 h-4" /> {t('print')}
           </a>
         </div>

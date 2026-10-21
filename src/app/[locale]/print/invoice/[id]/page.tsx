@@ -5,10 +5,16 @@
  * matricule fiscal émetteur/client, HT, FODEC, TVA par taux, droit de timbre, TTC,
  * et, si la facture a été « validée » par le simulateur TTN, le QR et la référence TTN
  * accompagnés de la mention « Mode simulation — non valable fiscalement ».
+ *
+ * Mise en page autonome (hors layout (dashboard) : pas de barre latérale). Lance window.print()
+ * UNE seule fois après chargement (désactivable avec ?autoprint=0). Aucune navigation automatique :
+ * le bouton « Retour » ne fait rien tant qu'on ne clique pas dessus.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { Link } from '@/i18n/routing'
+import { fetchWithTimeout } from '@/lib/fetch-timeout'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface EStatus { step: string; referenceTTN: string | null; qrDataUrl: string | null; acceptedAt: string | null }
@@ -19,6 +25,7 @@ export default function PrintInvoicePage() {
   const locale = useLocale()
   const params = useParams()
   const id = params.id as string
+  const printedRef = useRef(false)
   const [invoice, setInvoice] = useState<any>(null)
   const [estatus, setEstatus] = useState<EStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,8 +36,8 @@ export default function PrintInvoicePage() {
     ;(async () => {
       try {
         const [inv, es] = await Promise.all([
-          fetch(`/api/commercial/invoices?id=${encodeURIComponent(id)}`),
-          fetch(`/api/commercial/invoices/${encodeURIComponent(id)}/einvoice`).catch(() => null),
+          fetchWithTimeout(`/api/commercial/invoices?id=${encodeURIComponent(id)}`, {}, 20_000),
+          fetchWithTimeout(`/api/commercial/invoices/${encodeURIComponent(id)}/einvoice`, {}, 20_000).catch(() => null),
         ])
         if (!inv.ok) throw new Error((await inv.json().catch(() => null))?.error || t('not_found'))
         const data = await inv.json()
@@ -43,9 +50,15 @@ export default function PrintInvoicePage() {
     return () => { cancelled = true }
   }, [id, t])
 
+  // Impression automatique : une seule fois par chargement (garde useRef, y compris en StrictMode)
   useEffect(() => {
-    if (!ready) return
-    const timer = setTimeout(() => window.print(), 400)
+    if (!ready || printedRef.current) return
+    if (new URLSearchParams(window.location.search).get('autoprint') === '0') return
+    const timer = setTimeout(() => {
+      if (printedRef.current) return
+      printedRef.current = true
+      window.print()
+    }, 500)
     return () => clearTimeout(timer)
   }, [ready])
 
@@ -65,19 +78,31 @@ export default function PrintInvoicePage() {
     return [...m.entries()].sort((a, b) => b[0] - a[0])
   }, [invoice])
 
-  if (error) return <p className="p-8 text-red-600 font-bold">{error}</p>
+  if (error) {
+    return (
+      <div className="p-8 space-y-4">
+        <p className="text-red-600 font-bold">{error}</p>
+        <Link href={`/commercial/invoices/${encodeURIComponent(id)}`} className="inline-block px-4 py-2 rounded-xl border border-stone-300 text-sm font-bold">{t('back')}</Link>
+      </div>
+    )
+  }
   if (!invoice) return <p className="p-8 text-stone-500">{t('loading')}</p>
 
   const isCredit = /CREDIT|AVOIR/i.test(invoice.type || '')
   const validated = estatus?.step === 'validated' && estatus.referenceTTN
   const tenant = invoice.tenant || {}
   const client = invoice.client || {}
+  const rib: string | null = typeof tenant.settings?.company?.rib === 'string' && tenant.settings.company.rib ? tenant.settings.company.rib : null
+  const backHref = `/commercial/invoices/${encodeURIComponent(id)}`
 
   return (
     <div className="min-h-screen bg-stone-100 print:bg-white text-stone-900">
       <style>{`@page { size: A4; margin: 14mm; } @media print { .no-print { display: none !important; } body { background: #fff; } body * { visibility: hidden; } #print-invoice, #print-invoice * { visibility: visible; } #print-invoice { position: absolute; inset: 0 auto auto 0; width: 100%; } }`}</style>
       <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-3 bg-white border-b border-stone-200 px-6 py-3">
-        <p className="text-sm font-bold text-stone-600">{t('toolbar', { number: invoice.number })}</p>
+        <div className="flex items-center gap-3">
+          <Link href={backHref} className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-sm font-bold hover:bg-stone-50">← {t('back')}</Link>
+          <p className="text-sm font-bold text-stone-600">{t('toolbar', { number: invoice.number })}</p>
+        </div>
         <button type="button" onClick={() => window.print()} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-black">{t('print_button')}</button>
       </div>
 
@@ -89,6 +114,7 @@ export default function PrintInvoicePage() {
             {tenant.phone && <p>{t('phone')} : {tenant.phone}</p>}
             {tenant.email && <p>{tenant.email}</p>}
             <p className="font-bold mt-1">{t('mf')} : <span className="font-mono">{tenant.matriculeFiscal || '—'}</span></p>
+            {rib && <p>{t('rib')} : <span className="font-mono">{rib}</span></p>}
           </div>
           <div className="text-end">
             <p className="text-2xl font-black uppercase">{isCredit ? t('credit_note') : t('invoice')}</p>
@@ -167,6 +193,11 @@ export default function PrintInvoicePage() {
           </table>
         </section>
 
+        <p className="mt-4 text-[11px]">
+          {t('amount_statement', { amount: money(invoice.totalTTC) })}
+        </p>
+        <p className="mt-1 text-[10px] text-stone-500">{t('legal_mentions')}</p>
+
         {invoice.notes && <p className="mt-4 text-[11px]"><span className="font-bold">{t('notes')} :</span> {invoice.notes}</p>}
 
         {validated && (
@@ -185,7 +216,7 @@ export default function PrintInvoicePage() {
         )}
 
         <footer className="mt-8 border-t border-stone-300 pt-2 text-[10px] text-stone-500 text-center">
-          {tenant.name} — {t('mf')} {tenant.matriculeFiscal || '—'}{tenant.phone ? ` — ${tenant.phone}` : ''}
+          {tenant.name} — {t('mf')} {tenant.matriculeFiscal || '—'}{tenant.address ? ` — ${[tenant.address, tenant.zipCode, tenant.city].filter(Boolean).join(', ')}` : ''}{tenant.phone ? ` — ${tenant.phone}` : ''}{rib ? ` — ${t('rib')} ${rib}` : ''}
         </footer>
       </article>
     </div>
