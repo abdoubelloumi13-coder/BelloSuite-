@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { X, CheckCircle, Circle, Save, ShieldAlert } from 'lucide-react'
-import { toggleTenantModule } from '@/lib/actions/super-admin'
 import gsap from 'gsap'
 import { useTranslations } from 'next-intl'
 
@@ -30,11 +29,15 @@ export default function ModuleManagementModal({ isOpen, onClose, tenant, allModu
   const handleSave = async () => {
     setLoading(true)
     try {
-      // Toggle each module based on the new selection
-      for (const mod of allModules) {
-        const isEnabled = enabledModules.includes(mod.id)
-        await toggleTenantModule(tenant.id, mod.id, isEnabled)
-      }
+      // Route protégée (requireSuperAdmin) : un seul appel avec la sélection complète
+      const res = await fetch(`/api/super-admin/tenants/${encodeURIComponent(tenant.id)}/modules`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modules: allModules.map((mod: any) => ({ moduleId: mod.id, isEnabled: enabledModules.includes(mod.id) })),
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Échec')
       onUpdate()
       onClose()
     } catch (error) {

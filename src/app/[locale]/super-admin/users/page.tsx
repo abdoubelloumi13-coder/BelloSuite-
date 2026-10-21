@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getAllUsers, toggleUserStatus } from '@/lib/actions/super-admin-users'
 import { 
   Users, 
   Search, 
@@ -30,8 +29,13 @@ export default function UsersManagementPage() {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const data = await getAllUsers(filterTenant || undefined, search)
-      setUsers(data)
+      // Route protégée (requireSuperAdmin) — plus de Server Action sans contrôle d'accès
+      const params = new URLSearchParams()
+      if (filterTenant) params.set('tenantId', filterTenant)
+      if (search) params.set('q', search)
+      const res = await fetch(`/api/super-admin/users?${params.toString()}`)
+      const data = res.ok ? await res.json() : []
+      setUsers(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)
     }
@@ -52,7 +56,12 @@ export default function UsersManagementPage() {
 
   const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      await toggleUserStatus(userId, !currentStatus)
+      const res = await fetch(`/api/super-admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Échec')
       fetchUsers()
     } catch (error) {
       console.error('Failed to toggle user status:', error)

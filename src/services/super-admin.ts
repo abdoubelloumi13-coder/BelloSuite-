@@ -92,13 +92,46 @@ export async function createTenant(data: CreateTenantData, requestingUserRole: U
   })
 }
 
-export async function getAllUsers(requestingUserRole: UserRole) {
+export const SAFE_USER_SELECT = {
+  id: true, email: true, firstName: true, lastName: true, role: true, tenantId: true,
+  isActive: true, createdAt: true, updatedAt: true,
+  tenant: { select: { id: true, name: true, subdomain: true, isActive: true } },
+} as const
+
+export async function getAllUsers(
+  requestingUserRole: UserRole,
+  filters: { tenantId?: string | null; query?: string | null; take?: number } = {}
+) {
   if (requestingUserRole !== UserRole.SUPER_ADMIN) {
     throw new BusinessError('Accès réservé au Super Admin', 403)
   }
-
+  const where: Record<string, unknown> = {}
+  if (filters.tenantId) where.tenantId = filters.tenantId
+  const q = filters.query?.trim()
+  if (q) {
+    where.OR = [
+      { firstName: { contains: q, mode: 'insensitive' } },
+      { lastName: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+    ]
+  }
+  // Jamais le champ password ; volume borné.
   return prisma.user.findMany({
-    include: { tenant: { select: { name: true, subdomain: true } } },
-    orderBy: { createdAt: 'desc' }
+    where,
+    select: SAFE_USER_SELECT,
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(Math.max(filters.take ?? 500, 1), 1000),
   })
 }
+
+export const createUserSchema = z.object({
+  tenantId: z.string().uuid({ message: 'Entreprise invalide' }),
+  email: z.string().trim().toLowerCase().email({ message: 'E-mail invalide' }).max(254),
+  password: z.string().min(10, { message: 'Mot de passe : 10 caractères minimum' }).max(128),
+  firstName: z.string().trim().max(80).optional().default(''),
+  lastName: z.string().trim().max(80).optional().default(''),
+  // SUPER_ADMIN ne se crée pas depuis l'interface
+  role: z.enum(['ADMIN', 'USER']).default('USER'),
+}).strict()
+
+export type CreateUserData = z.infer<typeof createUserSchema>

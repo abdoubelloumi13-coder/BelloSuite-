@@ -87,7 +87,7 @@ export default function CreateUserModal({ isOpen, onClose, tenants, onCreated }:
           <div>
             <label className="block text-xs font-black text-zinc-500 uppercase mb-1.5">{t('password')}</label>
             <div className="relative">
-              <input type={showPassword ? 'text' : 'password'} required className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 pr-12 text-white focus:border-blue-500 outline-none transition-all" placeholder="••••••••" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+              <input type={showPassword ? 'text' : 'password'} required minLength={10} maxLength={128} className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 pr-12 text-white focus:border-blue-500 outline-none transition-all" placeholder="••••••••" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
               <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute end-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>

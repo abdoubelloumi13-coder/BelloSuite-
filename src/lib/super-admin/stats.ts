@@ -1,9 +1,15 @@
-'use server'
-
+/**
+ * Statistiques du tableau de bord super admin — module SERVEUR (pas de 'use server' : ce n'est PAS une Server Action
+ * appelable depuis le navigateur). Importé uniquement par le composant serveur super-admin/page.tsx.
+ * Les mutations passent par les routes /api/super-admin/* protégées par requireSuperAdmin.
+ */
 import { prisma } from '@/lib/db'
+import { getLiveSession } from '@/lib/api-auth'
 
 export async function getSuperAdminStats() {
-  console.log('Fetching Super Admin stats...')
+  // Défense en profondeur : le layout vérifie déjà le rôle, mais ce module ne doit jamais servir un non-super-admin.
+  const session = await getLiveSession()
+  if (session?.role !== 'SUPER_ADMIN') throw new Error('Forbidden')
 
   // Individually guard each query because schema migration may be incomplete in some environments
   const safeQuery = async <T>(promise: Promise<T>, name: string, fallback: T): Promise<T> => {
@@ -25,15 +31,13 @@ export async function getSuperAdminStats() {
     employees
   ] = await Promise.all([
     safeQuery(prisma.tenant.findMany({ orderBy: { createdAt: 'desc' } }), 'Tenant', []),
-    safeQuery(prisma.user.findMany({ orderBy: { createdAt: 'desc' } }), 'User', []),
+    safeQuery(prisma.user.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, email: true, firstName: true, lastName: true, role: true, tenantId: true, isActive: true, createdAt: true, updatedAt: true } }), 'User', []),
     safeQuery(prisma.module.findMany(), 'Module', []),
     safeQuery(prisma.tenantModule.findMany({ include: { module: true } }), 'TenantModule', []),
     safeQuery(prisma.product.findMany(), 'Product', []),
     safeQuery(prisma.invoice.findMany(), 'Invoice', []),
     safeQuery(prisma.employee.findMany(), 'Employee', [])
   ])
-
-  console.log(`[SuperAdminStats] Found: ${tenants.length} tenants, ${users.length} users, ${modules.length} modules`)
 
   const activeModuleIds = new Set(tenantModules.filter(tm => tm.isEnabled).map(tm => tm.moduleId))
   
@@ -91,51 +95,4 @@ export async function getSuperAdminStats() {
     modules,
     recentUsers: users.slice(0, 10)
   }
-}
-
-export async function getTenantDetails(tenantId: string) {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    include: {
-      users: { where: { isActive: true } },
-      modules: { include: { module: true } },
-      products: { where: { isActive: true } },
-      clients: { where: { isActive: true } },
-      invoices: { orderBy: { date: 'desc' }, take: 10 },
-      employees: { where: { isActive: true } }
-    }
-  })
-  return tenant
-}
-
-export async function toggleTenantStatus(tenantId: string, isActive: boolean) {
-  return prisma.tenant.update({
-    where: { id: tenantId },
-    data: { isActive }
-  })
-}
-
-export async function deleteTenant(tenantId: string) {
-  // Supprimer en cascade (ou mettre à jour)
-  await prisma.tenant.update({
-    where: { id: tenantId },
-    data: { isActive: false }
-  })
-}
-
-export async function toggleTenantModule(tenantId: string, moduleId: string, isEnabled: boolean) {
-  return prisma.tenantModule.upsert({
-    where: {
-      tenantId_moduleId: {
-        tenantId,
-        moduleId
-      }
-    },
-    update: { isEnabled },
-    create: {
-      tenantId,
-      moduleId,
-      isEnabled
-    }
-  })
 }
