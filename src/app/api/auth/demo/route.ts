@@ -3,10 +3,13 @@ import { createSessionCookie } from '@/lib/session'
 import { prisma } from '@/lib/db'
 import { routing } from '@/i18n/routing'
 import { safeDemoNext } from '@/lib/demo-redirect'
+import { DEMO_EMAIL } from '@/lib/session-guard'
+import { enforceRateLimits, clientIp } from '@/lib/rate-limit-persistent'
 
 export const runtime = 'nodejs'
 
-const DEMO_EMAIL = 'admin@demo.tn'
+/** Session démo courte : 2 h. */
+const DEMO_SESSION_SECONDS = 2 * 60 * 60
 
 export async function GET(req: NextRequest) {
   const requested = req.nextUrl.searchParams.get('locale') || routing.defaultLocale
@@ -15,6 +18,8 @@ export async function GET(req: NextRequest) {
   const next = safeDemoNext(req.nextUrl.searchParams.get('next'))
 
   try {
+    const limited = await enforceRateLimits([{ key: `demo:ip:${clientIp(req)}`, max: 20, windowSeconds: 60 * 60 }])
+    if (limited) return limited
     // Lecture seule : ne jamais créer de compte ici (le compte démo vient de prisma/seed-demo.ts).
     const user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } })
     if (!user || !user.isActive || !user.tenantId) {
@@ -24,13 +29,17 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // SÉCURITÉ : jamais ADMIN en démo publique (session partagée par tous les visiteurs).
+    // Rôle USER + drapeau demo : lecture seule sur paie/compta/paramètres, aucun envoi d'e-mail/WhatsApp,
+    // IA plafonnée (voir session-guard / rbac). Le rôle est de toute façon re-plafonné à chaque requête.
     await createSessionCookie({
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: 'USER',
       tenantId: user.tenantId,
       firstName: user.firstName || 'Démo',
-    })
+      demo: true,
+    }, { expiresInSeconds: DEMO_SESSION_SECONDS })
 
     return NextResponse.redirect(new URL(`/${locale}${next}`, req.url))
   } catch (err) {

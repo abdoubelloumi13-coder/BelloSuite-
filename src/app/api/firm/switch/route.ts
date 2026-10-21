@@ -1,8 +1,10 @@
 /**
  * POST /api/firm/switch { tenantId } — ouvre le dossier d'un client : la session est ré-émise avec le tenant du
  * client, firmId et homeTenantId. { tenantId: null } revient au compte propre de l'utilisateur.
- * Dans le dossier, le collaborateur a le rôle ADMIN (saisie, validation, déclarations) ; l'accès est revérifié
- * à chaque requête et la gestion des accès cabinet reste interdite depuis une session cabinet.
+ * Dans le dossier, le rôle dépend du rôle dans le cabinet : OWNER → ADMIN ; STAFF → USER limité (paie/RH et
+ * comptabilité autorisées, jamais les paramètres TTN/e-facture ni les utilisateurs — voir lib/rbac.ts).
+ * L'accès et le rôle sont revérifiés en base à chaque requête ; la gestion des accès cabinet reste interdite
+ * depuis une session cabinet.
  */
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -12,6 +14,7 @@ import { parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { createSessionCookie } from '@/lib/session'
 import { firmHasActiveAccess, getFirmMembership } from '@/lib/firm-access'
+import { firmEffectiveRole } from '@/lib/session-guard'
 
 export const runtime = 'nodejs'
 
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
     if (!m || !(await firmHasActiveAccess(m.firmId, data.tenantId))) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
-    await createSessionCookie({ ...home, role: 'ADMIN', tenantId: data.tenantId, firmId: m.firmId, homeTenantId: dbUser.tenantId })
+    await createSessionCookie({ ...home, role: firmEffectiveRole(m.role), firmRole: m.role, tenantId: data.tenantId, firmId: m.firmId, homeTenantId: dbUser.tenantId })
     return NextResponse.json({ tenantId: data.tenantId, firm: true })
   } catch (err) {
     return handleApiError(err, 'POST firm/switch')
