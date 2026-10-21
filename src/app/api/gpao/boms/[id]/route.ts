@@ -2,6 +2,8 @@ import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { tenantRefsError } from '@/lib/tenant-scope'
+import { parseBody } from '@/lib/api'
+import { bomUpdateSchema } from '@/lib/security/update-schemas'
 
 export async function GET(
   request: Request,
@@ -45,8 +47,12 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json()
-    const { tenantId: requestedTenantId, items, ...updateData } = body
+    let body: unknown
+    try { body = await request.json() } catch { return NextResponse.json({ error: 'Body JSON invalide' }, { status: 400 }) }
+    // Liste blanche (pas de tenant/product connect imbriqué, pas de clé inconnue)
+    const parsed = parseBody(bomUpdateSchema, body)
+    if (parsed instanceof NextResponse) return parsed
+    const { tenantId: requestedTenantId, items, ...updateData } = parsed
     const ctx = await requireTenant(request, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
     const tenantId = ctx.tenantId
@@ -55,7 +61,7 @@ export async function PUT(
       return NextResponse.json({ error: 'tenantId required' }, { status: 400 })
     }
     const badRef = await tenantRefsError(tenantId, {
-      product: [updateData.productId, ...(Array.isArray(items) ? items.map((i: { productId?: string }) => i.productId) : [])],
+      product: [updateData.productId, ...(items ? items.map(i => i.productId) : [])],
     })
     if (badRef) return badRef
 
@@ -70,9 +76,9 @@ export async function PUT(
         ...(items && {
           items: {
             deleteMany: {}, // Delete old items
-            create: items.map((item: any) => ({
+            create: items.map(item => ({
               productId: item.productId,
-              quantity: Number(item.quantity)
+              quantity: item.quantity
             }))
           }
         })
