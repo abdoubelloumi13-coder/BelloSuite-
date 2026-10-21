@@ -260,6 +260,11 @@
       "estimate": "Quote",
       "scan_document": "Scan a document",
       "fiscal_assistant": "Tax assistant"
+    },
+    "module_stats": {
+      "clients": "{count} client(s)",
+      "employees": "{count} employee(s)",
+      "open": "Open module"
     }
   },
   "Stock": {

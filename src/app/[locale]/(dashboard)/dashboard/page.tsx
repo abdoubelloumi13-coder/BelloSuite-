@@ -84,59 +84,55 @@ export default function DashboardSummary() {
 
   if (!user) return null
 
-  const modules = [
-    { 
-      name: t('Home.modules.stock.title'), 
-      icon: Package, 
-      path: '/stock', 
-      color: 'emerald', 
+  // Tous les modules sont disponibles : cartes actives avec un indicateur réel quand il existe
+  const modules: Array<{ name: string; icon: React.ElementType; path: string; color: string; description: string; stats: string; disabled?: boolean }> = [
+    {
+      name: t('Home.modules.stock.title'),
+      icon: Package,
+      path: '/stock',
+      color: 'emerald',
       description: t('Home.modules.stock.description'),
-      stats: '150 ' + t('Dashboard.items')
+      stats: td('products_count', { count: kpis?.totalProducts || 0 }),
     },
-    { 
-      name: t('Home.modules.commercial.title'), 
-      icon: ShoppingCart, 
-      path: '/commercial', 
-      color: 'amber', 
+    {
+      name: t('Home.modules.commercial.title'),
+      icon: ShoppingCart,
+      path: '/commercial',
+      color: 'amber',
       description: t('Home.modules.commercial.description'),
-      stats: t('Dashboard.soon'),
-      disabled: true
+      stats: t('Dashboard.module_stats.clients', { count: kpis?.totalClients || 0 }),
     },
-    { 
-      name: t('Home.modules.accounting.title'), 
-      icon: Wallet, 
-      path: '/accounting', 
-      color: 'purple', 
+    {
+      name: t('Home.modules.accounting.title'),
+      icon: Wallet,
+      path: '/accounting/entries',
+      color: 'purple',
       description: t('Home.modules.accounting.description'),
-      stats: t('Dashboard.soon'),
-      disabled: true
+      stats: t('Dashboard.module_stats.open'),
     },
-    { 
-      name: t('Home.modules.hr.title'), 
-      icon: Users, 
-      path: '/hr', 
-      color: 'blue', 
+    {
+      name: t('Home.modules.hr.title'),
+      icon: Users,
+      path: '/hr',
+      color: 'blue',
       description: t('Home.modules.hr.description'),
-      stats: t('Dashboard.soon'),
-      disabled: true 
+      stats: t('Dashboard.module_stats.employees', { count: kpis?.totalEmployees || 0 }),
     },
-    { 
-      name: t('Home.modules.maintenance.title'), 
-      icon: Wrench, 
-      path: '/gmao', 
-      color: 'red', 
+    {
+      name: t('Home.modules.maintenance.title'),
+      icon: Wrench,
+      path: '/gmao',
+      color: 'red',
       description: t('Home.modules.maintenance.description'),
-      stats: t('Dashboard.soon'),
-      disabled: true
+      stats: t('Dashboard.module_stats.open'),
     },
-    { 
-      name: t('Home.modules.production.title'), 
-      icon: Factory, 
-      path: '/gpao', 
-      color: 'zinc', 
+    {
+      name: t('Home.modules.production.title'),
+      icon: Factory,
+      path: '/gpao',
+      color: 'zinc',
       description: t('Home.modules.production.description'),
-      stats: t('Dashboard.soon'),
-      disabled: true
+      stats: t('Dashboard.module_stats.open'),
     },
   ]
 

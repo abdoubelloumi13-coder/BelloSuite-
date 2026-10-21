@@ -260,6 +260,11 @@
       "estimate": "Devis",
       "scan_document": "Scanner un document",
       "fiscal_assistant": "Assistant fiscal"
+    },
+    "module_stats": {
+      "clients": "{count} client(s)",
+      "employees": "{count} employé(s)",
+      "open": "Ouvrir le module"
     }
   },
   "Stock": {

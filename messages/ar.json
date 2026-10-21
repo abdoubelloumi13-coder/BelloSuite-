@@ -260,6 +260,11 @@
       "estimate": "عرض سعر",
       "scan_document": "مسح وثيقة",
       "fiscal_assistant": "المساعد الجبائي"
+    },
+    "module_stats": {
+      "clients": "{count} حريف",
+      "employees": "{count} موظف",
+      "open": "فتح الوحدة"
     }
   },
   "Stock": {
