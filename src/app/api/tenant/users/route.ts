@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -8,6 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await getApiContext(req, new URL(req.url).searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'users:manage')
+    if (accessDenied) return accessDenied
     const users = await prisma.user.findMany({
       where: { tenantId: ctx.tenantId },
       select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, createdAt: true },

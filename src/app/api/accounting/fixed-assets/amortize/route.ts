@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { postAmortizationToAccounting } from '@/services/accounting'
@@ -9,6 +10,8 @@ export async function POST(req: Request) {
     const { tenantId: requestedTenantId, month, year } = await req.json()
     const ctx = await requireTenant(req, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
 
     if (!tenantId || month === undefined || year === undefined) {

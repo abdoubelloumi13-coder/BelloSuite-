@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null)
     const ctx = await getApiContext(req, body?.tenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
 
     // La page « Journaux » envoie { code, name, type } : création d'un journal (et non d'une écriture)
     if (!Array.isArray(body?.lines)) {

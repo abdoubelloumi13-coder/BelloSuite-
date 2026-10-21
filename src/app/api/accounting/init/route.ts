@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/db";
@@ -9,6 +10,8 @@ export async function POST(request: Request) {
     const { tenantId: requestedTenantId } = await request.json()
     const ctx = await requireTenant(request, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
 
     if (!tenantId) {

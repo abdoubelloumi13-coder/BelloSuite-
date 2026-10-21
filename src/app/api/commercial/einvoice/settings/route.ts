@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -24,6 +25,8 @@ export async function PUT(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const ctx = await getApiContext(req, body?.tenantId ?? new URL(req.url).searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'settings:write')
+    if (accessDenied) return accessDenied
     return NextResponse.json({ settings: await saveEInvoiceSettings(ctx.tenantId, body), testCertificate: testCertificateDetails(), aspSubmitEnabled: isAspSubmitEnabled() })
   } catch (err) {
     return handleApiError(err, 'PUT einvoice settings')

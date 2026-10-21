@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -6,6 +7,8 @@ import { prisma } from "@/lib/db";
 export async function POST(req: NextRequest) {
   const ctx = await requireTenant(req)
   if (ctx instanceof NextResponse) return ctx
+  const accessDenied = requireAccess(ctx, 'hr:write')
+  if (accessDenied) return accessDenied
   try {
     const body = await req.json();
     const { payslipId, hours, rate } = body;

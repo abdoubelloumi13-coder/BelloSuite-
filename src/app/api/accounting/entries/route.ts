@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 })
     const ctx = await getApiContext(req, body.tenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
     const data = parseBody(manualEntrySchema, body)
     if (data instanceof NextResponse) return data
     const entry = await createManualEntry(ctx.tenantId, data)

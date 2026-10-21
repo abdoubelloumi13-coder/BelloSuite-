@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const ctx = await getApiContext(req, body?.tenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
 
     await initChartOfAccounts(ctx.tenantId)
     return NextResponse.json({ success: true })

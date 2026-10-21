@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
 
     const ctx = await getApiContext(req, bodyTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'accounting:write')
+    if (accessDenied) return accessDenied
 
     if (!month || !year) {
       return NextResponse.json({ error: 'Mois et année requis' }, { status: 400 })

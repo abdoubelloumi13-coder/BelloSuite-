@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
 
     const ctx = await getApiContext(req, tenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'hr:read')
+    if (accessDenied) return accessDenied
 
     const summary = await getPayrollSummary(ctx.tenantId, month, year)
     return NextResponse.json(summary)

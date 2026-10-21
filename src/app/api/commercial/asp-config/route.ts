@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -36,6 +37,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const ctx = await requireTenant(req, searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'settings:write')
+    if (accessDenied) return accessDenied
 
     const config = await prisma.aSPConfiguration.findUnique({ where: { tenantId: ctx.tenantId } })
     if (!config) return NextResponse.json(null, { status: 200 }) // null = non configuré
@@ -55,6 +58,8 @@ export async function POST(req: Request) {
     const { tenantId: requestedTenantId, provider, apiKey, apiSecret, sftpUsername, sftpPassword, sftpEndpoint, webhookSecret, isActive } = body
     const ctx = await requireTenant(req, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'settings:write')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
 
     if (!provider || typeof provider !== 'string') {

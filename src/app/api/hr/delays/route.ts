@@ -1,3 +1,4 @@
+import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -8,6 +9,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const ctx = await requireTenant(request, searchParams.get('tenantId'))
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'hr:read')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
     const employeeId = searchParams.get('employeeId')
     const month = searchParams.get('month')
@@ -43,6 +46,8 @@ export async function POST(request: Request) {
     const { tenantId: requestedTenantId, employeeId, date, heureArrivee, heureNormale, minutesRetard, justifie, motif } = body
     const ctx = await requireTenant(request, requestedTenantId)
     if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'hr:write')
+    if (accessDenied) return accessDenied
     const tenantId = ctx.tenantId
 
     if (!tenantId || !employeeId || !date || !heureArrivee) {
@@ -75,6 +80,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const ctx = await requireTenant(request)
   if (ctx instanceof NextResponse) return ctx
+  const accessDenied = requireAccess(ctx, 'hr:write')
+  if (accessDenied) return accessDenied
   try {
     const body = await request.json()
     const { id, statut, montantRetenu, sanction, justifie } = body
