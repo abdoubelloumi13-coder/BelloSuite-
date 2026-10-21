@@ -1690,7 +1690,22 @@
         "cin": "CIN",
         "last_name": "Nom",
         "department_placeholder": "Ex : Production",
-        "position_placeholder": "Ex : Technicien de maintenance"
+        "position_placeholder": "Ex : Technicien de maintenance",
+        "family": "Situation familiale (paie)",
+        "marital_status": "État civil",
+        "marital_CELIBATAIRE": "Célibataire",
+        "marital_MARIE": "Marié(e)",
+        "marital_DIVORCE": "Divorcé(e)",
+        "marital_VEUF": "Veuf / veuve",
+        "head_of_family": "Chef de famille",
+        "head_of_family_hint": "Ouvre droit à la déduction IRPP chef de famille (300 DT/an)",
+        "children": "Enfants à charge",
+        "children_hint": "Déduction IRPP de 100 DT/an par enfant (4 au plus)",
+        "edit_title": "Modifier l'employé",
+        "edit_subtitle": "Mettre à jour la fiche du collaborateur",
+        "contract_SAISONNIER": "Saisonnier",
+        "contract_INTERIM": "Intérim",
+        "contract_STAGE": "Stage"
       }
     },
     "payroll": {

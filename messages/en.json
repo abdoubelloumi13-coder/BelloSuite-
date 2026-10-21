@@ -1690,7 +1690,22 @@
         "cin": "ID card no.",
         "last_name": "Last name",
         "department_placeholder": "e.g. Production",
-        "position_placeholder": "e.g. Maintenance technician"
+        "position_placeholder": "e.g. Maintenance technician",
+        "family": "Family status (payroll)",
+        "marital_status": "Marital status",
+        "marital_CELIBATAIRE": "Single",
+        "marital_MARIE": "Married",
+        "marital_DIVORCE": "Divorced",
+        "marital_VEUF": "Widowed",
+        "head_of_family": "Head of family",
+        "head_of_family_hint": "Entitles to the head-of-family income tax deduction (300 TND/year)",
+        "children": "Dependent children",
+        "children_hint": "Income tax deduction of 100 TND/year per child (max 4)",
+        "edit_title": "Edit employee",
+        "edit_subtitle": "Update the employee's record",
+        "contract_SAISONNIER": "Seasonal",
+        "contract_INTERIM": "Temporary (agency)",
+        "contract_STAGE": "Internship"
       }
     },
     "payroll": {

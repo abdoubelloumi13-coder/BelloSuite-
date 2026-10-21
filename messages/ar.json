@@ -1690,7 +1690,22 @@
         "cin": "بطاقة التعريف",
         "last_name": "اللقب",
         "department_placeholder": "مثال: الإنتاج",
-        "position_placeholder": "مثال: فني صيانة"
+        "position_placeholder": "مثال: فني صيانة",
+        "family": "الوضعية العائلية (الأجور)",
+        "marital_status": "الحالة المدنية",
+        "marital_CELIBATAIRE": "أعزب",
+        "marital_MARIE": "متزوج(ة)",
+        "marital_DIVORCE": "مطلق(ة)",
+        "marital_VEUF": "أرمل(ة)",
+        "head_of_family": "رئيس عائلة",
+        "head_of_family_hint": "يخول طرح رئيس العائلة من الضريبة على الدخل (300 دينار سنويا)",
+        "children": "الأطفال في الكفالة",
+        "children_hint": "طرح 100 دينار سنويا عن كل طفل (4 على الأكثر)",
+        "edit_title": "تعديل الموظف",
+        "edit_subtitle": "تحديث بطاقة الموظف",
+        "contract_SAISONNIER": "موسمي",
+        "contract_INTERIM": "عمل مؤقت",
+        "contract_STAGE": "تربص"
       }
     },
     "payroll": {

@@ -18,7 +18,7 @@ export const createEmployeeSchema = z.object({
   nationality: z.string().default('Tunisienne'),
   genre: z.nativeEnum(Genre).default(Genre.MALE),
   etatCivil: z.nativeEnum(EstadoCivil).default(EstadoCivil.CELIBATAIRE),
-  enfantsCharge: z.coerce.number().default(0),
+  enfantsCharge: z.coerce.number().int('Enfants à charge : nombre entier attendu').min(0, 'Enfants à charge : valeur positive attendue').max(20, 'Enfants à charge : 20 au plus').default(0),
   situationFamiliale: z.nativeEnum(SituationFamiliale).default(SituationFamiliale.NON_CHEF_FAMILLE),
   address: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -37,6 +37,62 @@ export const createEmployeeSchema = z.object({
 })
 
 export type CreateEmployeeData = z.infer<typeof createEmployeeSchema>
+
+/**
+ * Modification d'un employé : liste blanche des champs de la fiche (aucun champ de rattachement :
+ * tenantId, id, isActive passent par leurs routes dédiées). Tous facultatifs ; chaînes vides → null.
+ */
+const emptyToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v)
+export const updateEmployeeSchema = z.object({
+  employeeNumber: z.string().trim().min(1, 'Matricule requis').optional(),
+  firstName: z.string().trim().min(1, 'Prénom requis').optional(),
+  lastName: z.string().trim().min(1, 'Nom requis').optional(),
+  email: z.preprocess(emptyToNull, z.string().email('E-mail invalide').nullable()).optional(),
+  phone: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  cin: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  birthDate: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  birthPlace: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  nationality: z.string().optional(),
+  genre: z.nativeEnum(Genre).optional(),
+  etatCivil: z.nativeEnum(EstadoCivil).optional(),
+  enfantsCharge: z.coerce.number().int('Enfants à charge : nombre entier attendu').min(0, 'Enfants à charge : valeur positive attendue').max(20, 'Enfants à charge : 20 au plus').optional(),
+  situationFamiliale: z.nativeEnum(SituationFamiliale).optional(),
+  address: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  city: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  hireDate: z.string().min(1, "Date d'embauche requise").optional(),
+  departement: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  poste: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  typeContrat: z.nativeEnum(TypeContrat).optional(),
+  salary: z.coerce.number().min(0, 'Salaire : valeur positive attendue').optional(),
+  modePaie: z.nativeEnum(ModePaie).optional(),
+  banque: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  compteBancaire: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  cnssNumber: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  cnrpsNumber: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  amoNumber: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+})
+
+export type UpdateEmployeeData = z.infer<typeof updateEmployeeSchema>
+
+/** Données Prisma d'une modification (dates converties ; dates invalides rejetées en français). */
+export function toEmployeeUpdateData(d: UpdateEmployeeData) {
+  const { birthDate, hireDate, ...rest } = d
+  const out: Record<string, unknown> = { ...rest }
+  if (birthDate !== undefined) {
+    if (birthDate === null) out.birthDate = null
+    else {
+      const bd = new Date(birthDate)
+      if (isNaN(bd.getTime())) throw new BusinessError('Date de naissance invalide', 400)
+      out.birthDate = bd
+    }
+  }
+  if (hireDate !== undefined) {
+    const hd = new Date(hireDate)
+    if (isNaN(hd.getTime())) throw new BusinessError("Date d'embauche invalide", 400)
+    out.hireDate = hd
+  }
+  return out
+}
 
 // ─── Service Functions ──────────────────────────────────────
 

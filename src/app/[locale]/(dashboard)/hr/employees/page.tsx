@@ -14,6 +14,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<any | null>(null)
 
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function EmployeesPage() {
             <Upload className="w-4 h-4" /> {t('import_csv')}
           </Link>
           <button 
-            onClick={() => setShowModal(true)}
+            onClick={() => { setEditing(null); setShowModal(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold text-sm transition-all shadow-sm shadow-teal-500/20"
           >
             <Plus className="w-4 h-4" /> {t('new')}
@@ -76,15 +77,18 @@ export default function EmployeesPage() {
       <EmployeesTable 
         employees={employees} 
         loading={loading} 
-        onEditEmployee={(emp) => console.log('Edit', emp)} 
+        onEditEmployee={(emp) => { setEditing(emp); setShowModal(true) }}
       />
 
       {showModal && (
         <EmployeeFormModal
+          key={editing?.id ?? 'new'}
           tenantId={tenantId}
-          onClose={() => setShowModal(false)}
+          employee={editing}
+          onClose={() => { setShowModal(false); setEditing(null) }}
           onSave={() => {
             setShowModal(false)
+            setEditing(null)
             fetchEmployees(tenantId)
           }}
         />
