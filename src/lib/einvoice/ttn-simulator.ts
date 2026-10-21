@@ -283,7 +283,7 @@ export interface TtnSimulationResult {
   qrDataUrl?: string
   validatedXml?: string
   simulated: true
-  label: typeof SIMULATION_LABEL
+  label: string
 }
 
 /** Insère <RefTtnVal> après InvoiceBody/AdditionnalDocuments, avant les signatures. */
