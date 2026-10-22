@@ -3,6 +3,7 @@ import '../globals.css'
 import { Cairo, Inter, IBM_Plex_Sans_Arabic } from 'next/font/google'
 import { CookieConsentBanner } from '@/components/ui/CookieConsentBanner'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
+import { ApiErrorTranslator } from '@/components/providers/ApiErrorTranslator'
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -58,6 +59,7 @@ export default async function RootLayout({
     <html lang={locale} dir={isRtl ? 'rtl' : 'ltr'} className={`${cairo.variable} ${inter.variable} ${ibmPlexArabic.variable} h-full`}>
       <body className={`h-full antialiased bg-zinc-50 text-zinc-900 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <ApiErrorTranslator />
           {children}
           <CookieConsentBanner />
           <NotificationCenter />

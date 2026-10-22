@@ -135,7 +135,18 @@
     "actions": "الإجراءات",
     "close": "إغلاق",
     "back": "رجوع",
-    "error": "خطأ"
+    "error": "خطأ",
+    "states": {
+      "retry": "إعادة المحاولة",
+      "not_found": "العنصر غير موجود أو تم حذفه.",
+      "page_not_found_title": "الصفحة غير موجودة",
+      "page_not_found_desc": "هذه الصفحة غير موجودة أو تم نقلها.",
+      "go_dashboard": "لوحة القيادة",
+      "go_home": "الرئيسية",
+      "error_title": "حدث خطأ",
+      "error_desc": "تعذر عرض هذه الصفحة. أعد المحاولة، وإذا استمر المشكل اتصل بالدعم.",
+      "error_ref": "المرجع: {ref}"
+    }
   },
   "Auth": {
     "login_title": "مرحبًا بك مجددًا في BelloSuite",
@@ -1861,6 +1872,15 @@
         "cancel": "إلغاء",
         "code": "الرمز",
         "name": "الاسم"
+      },
+      "detail": {
+        "back": "العودة إلى مراكز العمل",
+        "load_error": "تعذر تحميل مركز العمل.",
+        "save_error": "تعذر الحفظ. تحقق من الاتصال.",
+        "activate": "تفعيل",
+        "deactivate": "إلغاء التفعيل",
+        "all_orders": "كل أوامر التصنيع ←",
+        "status": "الحالة"
       }
     },
     "boms": {
@@ -1891,6 +1911,19 @@
         "add": "إضافة",
         "cancel": "إلغاء",
         "qty": "الكمية"
+      },
+      "detail": {
+        "back": "العودة إلى قوائم المكونات",
+        "load_error": "تعذر تحميل قائمة المكونات.",
+        "save_error": "تعذر الحفظ. تحقق من الاتصال.",
+        "version": "الإصدار {version}",
+        "active": "نشطة",
+        "inactive": "غير نشطة",
+        "activate": "تفعيل",
+        "deactivate": "إلغاء التفعيل",
+        "components_count": "عدد المكونات",
+        "component": "المكوّن",
+        "reference": "المرجع"
       }
     },
     "orders": {
@@ -2051,6 +2084,13 @@
         "linear": "خطي",
         "broken": "معطلة",
         "cancel": "إلغاء"
+      },
+      "detail": {
+        "back": "العودة إلى المعدات",
+        "load_error": "تعذر تحميل المعدة.",
+        "save_error": "تعذر الحفظ. تحقق من الاتصال.",
+        "category": "الصنف",
+        "all_work_orders": "كل أوامر العمل ←"
       }
     }
   },
@@ -2091,7 +2131,40 @@
       "priority_high": "🔴 مرتفعة",
       "assignee": "المكلَّف",
       "cancel": "إلغاء",
-      "create": "إنشاء"
+      "create": "إنشاء",
+      "load_error": "تعذر تحميل اللوحة.",
+      "save_error": "تعذر الحفظ. تحقق من الاتصال.",
+      "title_required": "العنوان إلزامي."
+    },
+    "load_error": "تعذر تحميل المشاريع.",
+    "form": {
+      "title": "مشروع جديد",
+      "subtitle": "يتم إنشاء لوحة كانبان (للإنجاز، قيد التنفيذ، منجز) تلقائيًا.",
+      "back": "العودة إلى المشاريع",
+      "name": "اسم المشروع",
+      "name_placeholder": "مثال: تركيز نظام ERP بالمقر",
+      "name_required": "اسم المشروع إلزامي.",
+      "name_taken": "يوجد مشروع بهذا الاسم.",
+      "network_error": "تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.",
+      "description": "الوصف",
+      "description_placeholder": "الهدف، النطاق، الحريف…",
+      "status": "الحالة",
+      "priority": "الأولوية",
+      "end_date": "تاريخ الاستحقاق",
+      "color": "اللون",
+      "cancel": "إلغاء",
+      "submit": "إنشاء المشروع",
+      "statuses": {
+        "DRAFT": "مسودة",
+        "ACTIVE": "نشط",
+        "ON_HOLD": "معلّق"
+      },
+      "priorities": {
+        "LOW": "منخفضة",
+        "MEDIUM": "متوسطة",
+        "HIGH": "مرتفعة",
+        "URGENT": "عاجلة"
+      }
     }
   },
   "Onboarding": {
@@ -3220,5 +3293,111 @@
     "non_conforming_title": "الفاتورة غير مطابقة لـ TEIF — التوقيع غير ممكن",
     "non_conforming_detail": "صحّح النقاط التالية ثم عد إلى هذه الفاتورة لتوقيعها.",
     "sign_disabled_hint": "التوقيع معطّل: الفاتورة غير مطابقة لـ TEIF (انظر أدناه)"
+  },
+  "Legal": {
+    "terms": "شروط الاستخدام",
+    "privacy": "الخصوصية",
+    "french_only": "هذه الوثيقة متوفرة باللغة الفرنسية فقط، والنسخة الفرنسية هي المعتمدة.",
+    "contact": "لديك سؤال؟"
+  },
+  "AuthCallback": {
+    "loading_title": "جارٍ التحميل...",
+    "redirecting": "جارٍ التوجيه",
+    "unknown_error": "خطأ غير معروف",
+    "invalid_link": "رابط التأكيد غير صالح أو منتهي الصلاحية.",
+    "confirming": "جارٍ التأكيد...",
+    "checking": "جارٍ التحقق",
+    "confirmed_title": "تم تأكيد البريد الإلكتروني!",
+    "welcome": "مرحبًا بك في <strong>BelloSuite</strong>.<br></br>حسابك مفعّل. جارٍ التوجيه...",
+    "signup_success": "تم التسجيل بنجاح",
+    "go_dashboard": "الدخول إلى لوحة القيادة",
+    "failed_title": "فشل التأكيد",
+    "error": "خطأ",
+    "restart_signup": "إعادة التسجيل",
+    "login": "تسجيل الدخول"
+  },
+  "CRM": {
+    "statuses": {
+      "NOUVEAU": "جديد",
+      "CONTACTE": "تم الاتصال",
+      "DEMO": "عرض تجريبي",
+      "NEGOCIATION": "تفاوض",
+      "GAGNE": "مكسوب",
+      "PERDU": "خاسر"
+    },
+    "sectors": {
+      "GARAGE": "ورشة / سيارات",
+      "PME_INDUSTRIE": "مؤسسة صناعية صغرى ومتوسطة",
+      "COMMERCE": "تجارة",
+      "SERVICES": "خدمات",
+      "AUTO_ENTREPRENEUR": "باعث ذاتي",
+      "AUTRE": "أخرى"
+    },
+    "sources": {
+      "WEBSITE": "موقع الواب",
+      "LINKEDIN": "LinkedIn",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "بريد إلكتروني",
+      "REFERRAL": "توصية",
+      "COLD_CALL": "تنقيب مباشر",
+      "EVENT": "تظاهرة",
+      "OTHER": "أخرى"
+    },
+    "pipeline": {
+      "title": "مسار التنقيب التجاري",
+      "total": "المجموع: {count}",
+      "search": "البحث عن عميل محتمل...",
+      "import": "استيراد",
+      "new": "عميل محتمل جديد",
+      "loading": "جارٍ التحميل...",
+      "empty_column": "لا يوجد",
+      "load_error": "تعذر تحميل العملاء المحتملين."
+    },
+    "import": {
+      "title": "استيراد العملاء المحتملين (CSV/Excel)",
+      "columns": "الأعمدة المقبولة:",
+      "imported": "مستورد",
+      "failed": "فشل",
+      "row_error": "السطر {row}: {error}",
+      "choose": "انقر لاختيار ملف",
+      "importing": "جارٍ الاستيراد...",
+      "error": "فشل الاستيراد."
+    },
+    "form": {
+      "name": "اسم جهة الاتصال",
+      "name_placeholder": "مثال: أحمد بن صالح",
+      "company": "المؤسسة",
+      "company_placeholder": "مثال: ورشة الفتح",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "city": "المدينة",
+      "city_placeholder": "تونس، صفاقس...",
+      "address": "العنوان",
+      "sector": "القطاع",
+      "source": "المصدر",
+      "estimated_value": "القيمة التقديرية (د.ت)",
+      "next_follow_up": "المتابعة القادمة",
+      "saving": "جارٍ الحفظ...",
+      "create": "إنشاء العميل المحتمل",
+      "save": "حفظ",
+      "new_title": "عميل محتمل جديد",
+      "save_error": "تعذر الحفظ."
+    },
+    "detail": {
+      "loading": "جارٍ التحميل...",
+      "not_found": "العميل المحتمل غير موجود",
+      "back": "العودة إلى المسار",
+      "delete": "حذف",
+      "confirm_delete": "حذف هذا العميل المحتمل؟ لا يمكن التراجع عن هذا الإجراء.",
+      "delete_error": "تعذر الحذف.",
+      "info": "المعلومات",
+      "created_on": "أُنشئ في {date}",
+      "history": "سجل المبادلات ({count})",
+      "note_placeholder": "إضافة ملاحظة...",
+      "add": "إضافة",
+      "no_notes": "لا توجد ملاحظات",
+      "note_error": "تعذرت إضافة الملاحظة.",
+      "load_error": "تعذر تحميل العميل المحتمل."
+    }
   }
 }

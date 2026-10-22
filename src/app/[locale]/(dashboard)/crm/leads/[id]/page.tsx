@@ -1,31 +1,18 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { Link } from '@/i18n/routing'
+import { useParams } from 'next/navigation'
+import { Link, useRouter } from '@/i18n/routing'
+import { useTranslations, useLocale } from 'next-intl'
+import { readApiError } from '@/lib/client-errors'
 import {
   ArrowLeft, Trash2, Phone, Mail, MapPin, Building2, Calendar,
   Save, PlusCircle, Clock, ChevronRight
 } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 
-const STATUSES = [
-  { key: 'NOUVEAU', label: 'Nouveau' },
-  { key: 'CONTACTE', label: 'Contacté' },
-  { key: 'DEMO', label: 'Démo' },
-  { key: 'NEGOCIATION', label: 'Négociation' },
-  { key: 'GAGNE', label: 'Gagné' },
-  { key: 'PERDU', label: 'Perdu' },
-]
-
-const SECTOR_LABELS: Record<string, string> = {
-  GARAGE: 'Garage / Auto', PME_INDUSTRIE: 'PME Industrie', COMMERCE: 'Commerce',
-  SERVICES: 'Services', AUTO_ENTREPRENEUR: 'Auto-entrepreneur', AUTRE: 'Autre',
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  WEBSITE: 'Site web', LINKEDIN: 'LinkedIn', WHATSAPP: 'WhatsApp', EMAIL: 'Email',
-  REFERRAL: 'Recommandation', COLD_CALL: 'Prospection à froid', EVENT: 'Événement', OTHER: 'Autre',
-}
+const STATUSES = ['NOUVEAU', 'CONTACTE', 'DEMO', 'NEGOCIATION', 'GAGNE', 'PERDU']
+const SECTORS = ['GARAGE', 'PME_INDUSTRIE', 'COMMERCE', 'SERVICES', 'AUTO_ENTREPRENEUR', 'AUTRE']
+const SOURCES = ['WEBSITE', 'LINKEDIN', 'WHATSAPP', 'EMAIL', 'REFERRAL', 'COLD_CALL', 'EVENT', 'OTHER']
 
 const STATUS_STYLE: Record<string, string> = {
   NOUVEAU: 'bg-stone-100 text-stone-600 border-stone-300',
@@ -37,8 +24,13 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 export default function LeadDetailPage() {
+  const t = useTranslations('CRM')
+  const locale = useLocale()
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
   const { tenantId, session } = useSession()
   const [lead, setLead] = useState<any>(null)
   const [notes, setNotes] = useState<any[]>([])
@@ -55,24 +47,29 @@ export default function LeadDetailPage() {
     if (!tenantId) { setLoading(false); return }
     try {
       const r = await fetch(`/api/crm/leads/${params.id}?tenantId=${tenantId}`)
-      if (r.ok) {
+      if (r.status === 404) { setNotFound(true); return }
+      if (!r.ok) { setLoadError(await readApiError(r, locale)); return }
+      {
+        setLoadError(null)
         const data = await r.json()
         setLead(data)
-        setNotes(data.notes || [])
+        // L'API remplace le champ texte `notes` par l'historique (LeadNote[]) : jamais renvoyé tel quel au PATCH.
+        setNotes(Array.isArray(data.notes) ? data.notes : [])
         setForm({
           name: data.name || '', company: data.company || '', email: data.email || '',
           phone: data.phone || '', address: data.address || '', city: data.city || '',
           sector: data.sector, source: data.source, status: data.status,
           estimatedValue: data.estimatedValue ? String(data.estimatedValue) : '',
           nextFollowUp: data.nextFollowUp ? new Date(data.nextFollowUp).toISOString().slice(0, 10) : '',
-          notes: data.notes || '',
         })
         setFormDirty(false)
       }
+    } catch {
+      setLoadError(t('detail.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [params.id, tenantId])
+  }, [params.id, tenantId, locale, t])
 
   useEffect(() => { load() }, [load])
 
@@ -93,23 +90,26 @@ export default function LeadDetailPage() {
           nextFollowUp: form.nextFollowUp ? new Date(form.nextFollowUp).toISOString() : null,
         }),
       })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Erreur')
+      if (!r.ok) { setError(await readApiError(r, locale)); return }
       setFormDirty(false)
       load()
-    } catch (e: any) {
-      setError(e.message)
+    } catch {
+      setError(t('form.save_error'))
     } finally {
       setSaving(false)
     }
   }
 
   const del = async () => {
-    if (!confirm('Supprimer ce lead ? Cette action est irréversible.')) return
+    if (!confirm(t('detail.confirm_delete'))) return
     setDeleting(true)
+    setError(null)
     try {
       const r = await fetch(`/api/crm/leads/${params.id}?tenantId=${tenantId}`, { method: 'DELETE' })
       if (r.ok) router.push('/crm')
+      else setError(await readApiError(r, locale))
+    } catch {
+      setError(t('detail.delete_error'))
     } finally {
       setDeleting(false)
     }
@@ -119,6 +119,7 @@ export default function LeadDetailPage() {
     e.preventDefault()
     if (!newNote.trim()) return
     setAddingNote(true)
+    setNoteError(null)
     try {
       const r = await fetch(`/api/crm/leads/${params.id}/notes`, {
         method: 'POST',
@@ -128,24 +129,32 @@ export default function LeadDetailPage() {
       if (r.ok) {
         setNewNote('')
         load()
+      } else {
+        setNoteError(await readApiError(r, locale))
       }
+    } catch {
+      setNoteError(t('detail.note_error'))
     } finally {
       setAddingNote(false)
     }
   }
 
-  if (loading) return <div className="py-24 text-center text-stone-400 font-bold">Chargement...</div>
-  if (!lead) return <div className="py-24 text-center text-stone-400 font-bold">Lead introuvable</div>
-
-  const statusMeta = STATUSES.find(s => s.key === lead.status) || STATUSES[0]
+  if (loading) return <div className="py-24 text-center text-stone-400 font-bold">{t('detail.loading')}</div>
+  if (loadError) return <div role="alert" className="py-24 text-center text-red-600 font-bold">{loadError}</div>
+  if (notFound || !lead) return (
+    <div className="py-24 text-center space-y-3">
+      <p className="text-stone-400 font-bold">{t('detail.not_found')}</p>
+      <Link href="/crm" className="text-teal-700 font-bold underline">{t('detail.back')}</Link>
+    </div>
+  )
 
   return (
     <div className="space-y-5">
       {/* Breadcrumb + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/crm" className="p-2 border border-stone-200 rounded-xl bg-white hover:bg-stone-50">
-            <ArrowLeft className="w-4 h-4 text-stone-500" />
+          <Link href="/crm" className="p-2 border border-stone-200 rounded-xl bg-white hover:bg-stone-50" aria-label={t('detail.back')}>
+            <ArrowLeft className="w-4 h-4 text-stone-500 rtl:rotate-180" />
           </Link>
           <div>
             <h1 className="text-xl font-black text-stone-900">{lead.name}</h1>
@@ -155,11 +164,11 @@ export default function LeadDetailPage() {
         <div className="flex items-center gap-2">
           <select value={form.status} onChange={e => set('status', e.target.value)}
             className={`px-3 py-2 text-sm font-black rounded-xl border ${STATUS_STYLE[form.status]}`}>
-            {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            {STATUSES.map(s => <option key={s} value={s}>{t(`statuses.${s}`)}</option>)}
           </select>
           <button onClick={del} disabled={deleting}
             className="flex items-center gap-2 px-3 py-2 text-sm font-bold border border-red-200 text-red-600 rounded-xl bg-white hover:bg-red-50 disabled:opacity-50">
-            <Trash2 className="w-4 h-4" /> {deleting ? '...' : 'Supprimer'}
+            <Trash2 className="w-4 h-4" /> {deleting ? '...' : t('detail.delete')}
           </button>
         </div>
       </div>
@@ -169,72 +178,67 @@ export default function LeadDetailPage() {
         <form onSubmit={save} className="lg:col-span-2 bg-white border border-stone-200 rounded-2xl p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Nom du contact *</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.name')} *</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} required
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Entreprise</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.company')}</label>
               <input value={form.company} onChange={e => set('company', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Email</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.email')}</label>
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Téléphone</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.phone')}</label>
               <input value={form.phone} onChange={e => set('phone', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Ville</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.city')}</label>
               <input value={form.city} onChange={e => set('city', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Adresse</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.address')}</label>
               <input value={form.address} onChange={e => set('address', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Secteur</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.sector')}</label>
               <select value={form.sector} onChange={e => set('sector', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500">
-                {Object.entries(SECTOR_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {SECTORS.map(v => <option key={v} value={v}>{t(`sectors.${v}`)}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Source</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.source')}</label>
               <select value={form.source} onChange={e => set('source', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500">
-                {Object.entries(SOURCE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {SOURCES.map(v => <option key={v} value={v}>{t(`sources.${v}`)}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Valeur estimée (DT)</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.estimated_value')}</label>
               <input type="number" min="0" step="10" value={form.estimatedValue} onChange={e => set('estimatedValue', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-xs font-black text-stone-600 mb-1.5 block">Prochaine relance</label>
+              <label className="text-xs font-black text-stone-600 mb-1.5 block">{t('form.next_follow_up')}</label>
               <input type="date" value={form.nextFollowUp} onChange={e => set('nextFollowUp', e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-black text-stone-600 mb-1.5 block">Notes internes</label>
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
-              className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
-          </div>
 
-          {error && <p className="text-sm font-bold text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm font-bold text-red-600">{error}</p>}
 
           <div className="flex justify-end">
             <button type="submit" disabled={saving || !formDirty}
               className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white font-black rounded-xl">
-              <Save className="w-4 h-4" /> {saving ? 'Enregistrement...' : 'Enregistrer'}
+              <Save className="w-4 h-4" /> {saving ? t('form.saving') : t('form.save')}
             </button>
           </div>
         </form>
@@ -243,7 +247,7 @@ export default function LeadDetailPage() {
         <div className="space-y-5">
           {/* Contact quick info */}
           <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-3">
-            <h3 className="font-black text-stone-900 text-sm">Informations</h3>
+            <h3 className="font-black text-stone-900 text-sm">{t('detail.info')}</h3>
             <div className="space-y-2.5 text-sm">
               <div className="flex items-start gap-2.5">
                 <Building2 className="w-4 h-4 text-stone-400 mt-0.5 shrink-0" />
@@ -264,7 +268,7 @@ export default function LeadDetailPage() {
               <div className="flex items-start gap-2.5">
                 <Calendar className="w-4 h-4 text-stone-400 mt-0.5 shrink-0" />
                 <span className="font-bold text-stone-700">
-                  Créé le {new Date(lead.createdAt).toLocaleDateString('fr-TN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {t('detail.created_on', { date: new Date(lead.createdAt).toLocaleDateString(`${locale}-TN`, { day: '2-digit', month: 'short', year: 'numeric' }) })}
                 </span>
               </div>
             </div>
@@ -272,24 +276,25 @@ export default function LeadDetailPage() {
 
           {/* Notes timeline */}
           <div className="bg-white border border-stone-200 rounded-2xl p-5">
-            <h3 className="font-black text-stone-900 text-sm mb-3">Historique des échanges ({notes.length})</h3>
+            <h3 className="font-black text-stone-900 text-sm mb-3">{t('detail.history', { count: notes.length })}</h3>
             <form onSubmit={addNote} className="mb-4">
-              <textarea value={newNote} onChange={e => setNewNote(e.target.value)} rows={2} placeholder="Ajouter une note..."
+              <textarea value={newNote} onChange={e => setNewNote(e.target.value)} rows={2} placeholder={t('detail.note_placeholder')}
                 className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
               <button type="submit" disabled={addingNote || !newNote.trim()}
                 className="mt-2 flex items-center gap-1.5 text-xs font-black text-teal-700 hover:text-teal-800 disabled:opacity-40">
-                <PlusCircle className="w-4 h-4" /> Ajouter
+                <PlusCircle className="w-4 h-4" /> {t('detail.add')}
               </button>
             </form>
+            {noteError && <p role="alert" className="mb-3 text-xs font-bold text-red-600">{noteError}</p>}
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {notes.length === 0 ? (
-                <p className="text-stone-400 text-xs font-bold text-center py-4">Aucune note</p>
+                <p className="text-stone-400 text-xs font-bold text-center py-4">{t('detail.no_notes')}</p>
               ) : notes.map(n => (
-                <div key={n.id} className="border-l-2 border-teal-300 pl-3">
+                <div key={n.id} className="border-s-2 border-teal-300 ps-3">
                   <div className="flex items-center gap-2 text-[10px] font-black text-stone-400">
                     <Clock className="w-3 h-3" />
                     {n.author || 'Admin'}
-                    <span className="ml-auto">{new Date(n.createdAt).toLocaleDateString('fr-TN', { day: '2-digit', month: 'short' })}</span>
+                    <span className="ms-auto">{new Date(n.createdAt).toLocaleDateString(`${locale}-TN`, { day: '2-digit', month: 'short' })}</span>
                   </div>
                   <p className="text-sm text-stone-700 font-bold mt-1">{n.content}</p>
                 </div>

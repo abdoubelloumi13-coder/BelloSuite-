@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, Link } from '@/i18n/routing'
+import { currentUiLocale } from '@/lib/client-errors'
 import { useTranslations } from 'next-intl'
 import { Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
@@ -51,7 +52,7 @@ export default function RegisterPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
+        redirectTo: `${window.location.origin}/api/auth/callback?locale=${currentUiLocale()}&next=/dashboard`,
       },
     })
   }
@@ -207,9 +208,9 @@ export default function RegisterPage() {
 
         <p className="text-center text-zinc-600 text-[10px] mt-6 leading-relaxed">
           {t('terms_note')}{' '}
-          <a href="/terms" className="text-zinc-500 hover:text-teal-400 underline">{t('terms')}</a>
+          <Link href="/terms" className="text-zinc-500 hover:text-teal-400 underline">{t('terms')}</Link>
           {' '}{t('and')}{' '}
-          <a href="/privacy" className="text-zinc-500 hover:text-teal-400 underline">{t('privacy')}</a>
+          <Link href="/privacy" className="text-zinc-500 hover:text-teal-400 underline">{t('privacy')}</Link>
         </p>
       </div>
     </div>

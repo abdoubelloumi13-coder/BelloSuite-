@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, X, GripVertical, MessageSquare, Calendar, Clock, CheckCircle, ChevronLeft, Tag, Users } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
+import { readApiError } from '@/lib/client-errors'
 
 const PRIORITY_META: Record<string, { cls: string }> = {
   low:      { cls: 'bg-zinc-700 text-zinc-400' },
@@ -25,17 +26,26 @@ export default function ProjectKanbanPage() {
   const [editingTask, setEditingTask] = useState<any>(null)
   const [draggingTask, setDraggingTask] = useState<any>(null)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchBoard = useCallback(async () => {
     if (!projectId) return
-    const res = await fetch(`/api/projects/${projectId}`)
-    if (!res.ok) return
-    const data = await res.json()
-    setColumns(data.columns || [])
-    setTasks(data.tasks || [])
-    setMembers(data.members || [])
-    setLoading(false)
-  }, [projectId])
+    try {
+      const res = await fetch(`/api/projects/${projectId}`)
+      if (!res.ok) { setError(await readApiError(res, locale)); return }
+      const data = await res.json()
+      const cols = data.columns || []
+      setColumns(cols)
+      // L'API renvoie les tâches imbriquées dans chaque colonne (columns[].tasks)
+      setTasks(Array.isArray(data.tasks) ? data.tasks : cols.flatMap((c: any) => (c.tasks || []).map((tk: any) => ({ ...tk, columnId: tk.columnId ?? c.id }))))
+      setMembers(data.members || [])
+      setError(null)
+    } catch {
+      setError(t('load_error'))
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId, locale, t])
 
   useEffect(() => { fetchBoard() }, [fetchBoard])
 
@@ -43,11 +53,16 @@ export default function ProjectKanbanPage() {
     e.preventDefault()
     setDragOverColumn(null)
     if (!draggingTask) return
-    await fetch(`/api/projects/${projectId}/move-task`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId: draggingTask.id, targetColumnId: columnId })
-    })
+    try {
+      const res = await fetch(`/api/projects/${projectId}/move-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: draggingTask.id, targetColumnId: columnId })
+      })
+      if (!res.ok) setError(await readApiError(res, locale))
+    } catch {
+      setError(t('save_error'))
+    }
     setDraggingTask(null)
     fetchBoard()
   }
@@ -59,15 +74,15 @@ export default function ProjectKanbanPage() {
   )
 
   return (
-    <div className="flex flex-col h-full px-8 py-6">
+    <div className="flex flex-col h-full px-4 sm:px-8 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => history.back()} className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400 transition-colors">
-            <ChevronLeft className="w-5 h-5" />
+          <button onClick={() => history.back()} className="p-2 hover:bg-stone-100 rounded-xl text-stone-500 transition-colors">
+            <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
           <div>
-            <h2 className="text-xl font-black text-white">{t('title')}</h2>
+            <h2 className="text-xl font-black text-stone-900">{t('title')}</h2>
             <p className="text-xs text-zinc-500">{t('summary', { tasks: tasks.length, columns: columns.length })}</p>
           </div>
         </div>
@@ -78,6 +93,13 @@ export default function ProjectKanbanPage() {
           <Plus className="w-4 h-4" /> {t('new_task')}
         </button>
       </div>
+
+      {error && (
+        <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} aria-label="×"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-6 flex-1">
@@ -197,36 +219,50 @@ export default function ProjectKanbanPage() {
 
 function KanbanModal({ task, columns, members, projectId, onClose, onSave }: any) {
   const t = useTranslations('Projects.kanban')
+  const locale = useLocale()
   const isNew = !task?.id
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
     columnId: task?.columnId || columns[0]?.id || '',
     priority: task?.priority || 'medium',
     assigneeId: task?.assigneeId || '',
-    dueDate: task?.dueDate || '',
+    dueDate: task?.dueDate ? String(task.dueDate).slice(0, 10) : '',
     _type: task?._type || (isNew ? 'add_task' : 'task'),
   })
 
   const handleSave = async () => {
-    if (!form.title.trim() && form._type !== 'add_column') return
-    if (form._type === 'add_column') {
-      await fetch(`/api/projects/${projectId}/columns`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.title, projectId, color: '#6366f1', position: columns.length })
-      })
-    } else if (isNew) {
-      await fetch(`/api/projects/${projectId}/tasks`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, projectId })
-      })
-    } else {
-      await fetch(`/api/projects/${projectId}/tasks`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, projectId })
-      })
+    if (!form.title.trim()) { setError(t('title_required')); return }
+    setSaving(true)
+    setError(null)
+    try {
+      let res: Response
+      if (form._type === 'add_column') {
+        res = await fetch(`/api/projects/${projectId}/columns`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.title, projectId, color: '#6366f1', position: columns.length })
+        })
+      } else if (isNew) {
+        res = await fetch(`/api/projects/${projectId}/tasks`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, projectId })
+        })
+      } else {
+        // L'API PUT identifie la tâche par taskId
+        res = await fetch(`/api/projects/${projectId}/tasks`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, taskId: task.id, projectId })
+        })
+      }
+      if (!res.ok) { setError(await readApiError(res, locale)); return }
+      onSave()
+    } catch {
+      setError(t('save_error'))
+    } finally {
+      setSaving(false)
     }
-    onSave()
   }
 
   return (
@@ -240,6 +276,7 @@ function KanbanModal({ task, columns, members, projectId, onClose, onSave }: any
         </div>
 
         <div className="p-6 space-y-4">
+          {error && <div role="alert" className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>}
           <input
             value={form.title}
             onChange={e => setForm({ ...form, title: e.target.value })}
@@ -290,7 +327,7 @@ function KanbanModal({ task, columns, members, projectId, onClose, onSave }: any
         <div className="flex justify-end gap-3 p-6 border-t border-zinc-800">
           <button onClick={onClose} className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold text-sm">{t('cancel')}</button>
           <button onClick={handleSave}
-            disabled={!form.title.trim()}
+            disabled={!form.title.trim() || saving}
             className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:bg-zinc-700 text-white rounded-xl font-black text-sm">
             {isNew || form._type === 'add_column' ? t('create') : t('save')}
           </button>

@@ -135,7 +135,18 @@
     "actions": "Actions",
     "close": "Fermer",
     "back": "Retour",
-    "error": "Erreur"
+    "error": "Erreur",
+    "states": {
+      "retry": "Réessayer",
+      "not_found": "Élément introuvable ou supprimé.",
+      "page_not_found_title": "Page introuvable",
+      "page_not_found_desc": "Cette page n'existe pas ou a été déplacée.",
+      "go_dashboard": "Tableau de bord",
+      "go_home": "Accueil",
+      "error_title": "Une erreur est survenue",
+      "error_desc": "Cette page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez le support.",
+      "error_ref": "Réf. : {ref}"
+    }
   },
   "Auth": {
     "login_title": "Bon retour sur BelloSuite",
@@ -1861,6 +1872,15 @@
         "cancel": "Annuler",
         "code": "Code",
         "name": "Nom"
+      },
+      "detail": {
+        "back": "Retour aux postes de charge",
+        "load_error": "Impossible de charger le poste de charge.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "all_orders": "Tous les OF →",
+        "status": "Statut"
       }
     },
     "boms": {
@@ -1891,6 +1911,19 @@
         "add": "Ajouter",
         "cancel": "Annuler",
         "qty": "Qté"
+      },
+      "detail": {
+        "back": "Retour aux nomenclatures",
+        "load_error": "Impossible de charger la nomenclature.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "version": "Version {version}",
+        "active": "Active",
+        "inactive": "Inactive",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "components_count": "Nombre de composants",
+        "component": "Composant",
+        "reference": "Référence"
       }
     },
     "orders": {
@@ -2051,6 +2084,13 @@
         "linear": "Linéaire",
         "broken": "En Panne",
         "cancel": "Annuler"
+      },
+      "detail": {
+        "back": "Retour aux équipements",
+        "load_error": "Impossible de charger l'équipement.",
+        "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+        "category": "Catégorie",
+        "all_work_orders": "Tous les ordres de travail →"
       }
     }
   },
@@ -2091,7 +2131,40 @@
       "priority_high": "🔴 Haute",
       "assignee": "Assigné",
       "cancel": "Annuler",
-      "create": "Créer"
+      "create": "Créer",
+      "load_error": "Impossible de charger le tableau.",
+      "save_error": "Enregistrement impossible. Vérifiez votre connexion.",
+      "title_required": "Le titre est obligatoire."
+    },
+    "load_error": "Impossible de charger les projets.",
+    "form": {
+      "title": "Nouveau projet",
+      "subtitle": "Un tableau Kanban (À faire, En cours, Terminé) est créé automatiquement.",
+      "back": "Retour aux projets",
+      "name": "Nom du projet",
+      "name_placeholder": "Ex. : Déploiement ERP siège",
+      "name_required": "Le nom du projet est obligatoire.",
+      "name_taken": "Un projet porte déjà ce nom.",
+      "network_error": "Connexion au serveur impossible. Vérifiez votre connexion internet.",
+      "description": "Description",
+      "description_placeholder": "Objectif, périmètre, client…",
+      "status": "Statut",
+      "priority": "Priorité",
+      "end_date": "Échéance",
+      "color": "Couleur",
+      "cancel": "Annuler",
+      "submit": "Créer le projet",
+      "statuses": {
+        "DRAFT": "Brouillon",
+        "ACTIVE": "Actif",
+        "ON_HOLD": "En pause"
+      },
+      "priorities": {
+        "LOW": "Basse",
+        "MEDIUM": "Moyenne",
+        "HIGH": "Haute",
+        "URGENT": "Urgente"
+      }
     }
   },
   "Onboarding": {
@@ -3220,5 +3293,111 @@
     "non_conforming_title": "Facture non conforme TEIF — signature impossible",
     "non_conforming_detail": "Corrigez les points ci-dessous, puis revenez sur cette facture pour la signer.",
     "sign_disabled_hint": "Signature désactivée : la facture n'est pas conforme TEIF (voir ci-dessous)"
+  },
+  "Legal": {
+    "terms": "Conditions d'utilisation",
+    "privacy": "Confidentialité",
+    "french_only": "Ce document est disponible en français uniquement ; la version française fait foi.",
+    "contact": "Une question ?"
+  },
+  "AuthCallback": {
+    "loading_title": "Chargement...",
+    "redirecting": "Redirection en cours",
+    "unknown_error": "Erreur inconnue",
+    "invalid_link": "Lien de confirmation invalide ou expiré.",
+    "confirming": "Confirmation...",
+    "checking": "Vérification en cours",
+    "confirmed_title": "E-mail confirmé !",
+    "welcome": "Bienvenue sur <strong>BelloSuite</strong>.<br></br>Votre compte est actif. Redirection en cours...",
+    "signup_success": "Inscription réussie",
+    "go_dashboard": "Accéder à mon tableau de bord",
+    "failed_title": "Confirmation échouée",
+    "error": "Erreur",
+    "restart_signup": "Recommencer l'inscription",
+    "login": "Se connecter"
+  },
+  "CRM": {
+    "statuses": {
+      "NOUVEAU": "Nouveau",
+      "CONTACTE": "Contacté",
+      "DEMO": "Démo",
+      "NEGOCIATION": "Négociation",
+      "GAGNE": "Gagné",
+      "PERDU": "Perdu"
+    },
+    "sectors": {
+      "GARAGE": "Garage / Auto",
+      "PME_INDUSTRIE": "PME Industrie",
+      "COMMERCE": "Commerce",
+      "SERVICES": "Services",
+      "AUTO_ENTREPRENEUR": "Auto-entrepreneur",
+      "AUTRE": "Autre"
+    },
+    "sources": {
+      "WEBSITE": "Site web",
+      "LINKEDIN": "LinkedIn",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "E-mail",
+      "REFERRAL": "Recommandation",
+      "COLD_CALL": "Prospection à froid",
+      "EVENT": "Événement",
+      "OTHER": "Autre"
+    },
+    "pipeline": {
+      "title": "Pipeline de prospection",
+      "total": "{count} lead(s) au total",
+      "search": "Rechercher un lead...",
+      "import": "Importer",
+      "new": "Nouveau lead",
+      "loading": "Chargement...",
+      "empty_column": "Aucun lead",
+      "load_error": "Impossible de charger les leads."
+    },
+    "import": {
+      "title": "Importer des leads (CSV/Excel)",
+      "columns": "Colonnes acceptées :",
+      "imported": "Importés",
+      "failed": "Échecs",
+      "row_error": "Ligne {row} : {error}",
+      "choose": "Cliquez pour choisir un fichier",
+      "importing": "Import en cours...",
+      "error": "Échec de l'import."
+    },
+    "form": {
+      "name": "Nom du contact",
+      "name_placeholder": "Ex. : Ahmed Ben Salah",
+      "company": "Entreprise",
+      "company_placeholder": "Ex. : Garage El Fath",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "city": "Ville",
+      "city_placeholder": "Tunis, Sfax...",
+      "address": "Adresse",
+      "sector": "Secteur",
+      "source": "Source",
+      "estimated_value": "Valeur estimée (DT)",
+      "next_follow_up": "Prochaine relance",
+      "saving": "Enregistrement...",
+      "create": "Créer le lead",
+      "save": "Enregistrer",
+      "new_title": "Nouveau lead",
+      "save_error": "Enregistrement impossible."
+    },
+    "detail": {
+      "loading": "Chargement...",
+      "not_found": "Lead introuvable",
+      "back": "Retour au pipeline",
+      "delete": "Supprimer",
+      "confirm_delete": "Supprimer ce lead ? Cette action est irréversible.",
+      "delete_error": "Suppression impossible.",
+      "info": "Informations",
+      "created_on": "Créé le {date}",
+      "history": "Historique des échanges ({count})",
+      "note_placeholder": "Ajouter une note...",
+      "add": "Ajouter",
+      "no_notes": "Aucune note",
+      "note_error": "Ajout de la note impossible.",
+      "load_error": "Impossible de charger le lead."
+    }
   }
 }

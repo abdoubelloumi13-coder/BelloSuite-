@@ -135,7 +135,18 @@
     "actions": "Actions",
     "close": "Close",
     "back": "Back",
-    "error": "Error"
+    "error": "Error",
+    "states": {
+      "retry": "Retry",
+      "not_found": "Item not found or deleted.",
+      "page_not_found_title": "Page not found",
+      "page_not_found_desc": "This page does not exist or has been moved.",
+      "go_dashboard": "Dashboard",
+      "go_home": "Home",
+      "error_title": "Something went wrong",
+      "error_desc": "This page could not be displayed. Please try again; if the problem persists, contact support.",
+      "error_ref": "Ref: {ref}"
+    }
   },
   "Auth": {
     "login_title": "Login to your space",
@@ -1861,6 +1872,15 @@
         "cancel": "Cancel",
         "code": "Code",
         "name": "Name"
+      },
+      "detail": {
+        "back": "Back to workstations",
+        "load_error": "Could not load the workstation.",
+        "save_error": "Could not save. Check your connection.",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "all_orders": "All production orders →",
+        "status": "Status"
       }
     },
     "boms": {
@@ -1891,6 +1911,19 @@
         "add": "Add",
         "cancel": "Cancel",
         "qty": "Qty"
+      },
+      "detail": {
+        "back": "Back to bills of materials",
+        "load_error": "Could not load the bill of materials.",
+        "save_error": "Could not save. Check your connection.",
+        "version": "Version {version}",
+        "active": "Active",
+        "inactive": "Inactive",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "components_count": "Number of components",
+        "component": "Component",
+        "reference": "Reference"
       }
     },
     "orders": {
@@ -2051,6 +2084,13 @@
         "linear": "Straight-line",
         "broken": "Out of order",
         "cancel": "Cancel"
+      },
+      "detail": {
+        "back": "Back to equipment",
+        "load_error": "Could not load the equipment.",
+        "save_error": "Could not save. Check your connection.",
+        "category": "Category",
+        "all_work_orders": "All work orders →"
       }
     }
   },
@@ -2091,7 +2131,40 @@
       "priority_high": "🔴 High",
       "assignee": "Assignee",
       "cancel": "Cancel",
-      "create": "Create"
+      "create": "Create",
+      "load_error": "Could not load the board.",
+      "save_error": "Could not save. Check your connection.",
+      "title_required": "Title is required."
+    },
+    "load_error": "Could not load projects.",
+    "form": {
+      "title": "New project",
+      "subtitle": "A Kanban board (To do, In progress, Done) is created automatically.",
+      "back": "Back to projects",
+      "name": "Project name",
+      "name_placeholder": "e.g. Head office ERP rollout",
+      "name_required": "Project name is required.",
+      "name_taken": "A project with this name already exists.",
+      "network_error": "Cannot reach the server. Check your internet connection.",
+      "description": "Description",
+      "description_placeholder": "Goal, scope, client…",
+      "status": "Status",
+      "priority": "Priority",
+      "end_date": "Due date",
+      "color": "Colour",
+      "cancel": "Cancel",
+      "submit": "Create project",
+      "statuses": {
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "ON_HOLD": "On hold"
+      },
+      "priorities": {
+        "LOW": "Low",
+        "MEDIUM": "Medium",
+        "HIGH": "High",
+        "URGENT": "Urgent"
+      }
     }
   },
   "Onboarding": {
@@ -3220,5 +3293,111 @@
     "non_conforming_title": "Invoice not TEIF-compliant — signing unavailable",
     "non_conforming_detail": "Fix the points below, then come back to this invoice to sign it.",
     "sign_disabled_hint": "Signing disabled: the invoice is not TEIF-compliant (see below)"
+  },
+  "Legal": {
+    "terms": "Terms of use",
+    "privacy": "Privacy",
+    "french_only": "This document is available in French only; the French version is authoritative.",
+    "contact": "Any questions?"
+  },
+  "AuthCallback": {
+    "loading_title": "Loading...",
+    "redirecting": "Redirecting",
+    "unknown_error": "Unknown error",
+    "invalid_link": "Invalid or expired confirmation link.",
+    "confirming": "Confirming...",
+    "checking": "Checking",
+    "confirmed_title": "Email confirmed!",
+    "welcome": "Welcome to <strong>BelloSuite</strong>.<br></br>Your account is active. Redirecting...",
+    "signup_success": "Sign-up successful",
+    "go_dashboard": "Go to my dashboard",
+    "failed_title": "Confirmation failed",
+    "error": "Error",
+    "restart_signup": "Sign up again",
+    "login": "Sign in"
+  },
+  "CRM": {
+    "statuses": {
+      "NOUVEAU": "New",
+      "CONTACTE": "Contacted",
+      "DEMO": "Demo",
+      "NEGOCIATION": "Negotiation",
+      "GAGNE": "Won",
+      "PERDU": "Lost"
+    },
+    "sectors": {
+      "GARAGE": "Garage / Auto",
+      "PME_INDUSTRIE": "SME Industry",
+      "COMMERCE": "Retail",
+      "SERVICES": "Services",
+      "AUTO_ENTREPRENEUR": "Self-employed",
+      "AUTRE": "Other"
+    },
+    "sources": {
+      "WEBSITE": "Website",
+      "LINKEDIN": "LinkedIn",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "Email",
+      "REFERRAL": "Referral",
+      "COLD_CALL": "Cold call",
+      "EVENT": "Event",
+      "OTHER": "Other"
+    },
+    "pipeline": {
+      "title": "Sales pipeline",
+      "total": "{count} lead(s) in total",
+      "search": "Search a lead...",
+      "import": "Import",
+      "new": "New lead",
+      "loading": "Loading...",
+      "empty_column": "No leads",
+      "load_error": "Could not load leads."
+    },
+    "import": {
+      "title": "Import leads (CSV/Excel)",
+      "columns": "Accepted columns:",
+      "imported": "Imported",
+      "failed": "Failed",
+      "row_error": "Row {row}: {error}",
+      "choose": "Click to choose a file",
+      "importing": "Importing...",
+      "error": "Import failed."
+    },
+    "form": {
+      "name": "Contact name",
+      "name_placeholder": "e.g. Ahmed Ben Salah",
+      "company": "Company",
+      "company_placeholder": "e.g. Garage El Fath",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City",
+      "city_placeholder": "Tunis, Sfax...",
+      "address": "Address",
+      "sector": "Sector",
+      "source": "Source",
+      "estimated_value": "Estimated value (TND)",
+      "next_follow_up": "Next follow-up",
+      "saving": "Saving...",
+      "create": "Create lead",
+      "save": "Save",
+      "new_title": "New lead",
+      "save_error": "Could not save."
+    },
+    "detail": {
+      "loading": "Loading...",
+      "not_found": "Lead not found",
+      "back": "Back to pipeline",
+      "delete": "Delete",
+      "confirm_delete": "Delete this lead? This cannot be undone.",
+      "delete_error": "Could not delete.",
+      "info": "Details",
+      "created_on": "Created on {date}",
+      "history": "Activity history ({count})",
+      "note_placeholder": "Add a note...",
+      "add": "Add",
+      "no_notes": "No notes",
+      "note_error": "Could not add the note.",
+      "load_error": "Could not load the lead."
+    }
   }
 }

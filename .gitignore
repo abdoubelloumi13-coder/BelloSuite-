@@ -26,3 +26,12 @@ supabase/migrations/MIGRATION_TO_RUN.sql
 test-action.js
 test-jose.js
 .env.vercel-test
+
+# Artefacts de build / tests
+*.tsbuildinfo
+/playwright-report/
+/test-results/
+/blob-report/
+/coverage/
+*.bak
+*.backup

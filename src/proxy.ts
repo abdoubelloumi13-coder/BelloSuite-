@@ -13,7 +13,8 @@ function stripLocale(pathname: string): string {
   return locale ? pathname.replace(`/${locale}`, '') || '/' : pathname
 }
 
-const PUBLIC_AUTH = ['/login', '/register', '/forgot-password', '/reset-password', '/onboarding', '/demo']
+// /terms et /privacy : pages légales publiques (liens depuis l'inscription)
+const PUBLIC_AUTH = ['/login', '/register', '/forgot-password', '/reset-password', '/onboarding', '/demo', '/terms', '/privacy']
 const PUBLIC_API_PATTERNS = [
   '/api/auth/login',
   '/api/auth/register',
