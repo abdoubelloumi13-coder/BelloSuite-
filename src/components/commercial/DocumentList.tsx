@@ -114,7 +114,7 @@ export default function DocumentList({
         <div>
           <h1 className="text-3xl font-black text-stone-900 dark:text-white tracking-tight">{displayTitle}</h1>
           <p className="text-stone-500 dark:text-zinc-400 font-medium mt-1">
-            {stats.total} {docName}s — {t('ttc_total')}: {fmt(stats.totalTTC)} {t('dt')}
+            {t('summary_count', { count: stats.total, total: fmt(stats.totalTTC) })}
           </p>
         </div>
         <div className="flex items-center gap-3">

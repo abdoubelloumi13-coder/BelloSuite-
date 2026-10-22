@@ -82,6 +82,7 @@ export const TUNISIAN_CHART_OF_ACCOUNTS: ChartOfAccountNode[] = [
   { accountNumber: '431', name: 'Etat - cotisations sociales (CNSS) à payer', type: 'LIABILITY' },
   { accountNumber: '432', name: 'Etat, impôts et taxes retenus à la source', type: 'LIABILITY' },
   { accountNumber: '434', name: 'Etat - impôts sur les bénéfices', type: 'LIABILITY' },
+  { accountNumber: '4341', name: 'Etat - retenues à la source subies (à imputer sur l\'impôt)', type: 'ASSET' },
   { accountNumber: '4342', name: 'Etat - retenues à la source sur salaires (IRPP)', type: 'LIABILITY' },
   { accountNumber: '436', name: 'Etat - taxes sur le chiffre d\'affaires (TVA)', type: 'LIABILITY' },
   { accountNumber: '4365', name: 'Taxes sur le chiffre d\'affaires à décaisser (TVA à payer)', type: 'LIABILITY' },
@@ -168,6 +169,8 @@ export const TN_ACCOUNTS = {
   STAMP_COLLECTED: '4368',
   FODEC: '4371',
   WITHHOLDING: '432',
+  /** RS subie sur nos factures de vente (opérée par le client) : créance sur l'État */
+  WITHHOLDING_SUFFERED: '4341',
   PAYROLL_WITHHOLDING: '4342',
   CNSS: '431',
   STAMP_EXPENSE: '665',

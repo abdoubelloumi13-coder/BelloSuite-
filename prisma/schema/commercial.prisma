@@ -73,8 +73,16 @@ model Invoice {
   rsAmount        Decimal   @default(0)
   irppAmount      Decimal   @default(0)
   totalInCurrency Decimal?
+  /// Document source d'une conversion (devis → BC/facture, BC → BL/facture, BL → facture)
   convertedFromId String?
   convertedAt     DateTime?
+  /// Avoir : facture d'origine annulée / réduite
+  originalInvoiceId String?
+  /// Montant soldé sur le compte client 411 (encaissements + RS subie), pour les règlements partiels
+  amountSettled     Decimal   @default(0)
+  /// Lignes à 0 % : EXEMPT (art. 4 CTVA) | SUSPENSION (art. 11) | EXPORT — et mention légale imprimée
+  vatExemption      String?
+  vatMention        String?
 
   // Bon de livraison : dépôt de sortie du stock (null = documents antérieurs / non concernés)
   warehouseId String?
@@ -108,6 +116,25 @@ model Invoice {
   withholdingTaxes WithholdingTax[]
   items            InvoiceItem[]
   paymentFollowUp  PaymentFollowUp?
+
+  /// Numérotation légale : un numéro par tenant + type (séquence DocumentSequence)
+  @@unique([tenantId, type, number])
+  @@index([tenantId, convertedFromId])
+  @@index([tenantId, originalInvoiceId])
+}
+
+/// Séquence de numérotation légale par tenant, série (FAC, DEV, BC, BL, AV…) et exercice.
+/// Incrémentée atomiquement dans la transaction de création (lib/document-numbering).
+model DocumentSequence {
+  id        String   @id @default(uuid())
+  tenantId  String
+  /// Préfixe de série : FAC | DEV | BC | BL | AV | NH
+  type      String
+  year      Int
+  lastValue Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, type, year])
 }
 
 enum InvoiceStatus {
@@ -510,6 +537,14 @@ model WithholdingTax {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   invoiceId String?
   invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  /// DECLARED : retenue opérée par le tenant sur un paiement (achats) → déclarée au TEJ.
+  /// SUFFERED : retenue subie, opérée par le client sur une facture de vente → créance sur l'État,
+  ///            certificat attendu du client ; jamais exportée au TEJ par le tenant.
+  direction             String    @default("DECLARED")
+  /// Achat (facture / BC fournisseur) à l'origine d'une RS déclarée
+  purchaseOrderId       String?
+  /// RS subie : date de réception du certificat de retenue remis par le client
+  certificateReceivedAt DateTime?
 
   beneficiaryTin     String?
   beneficiaryName    String
@@ -557,6 +592,7 @@ model WithholdingTax {
   @@index([tenantId, periodYear, periodMonth])
   @@index([tenantId, tejStatus])
   @@index([tenantId, beneficiaryTin])
+  @@index([tenantId, direction])
 }
 
 enum BeneficiaryType {

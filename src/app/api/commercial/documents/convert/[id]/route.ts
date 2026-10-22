@@ -6,7 +6,8 @@ import { z } from 'zod'
 
 const convertSchema = z.object({
   tenantId: z.string().min(1).optional(),
-  targetType: z.string().min(1),
+  /** QUOTE → ORDER|INVOICE, ORDER → DELIVERY_NOTE|INVOICE, DELIVERY_NOTE → INVOICE, INVOICE → CREDIT_NOTE */
+  targetType: z.string().min(1).optional().nullable(),
   /** Conversion en bon de livraison : dépôt de sortie (défaut : dépôt par défaut du tenant). */
   warehouseId: z.string().min(1).optional().nullable(),
 })
@@ -17,7 +18,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => ({}))
     const validated = convertSchema.safeParse(body)
     
     if (!validated.success) {

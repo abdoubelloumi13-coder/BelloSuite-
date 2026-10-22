@@ -63,7 +63,7 @@ export default function RetenueSourcePage() {
         // Lien « Export TEJ » (?export=tej) : présélectionne les retenues exportables et amène au bouton d'export
         if (tejIntent.current) {
           tejIntent.current = false;
-          setSelectedIds(list.filter((r: { tejStatus?: string }) => r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED').map((r: { id: string }) => r.id));
+          setSelectedIds(list.filter((r: { tejStatus?: string; direction?: string }) => r.direction !== 'SUFFERED' && (r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED')).map((r: { id: string }) => r.id));
           setTimeout(() => document.getElementById('tej-export-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
         }
       }
@@ -122,7 +122,7 @@ export default function RetenueSourcePage() {
     if (selectedIds.length === records.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(records.filter(r => r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED').map(r => r.id));
+      setSelectedIds(records.filter(r => r.direction !== 'SUFFERED' && (r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED')).map(r => r.id));
     }
   };
 
@@ -256,7 +256,9 @@ export default function RetenueSourcePage() {
                 {records.map((r: any) => {
                   const cfg = STATUS_CONFIG[r.tejStatus] || STATUS_CONFIG.DRAFT;
                   const Icon = cfg.icon;
-                  const selectable = r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED';
+                  // RS subie (opérée par un client sur une de nos factures) : déclarée par le client, jamais exportée ici
+                  const suffered = r.direction === 'SUFFERED';
+                  const selectable = !suffered && (r.tejStatus === 'DRAFT' || r.tejStatus === 'EXPORTED');
                   return (
                     <tr key={r.id} className="hover:bg-amber-500/[0.02] dark:hover:bg-amber-500/[0.05] transition-colors group">
                       <td className="px-6 py-6 text-center">
@@ -273,6 +275,7 @@ export default function RetenueSourcePage() {
                       </td>
                       <td className="px-6 py-6">
                         <p className="text-sm font-black text-stone-900 dark:text-white tracking-tight leading-tight">{r.beneficiaryName}</p>
+                        {suffered && <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">{t('suffered_badge')}</span>}
                         <p className="text-[10px] text-stone-400 dark:text-zinc-500 font-bold font-mono tracking-widest mt-1 uppercase">{r.beneficiaryTin || '—'}</p>
                       </td>
                       <td className="px-6 py-6">

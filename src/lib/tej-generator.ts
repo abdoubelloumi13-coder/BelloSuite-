@@ -254,7 +254,36 @@ export interface WithholdingRecordLike {
   rate: unknown;
   paymentDate: Date | null;
   periodYear: number;
-  invoice?: { number: string; date: Date; subtotalHT: unknown; totalTTC: unknown } | null;
+  invoice?: { number: string; date: Date; subtotalHT: unknown; totalFodec?: unknown; totalVAT?: unknown; totalTTC: unknown; vatSummary?: unknown } | null;
+  /** Pièce d'origine (facture fournisseur) déjà résolue : montants réels HT / TVA / TTC */
+  source?: { date: Date; ht: number; tva: number; ttc: number } | null;
+}
+
+/**
+ * Ventilation HT / TVA d'un paiement TTC à partir des VRAIS montants de la pièce d'origine :
+ *   HT (base TVA, FODEC compris) et TVA de la pièce, au prorata du montant payé si paiement partiel.
+ *   Le droit de timbre éventuel reste dans le TTC (hors HT et hors TVA).
+ * Taux de TVA : celui de la pièce s'il est unique, sinon taux moyen arrondi.
+ */
+export function ventilateFromSource(
+  paidTTC: number,
+  src: { ht: number; tva: number; ttc: number; rates?: number[] },
+): { montantHT: number; montantTVA: number; tauxTVA: number } {
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  const ratio = src.ttc > 0 ? Math.min(1, paidTTC / src.ttc) : 1;
+  const full = Math.abs(paidTTC - src.ttc) < 0.0005;
+  const montantHT = full ? r3(src.ht) : r3(src.ht * ratio);
+  const montantTVA = full ? r3(src.tva) : r3(src.tva * ratio);
+  const rates = (src.rates ?? []).filter((x) => Number.isFinite(x));
+  const tauxTVA = rates.length === 1 ? rates[0] : src.ht > 0 ? Math.round((src.tva / src.ht) * 100) : 0;
+  return { montantHT, montantTVA, tauxTVA };
+}
+
+function vatRatesOf(summary: unknown): number[] {
+  if (!summary || typeof summary !== 'object') return [];
+  return Object.entries(summary as Record<string, { amount?: unknown; base?: unknown }>)
+    .filter(([, v]) => Number(v?.base) > 0)
+    .map(([k]) => Number(k));
 }
 
 /**
@@ -290,12 +319,17 @@ export function recordToCertificate(r: WithholdingRecordLike): { cert?: TEJCerti
   let tauxTVA: number | undefined;
   let montantTVA: number | undefined;
   const vat = r.vatRate !== null && r.vatRate !== undefined ? Number(r.vatRate) : null;
-  if (r.invoice && Number(r.invoice.totalTTC) > 0) {
-    // Ventilation proportionnelle à la facture liée
-    const ratio = Number(r.invoice.subtotalHT) / Number(r.invoice.totalTTC);
-    ht = Math.round(ttc * ratio * 1000) / 1000;
-    montantTVA = Math.round((ttc - ht) * 1000) / 1000;
-    tauxTVA = ht > 0 ? Math.round((montantTVA / ht) * 100) : 0;
+  if (r.source && r.source.ttc > 0) {
+    // Ventilation sur les montants réels de la facture fournisseur
+    ({ montantHT: ht, montantTVA, tauxTVA } = ventilateFromSource(ttc, r.source));
+  } else if (r.invoice && Number(r.invoice.totalTTC) > 0) {
+    // Ventilation sur les montants réels de la facture liée (HT + FODEC = base TVA ; TVA réelle)
+    ({ montantHT: ht, montantTVA, tauxTVA } = ventilateFromSource(ttc, {
+      ht: Number(r.invoice.subtotalHT) + Number(r.invoice.totalFodec ?? 0),
+      tva: r.invoice.totalVAT !== undefined ? Number(r.invoice.totalVAT) : Number(r.invoice.totalTTC) - Number(r.invoice.subtotalHT),
+      ttc: Number(r.invoice.totalTTC),
+      rates: vatRatesOf(r.invoice.vatSummary),
+    }));
   } else if (vat !== null) {
     ht = Math.round((ttc / (1 + vat / 100)) * 1000) / 1000;
     montantTVA = Math.round((ttc - ht) * 1000) / 1000;
@@ -318,7 +352,7 @@ export function recordToCertificate(r: WithholdingRecordLike): { cert?: TEJCerti
       datePayement: formatDateTEJ(r.paymentDate!),
       operation: {
         idTypeOperation: rule.tejCode!,
-        anneeFacturation: r.invoice ? r.invoice.date.getUTCFullYear() : r.periodYear,
+        anneeFacturation: r.source ? new Date(r.source.date).getUTCFullYear() : r.invoice ? r.invoice.date.getUTCFullYear() : r.periodYear,
         montantHT: ht,
         tauxRS: Number(r.rate) * 100,
         tauxTVA,
@@ -345,14 +379,23 @@ export async function exportTEJ(options: TEJExportOptions): Promise<TEJExportRes
   const identifiant = tejMatricule(tenant.matriculeFiscal);
   if (!identifiant) throw new Error('Matricule fiscal de l\'entreprise absent ou invalide (7 chiffres + clé)');
 
-  const where: any = { tenantId, periodYear, periodMonth, tejStatus: { in: ['DRAFT', 'EXPORTED'] } };
+  // RS opérées par le tenant uniquement : une RS SUBIE (opérée par un client sur une facture de vente)
+  // est déclarée par ce client, jamais par le tenant.
+  const where: any = { tenantId, periodYear, periodMonth, tejStatus: { in: ['DRAFT', 'EXPORTED'] }, direction: { not: 'SUFFERED' } };
   if (withholdingTaxIds?.length) where.id = { in: withholdingTaxIds };
 
   const records = await prisma.withholdingTax.findMany({
     where,
     orderBy: { createdAt: 'asc' },
-    include: { invoice: { select: { number: true, date: true, subtotalHT: true, totalTTC: true } } },
+    include: { invoice: { select: { number: true, date: true, subtotalHT: true, totalFodec: true, totalVAT: true, totalTTC: true, vatSummary: true } } },
   });
+
+  // Achat (facture fournisseur) à l'origine de la retenue : ventilation HT / TVA réelle
+  const poIds = [...new Set(records.map((r: any) => r.purchaseOrderId).filter(Boolean))] as string[];
+  const purchases = poIds.length
+    ? await prisma.purchaseOrder.findMany({ where: { id: { in: poIds }, tenantId }, select: { id: true, number: true, date: true, subtotal: true, taxAmount: true, total: true } })
+    : [];
+  const poById = new Map(purchases.map((p) => [p.id, p]));
 
   if (records.length === 0) {
     throw new Error('Aucune retenue à exporter pour cette période. Vérifiez que des RS sont en statut DRAFT ou EXPORTED.');
@@ -361,7 +404,11 @@ export async function exportTEJ(options: TEJExportOptions): Promise<TEJExportRes
   const certificates: TEJCertificate[] = [];
   const issues: TEJValidationIssue[] = [];
   for (const r of records) {
-    const { cert, missing } = recordToCertificate(r as unknown as WithholdingRecordLike);
+    const po = (r as any).purchaseOrderId ? poById.get((r as any).purchaseOrderId) : undefined;
+    const { cert, missing } = recordToCertificate({
+      ...(r as unknown as WithholdingRecordLike),
+      source: po ? { date: po.date, ht: Number(po.subtotal), tva: Number(po.taxAmount), ttc: Number(po.total) } : undefined,
+    });
     if (cert) certificates.push(cert);
     else issues.push({ id: r.id, beneficiary: r.beneficiaryName, missing });
   }
@@ -397,6 +444,9 @@ export interface RSResume {
   byServiceType: Record<string, { count: number; totalRS: number; totalBrut: number }>;
   byStatus: Record<string, number>;
   byBeneficiaryType: Record<string, { count: number; totalRS: number }>;
+  /** RS subies (opérées par nos clients sur nos factures de vente) : créance sur l'État, hors TEJ */
+  totalSuffered: number;
+  countSuffered: number;
 }
 
 /**
@@ -407,10 +457,14 @@ export async function getRSResume(
   periodYear: number,
   periodMonth: number
 ): Promise<RSResume> {
-  const records = await prisma.withholdingTax.findMany({
+  const all = await prisma.withholdingTax.findMany({
     where: { tenantId, periodYear, periodMonth },
     include: { invoice: { select: { number: true } } },
   });
+  // Le résumé TEJ ne porte que sur les RS opérées par le tenant ; les RS subies sont totalisées à part
+  const records = all.filter((r: any) => r.direction !== 'SUFFERED');
+  const suffered = all.filter((r: any) => r.direction === 'SUFFERED');
+  const totalSuffered = suffered.reduce((s, r) => s + Number(r.taxAmount), 0);
 
   const totalBrut = records.reduce((s, r) => s + Number(r.grossAmount), 0);
   const totalRS = records.reduce((s, r) => s + Number(r.taxAmount), 0);
@@ -435,7 +489,7 @@ export async function getRSResume(
     byBeneficiaryType[r.beneficiaryType].totalRS += Number(r.taxAmount);
   }
 
-  return { totalBrut, totalRS, totalNet, count: records.length, byServiceType, byStatus, byBeneficiaryType };
+  return { totalBrut, totalRS, totalNet, count: records.length, byServiceType, byStatus, byBeneficiaryType, totalSuffered, countSuffered: suffered.length };
 }
 
 /**
