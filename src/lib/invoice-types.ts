@@ -5,6 +5,8 @@
  * Source: Code de la patente tunisien, Loi de finance 2024-2026.
  */
 
+import { calculerRS } from '@/lib/retenue-source'
+
 /** Types de document commercial — aline avec DocumentType enum Prisma */
 export type DocumentCategory = 
   | 'SALE'           // Vente de marchandises (avec/sans TVA)
@@ -26,8 +28,8 @@ export interface DocumentTypeConfig {
   hasTVA: boolean         // Soumise à la TVA
   hasFODEC: boolean       // Soumise à FODEC 1%
   hasTimbre: boolean      // Timbre fiscal 1DT
-  hasRS: boolean          // Retenue à la source 1.5%
-  rsRate: number          // Taux RS (ex: 0.015)
+  hasRS: boolean          // Retenue à la source (subie, opérée par le client au paiement)
+  rsRate: number          // Taux RS indicatif (ex: 0.03 honoraires régime réel) — taux exact : lib/retenue-source
   hasIRPP: boolean        // IRPP catégoriel (honoraires)
   stockAffect: boolean    // Affecte le stock
   teifTypeCode: string    // Code TEIF (I-11, I-12, etc.)
@@ -85,12 +87,12 @@ export const INVOICE_TYPE_CONFIGS: Record<string, DocumentTypeConfig> = {
     hasTVA: true,         // Mais peut être exonérée si assujetti
     hasFODEC: false,      // Pas de FODEC sur honoraires
     hasTimbre: true,
-    hasRS: true,          // RS 1.5% sur total TTC (prestataire non salarié)
-    rsRate: 0.015,       // 1.5% de la base TTC
+    hasRS: true,          // RS sur le TTC : 3 % (PM / BNC au réel) ou 10 % (BNC au forfait) — art. 52 Code IRPP/IS
+    rsRate: 0.03,
     hasIRPP: true,       // IRPP catégoriel 15% (revenus catégoriels)
     stockAffect: false,
     teifTypeCode: 'I-13', // Note d'honoraires
-    description: 'Jetons de présence, honoraires experts-comptables, avocats. RS 1.5% + IRPP catégoriel 15%. Pas de FODEC.',
+    description: 'Honoraires (experts-comptables, avocats, consultants). RS 3 % (régime réel / personne morale) ou 10 % (forfait d\'assiette) sur le TTC, opérée par le client. Pas de FODEC.',
   },
 
   // ── ACHAT FOURNISSEUR ─────────────────────────────────
@@ -206,19 +208,17 @@ export const INVOICE_TYPE_CONFIGS: Record<string, DocumentTypeConfig> = {
 }
 
 /**
- * Calcule le montant de la Retenue à la Source pour une note d'honoraires.
- * RS = totalTTC × 1.5% (plafonné à 20% du HT par certains textes).
- * En pratique: RS = baseTTC × 0.015
- *
- * @param totalTTC - Montant TTC de la note d'honoraires
- * @param totalHT  - Montant HT pour vérification plafond
- * @returns Montant RS à déduire
+ * Retenue à la source sur une note d'honoraires (taux 2026, art. 52 Code IRPP/IS) :
+ * 3 % du TTC pour une personne morale ou un BNC au régime réel, 10 % pour un BNC au forfait d'assiette.
+ * Délègue à lib/retenue-source (source unique des taux) ; l'ancien taux de 1,5 % était erroné.
  */
-export function calculateRS(totalTTC: number, totalHT: number): number {
-  const rsRaw = totalTTC * 0.015
-  // Plafond RS: ne peut pas dépasser 20% du HT (article 52 bis)
-  const rsCapped = Math.min(rsRaw, totalHT * 0.20)
-  return Math.round(rsCapped * 1000) / 1000
+export function calculateRS(totalTTC: number, _totalHT?: number, opts: { forfait?: boolean; beneficiaryType?: 'INDIVIDU' | 'SOCIETE' } = {}): number {
+  return calculerRS({
+    montantBrut: Number(totalTTC) || 0,
+    serviceType: 'HONORAIRES',
+    beneficiaryType: opts.beneficiaryType ?? (opts.forfait ? 'INDIVIDU' : 'SOCIETE'),
+    regime: opts.forfait ? 'FORFAIT' : null,
+  }).montantRS
 }
 
 /**

@@ -630,7 +630,7 @@
     },
     "Invoices": {
       "title": "Facturation 🇹🇳",
-      "subtitle": "Standard TEIF 1.8.8 / Loi de Finance 2024",
+      "subtitle": "Standard TEIF / El Fatoora — Loi de finances 2026",
       "currency": "TND",
       "new_invoice": "Nouvelle Facture",
       "search_placeholder": "Rechercher par numéro ou client...",
@@ -705,6 +705,7 @@
       "ttn_timeout": "Le dépôt TTN n'a pas répondu en 30 s. Réessayez plus tard."
     },
     "DocumentList": {
+      "summary_count": "{count, plural, =0 {Aucun document} one {# document} other {# documents}} — Total TTC : {total} DT",
       "ttc_total": "Total TTC",
       "dt": "DT",
       "loading": "Chargement...",

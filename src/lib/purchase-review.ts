@@ -55,6 +55,11 @@ function sameDay(a: Date | string, b: Date | string): boolean {
 }
 
 /** Charges de services (honoraires, maintenance, transport…) → 604 ; sinon achats de marchandises 607. */
+/** Honoraires, commissions, courtages : retenue de 3 % (réel / personne morale) ou 10 % (forfait), sans seuil de 1 000 DT. */
+export const HONORARIUM_HINT = /\b(honoraires?|commissions?|courtages?|vacations?|expert[- ]?comptable|avocat|notaire|huissier|architecte|commissaire aux comptes)\b/i
+export function isHonorariumPurchase(x: Pick<InvoiceExtraction, 'lines' | 'supplierName'>): boolean {
+  return HONORARIUM_HINT.test([x.supplierName.value, ...x.lines.map((l) => l.designation)].filter(Boolean).join(' '))
+}
 const SERVICE_HINT = /\b(prestation|service|maintenance|honoraires?|conseil|formation|transport|location|abonnement|réparation|reparation|installation|main d.?oeuvre|audit|étude|etude)\b/i
 
 export function purchaseAccount(x: Pick<InvoiceExtraction, 'lines' | 'supplierName'>): { account: '607' | '604'; label: string } {
@@ -128,8 +133,10 @@ export function reviewPurchase(i: ReviewInput): PurchaseReview {
 
   // 4. Retenue à la source au paiement
   const profile = supplierRsProfile(i.matchedSupplier, mf)
-  const rule = getRSRule('PRESTATION_SERVICE', profile.type, profile.regime, ttc)
-  const applies = ttc >= ACQUISITION_THRESHOLD_TTC && rule.taux > 0
+  // Honoraires : 3 % / 10 % (forfait) dès le premier dinar ; autres acquisitions : 1 % / 1,5 % / 0,5 % à partir de 1 000 DT TTC
+  const honorarium = isHonorariumPurchase(x)
+  const rule = getRSRule(honorarium ? 'HONORAIRES' : 'PRESTATION_SERVICE', profile.type, profile.regime, ttc)
+  const applies = (honorarium || ttc >= ACQUISITION_THRESHOLD_TTC) && rule.taux > 0
   const rsAmount = applies ? r3(ttc * rule.taux) : 0
   if (applies && profile.assumed) issues.push({ code: 'RS_REGIME_ASSUMED', level: 'info' })
 
