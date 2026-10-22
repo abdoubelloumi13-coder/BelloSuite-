@@ -9,6 +9,15 @@ jest.mock('@/lib/api', () => {
 })
 jest.mock('@/lib/rate-limit-persistent', () => ({
   rateLimitPersistent: (...a: unknown[]) => rateLimitPersistent(...a),
+  // enforceRateLimits réel, branché sur le mock (limites entreprise + utilisateur, cf. lib/security/ai-limits)
+  enforceRateLimits: async (limits: Array<{ key: string; max: number; windowSeconds: number }>) => {
+    for (const l of limits) {
+      const r = await rateLimitPersistent(l.key, l.max, l.windowSeconds)
+      if (!r?.success) return NextResponse.json({ error: 'rl' }, { status: 429 })
+    }
+    return null
+  },
+  clientIp: () => '127.0.0.1',
   tooManyRequests: () => NextResponse.json({ error: 'rl' }, { status: 429 }),
 }))
 
@@ -73,7 +82,8 @@ describe('POST /api/ai/extract-invoice', () => {
     expect(body.aiWarnings).toEqual(expect.arrayContaining(['ai:retried', 'ai:string_numbers']))
     expect(JSON.stringify(body.aiWarnings)).not.toContain('ALPHA')
     expect(global.fetch).toHaveBeenCalledTimes(2)
-    expect(rateLimitPersistent).toHaveBeenCalledTimes(1)
+    // une seule unité de quota entreprise malgré la relance
+    expect(rateLimitPersistent.mock.calls.filter(c => String(c[0]).includes(':tenant:'))).toHaveLength(1)
     expect(JSON.stringify(warn.mock.calls)).not.toContain('SECRET')
     warn.mockRestore()
   })

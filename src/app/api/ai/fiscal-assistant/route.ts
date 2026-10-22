@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
-import { rateLimitPersistent, tooManyRequests } from '@/lib/rate-limit-persistent'
+import { enforceAiLimits } from '@/lib/security/ai-limits'
 import { askFiscalAssistant, assistantRequestSchema } from '@/lib/fiscal-assistant'
 
 export const runtime = 'nodejs'
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
     const data = parseBody(assistantRequestSchema, body)
     if (data instanceof NextResponse) return data
 
-    const rl = await rateLimitPersistent(`ai-fiscal-assistant:tenant:${ctx.tenantId}`, FISCAL_ASSISTANT_LIMIT, 3600)
-    if (!rl.success) return tooManyRequests(rl)
+    const limited = await enforceAiLimits(req, ctx, 'ai-fiscal-assistant', FISCAL_ASSISTANT_LIMIT)
+    if (limited) return limited
 
     const out = await askFiscalAssistant(data.question, { db: prisma }, { codes: data.codes })
     return NextResponse.json(out)

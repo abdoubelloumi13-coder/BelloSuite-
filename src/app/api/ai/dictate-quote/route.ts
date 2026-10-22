@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
-import { rateLimitPersistent, tooManyRequests } from '@/lib/rate-limit-persistent'
+import { enforceAiLimits } from '@/lib/security/ai-limits'
 import { aiProviders } from '@/lib/ai-invoice'
 import { dictateWithAi, MAX_CLIENTS_IN_PROMPT, MAX_PRODUCTS_IN_PROMPT } from '@/lib/ai-dictate'
 import { MAX_TRANSCRIPT, parseDictationLocal, type Catalog } from '@/lib/dictate-quote'
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
     const data = parseBody(requestSchema, body)
     if (data instanceof NextResponse) return data
 
-    const rl = await rateLimitPersistent(`ai-dictate-quote:tenant:${ctx.tenantId}`, DICTATE_LIMIT, 3600)
-    if (!rl.success) return tooManyRequests(rl)
+    const limited = await enforceAiLimits(req, ctx, 'ai-dictate-quote', DICTATE_LIMIT)
+    if (limited) return limited
 
     const catalog = await loadCatalog(ctx.tenantId)
     const providers = aiProviders()

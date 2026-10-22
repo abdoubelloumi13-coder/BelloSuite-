@@ -11,6 +11,15 @@ jest.mock('@/lib/api', () => {
 })
 jest.mock('@/lib/rate-limit-persistent', () => ({
   rateLimitPersistent: (...a: unknown[]) => rateLimitPersistent(...a),
+  // enforceRateLimits réel, branché sur le mock (limites entreprise + utilisateur, cf. lib/security/ai-limits)
+  enforceRateLimits: async (limits: Array<{ key: string; max: number; windowSeconds: number }>) => {
+    for (const l of limits) {
+      const r = await rateLimitPersistent(l.key, l.max, l.windowSeconds)
+      if (!r?.success) return NextResponse.json({ error: 'rl' }, { status: 429 })
+    }
+    return null
+  },
+  clientIp: () => '127.0.0.1',
   tooManyRequests: () => NextResponse.json({ error: 'rl' }, { status: 429 }),
 }))
 jest.mock('@/lib/db', () => ({

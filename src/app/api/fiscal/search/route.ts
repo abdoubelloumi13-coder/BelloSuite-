@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
-import { rateLimitPersistent, tooManyRequests } from '@/lib/rate-limit-persistent'
+import { enforceAiLimits } from '@/lib/security/ai-limits'
 import { searchFiscalKb } from '@/lib/fiscal-kb'
 import { searchRequestSchema } from '@/lib/fiscal-assistant'
 import { snippetFor } from '@/lib/fiscal-search-utils'
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
     const data = parseBody(searchRequestSchema, body)
     if (data instanceof NextResponse) return data
 
-    const rl = await rateLimitPersistent(`fiscal-search:tenant:${ctx.tenantId}`, 120, 3600)
-    if (!rl.success) return tooManyRequests(rl)
+    const limited = await enforceAiLimits(req, ctx, 'fiscal-search', 120)
+    if (limited) return limited
 
     const r = await searchFiscalKb(data.q, { db: prisma }, {
       limit: data.limit ?? 15,

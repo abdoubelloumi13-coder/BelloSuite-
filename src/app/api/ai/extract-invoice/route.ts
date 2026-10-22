@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
-import { rateLimitPersistent, tooManyRequests } from '@/lib/rate-limit-persistent'
+import { enforceAiLimits } from '@/lib/security/ai-limits'
 import { aiProviders, extractWithAi, extractRequestSchema } from '@/lib/ai-invoice'
 import { extractInvoice } from '@/lib/invoice-extract'
 
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     const len = Number(req.headers.get('content-length') ?? 0)
     if (len > MAX_BODY_BYTES) return NextResponse.json({ error: 'Fichier trop volumineux (5 Mo max).' }, { status: 413 })
 
-    const rl = await rateLimitPersistent(`ai-extract-invoice:tenant:${ctx.tenantId}`, 30, 3600)
-    if (!rl.success) return tooManyRequests(rl)
+    const limited = await enforceAiLimits(req, ctx, 'ai-extract-invoice', 30)
+    if (limited) return limited
 
     let body: unknown
     try {

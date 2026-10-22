@@ -1,19 +1,40 @@
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
+import { enforceAiLimits } from '@/lib/security/ai-limits'
+import { embedTexts, MAX_EMBED_BATCH } from '@/lib/fiscal-kb-ingest'
 
 /**
  * POST /api/scan/search-semantic
  * Recherche sémantique via embeddings (Gemini) sur les documents scannés
- * Corps : { query, limit?, threshold? }
+ * Corps : { query (≤ 500 car.), limit? (1–50), threshold? (0–1) }
+ *
+ * SÉCURITÉ / COÛT (audit E7) : limite de débit par entreprise et par utilisateur (plafonnée en démo),
+ * au plus SEMANTIC_MAX_DOCS documents × SEMANTIC_DOC_CHARS caractères envoyés à Gemini par requête,
+ * clé API dans l'en-tête x-goog-api-key (jamais dans l'URL), endpoint batchEmbedContents.
  */
+const SEMANTIC_MAX_DOCS = 200
+const SEMANTIC_DOC_CHARS = 2000
+const SEMANTIC_LIMIT_PER_HOUR = 30
+
+const bodySchema = z.object({
+  query: z.string().max(500).default(''),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  threshold: z.coerce.number().min(0).max(1).default(0.65),
+})
 export async function POST(req: Request) {
   const auth = await requireTenant(req)
   if (auth instanceof NextResponse) return auth
 
   try {
-    const { query, limit = 10, threshold = 0.65 } = await req.json()
-    if (!query?.trim()) return NextResponse.json({ results: [] })
+    const parsed = bodySchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+    const { query, limit, threshold } = parsed.data
+    if (!query.trim()) return NextResponse.json({ results: [] })
+
+    const limited = await enforceAiLimits(req, auth, 'scan-search-semantic', SEMANTIC_LIMIT_PER_HOUR)
+    if (limited) return limited
 
     // 1. Récupérer les documents du tenant
     const docs = await prisma.scannedDocument.findMany({
@@ -32,7 +53,7 @@ export async function POST(req: Request) {
         extractedText: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: 500, // limiter pour l'embedding
+      take: SEMANTIC_MAX_DOCS, // borne du coût d'embedding
     })
 
     if (!docs.length) return NextResponse.json({ results: [] })
@@ -45,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     // Préparer les textes pour embedding
-    const texts = docs.map(d => `${d.fileName}\n${d.supplierName || ''}\n${d.reference || ''}\n${d.extractedText?.slice(0, 8000) || ''}`)
+    const texts = docs.map(d => `${d.fileName}\n${d.supplierName || ''}\n${d.reference || ''}\n${d.extractedText?.slice(0, SEMANTIC_DOC_CHARS) || ''}`)
 
     // Appel batch embedding (max 100 par appel)
     const embeddings = await getEmbeddings(geminiKey, [query, ...texts])
@@ -78,30 +99,17 @@ export async function POST(req: Request) {
 }
 
 async function getEmbeddings(apiKey: string, texts: string[]): Promise<number[][] | null> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${apiKey}`
-
+  // batchEmbedContents (format requests[]) + clé dans l'en-tête — via le client partagé de la base fiscale
   try {
-    // Appels par batch de 100
-    const allVecs: number[][] = []
-    for (let i = 0; i < texts.length; i += 100) {
-      const batch = texts.slice(i, i + 100)
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: batch.map(t => ({
-            model: 'models/embedding-001',
-            content: { parts: [{ text: t.slice(0, 8000) }] },
-          })),
-        }),
-      })
-      if (!res.ok) return null
-      const data = await res.json()
-      const vecs = data.embeddings?.map((e: any) => e.values) || []
-      allVecs.push(...vecs)
+    const [query, ...docs] = texts
+    const [qv] = await embedTexts([query], { apiKey }, { task: 'RETRIEVAL_QUERY', retries: 1 })
+    const allVecs: number[][] = [qv]
+    for (let i = 0; i < docs.length; i += MAX_EMBED_BATCH) {
+      allVecs.push(...await embedTexts(docs.slice(i, i + MAX_EMBED_BATCH), { apiKey }, { task: 'RETRIEVAL_DOCUMENT', retries: 1 }))
     }
     return allVecs
-  } catch {
+  } catch (e) {
+    console.warn('[scan] embeddings indisponibles', (e as Error)?.message)
     return null
   }
 }
