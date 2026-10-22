@@ -238,6 +238,7 @@ export default function PaiePage() {
       {showModal && selectedPayslip && (
         <PaySlipModal
           payslip={selectedPayslip}
+          onUpdated={() => { void fetchPayrollData(); }}
           onClose={() => {
             setShowModal(false);
             setSelectedPayslip(null);

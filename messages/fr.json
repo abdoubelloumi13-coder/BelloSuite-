@@ -1744,7 +1744,16 @@
         "validate": "Valider",
         "cancelled": "Annulé",
         "position": "Poste",
-        "paid": "Payé"
+        "paid": "Payé",
+        "css": "CSS (contribution sociale de solidarité)",
+        "employer_cnss": "CNSS patronale (à la charge de l'employeur)",
+        "add_overtime": "Heures supplémentaires",
+        "overtime_hours": "Heures",
+        "overtime_rate": "Majoration",
+        "overtime_add_button": "Ajouter et recalculer",
+        "overtime_hint": "Taux horaire = salaire de base / heures du régime 48 h, jamais inférieur au SMIG horaire paramétré (2,667 DT en 2026). CNSS, IRPP, CSS et net sont recalculés.",
+        "overtime_hours_invalid": "Nombre d'heures invalide",
+        "overtime_error": "Impossible d'ajouter les heures supplémentaires"
       },
       "table": {
         "empty": "Aucun bulletin de salaire pour cette période",

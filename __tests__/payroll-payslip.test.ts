@@ -118,3 +118,23 @@ describe('payroll-payslip — erreurs en français', () => {
     expect(m).not.toMatch(/Internal/)
   })
 })
+
+describe('payroll-payslip — heures supplémentaires au SMIG 2026', () => {
+  it('salaire au SMIG : 10 h à +25 % au taux 2,667 DT/h, net recalculé', () => {
+    const { hourlyRate, computeOvertimeAmount } = jest.requireActual('@/lib/payroll')
+    const emp = { employeeNumber: 'S', salary: 554.736 }
+    const rate = hourlyRate(554.736, P)
+    expect(rate).toBeCloseTo(2.667, 3)
+    const amount = computeOvertimeAmount(10, 1.25, rate)
+    expect(amount).toBeCloseTo(33.338, 3)
+    const before = computeEmployeePayslip(emp, P)
+    const after = computeEmployeePayslip(emp, P, { heuresSupMontant: amount, heuresSupQte: 10 })
+    expect(after.grossSalary).toBeCloseTo(554.736 + amount, 3)
+    expect(after.cnssEmployee).toBeCloseTo((554.736 + amount) * 0.0968, 2)
+    expect(after.netSalary).toBeGreaterThan(before.netSalary)
+  })
+  it('salaire inférieur au SMIG horaire : taux plancher 2,667 DT/h', () => {
+    const { hourlyRate } = jest.requireActual('@/lib/payroll')
+    expect(hourlyRate(300, P)).toBe(2.667)
+  })
+})
