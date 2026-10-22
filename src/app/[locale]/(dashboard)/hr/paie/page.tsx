@@ -40,6 +40,7 @@ export default function PaiePage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [showParams, setShowParams] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const fetchPayrollData = useCallback(async () => {
@@ -117,6 +118,31 @@ export default function PaiePage() {
     }
   }
 
+  // Centralisation comptable de la période (écriture OD équilibrée 640/647 → 453/432/425)
+  async function handlePostToAccounting() {
+    setError("");
+    setNotice("");
+    setPosting(true);
+    try {
+      const res = await fetch("/api/hr/payroll/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth, year: selectedYear, tenantId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(apiErrorMessage(data, t("post_error")));
+      } else {
+        setNotice(t("post_success", { number: data?.entryNumber ?? "" }));
+        await fetchPayrollData();
+      }
+    } catch {
+      setError(t("post_error"));
+    } finally {
+      setPosting(false);
+    }
+  }
+
   function handleViewPayslip(payslip: any) {
     setSelectedPayslip(payslip);
     setShowModal(true);
@@ -138,6 +164,14 @@ export default function PaiePage() {
           >
             <Settings className="w-4 h-4" />
             {t('settings')}
+          </button>
+          <button
+            onClick={handlePostToAccounting}
+            disabled={posting || loading || !payslips.some((p) => p.statut === "PENDING" && !p.accountingEntryId)}
+            className="disabled:opacity-50 flex items-center gap-2 px-4 py-2 text-sm bg-white border hover:bg-gray-50 rounded-lg"
+          >
+            <FileText className="w-4 h-4" />
+            {t('post')}
           </button>
           <button
             onClick={handleGeneratePayslips}

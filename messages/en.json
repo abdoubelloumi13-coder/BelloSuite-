@@ -1804,7 +1804,10 @@
           "cssTaux": "Solidarity contribution CSS (%)",
           "cssSeuilExoneration": "CSS exemption threshold (TND/year)"
         }
-      }
+      },
+      "post": "Post payroll to accounting",
+      "post_success": "Payroll entry {number} recorded (general journal, balanced)",
+      "post_error": "Unable to post this period's payroll"
     }
   },
   "GPAO": {

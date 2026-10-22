@@ -1804,7 +1804,10 @@
           "cssTaux": "CSS (%)",
           "cssSeuilExoneration": "Seuil d'exonération CSS (DT/an)"
         }
-      }
+      },
+      "post": "Comptabiliser la paie",
+      "post_success": "Écriture de paie {number} enregistrée (journal OD, équilibrée)",
+      "post_error": "Impossible de comptabiliser la paie de cette période"
     }
   },
   "GPAO": {
