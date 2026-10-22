@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { requireTenant } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -163,7 +164,6 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Financial report error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return safeErrorResponse(error, 'Financial report', 'Génération du rapport financier impossible')
   }
 }

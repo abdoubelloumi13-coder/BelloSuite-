@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client'
+import { scanDocumentCreateSchema, SCAN_DOCUMENT_MAX_BODY } from '@/lib/security/update-schemas'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -126,7 +128,14 @@ export async function POST(req: Request) {
   if (auth instanceof NextResponse) return auth
 
   try {
-    const body = await req.json()
+    // Corps borné (1 Mo) et validé : texte OCR ≤ 200 000 caractères, ≤ 1 000 lignes (audit M2)
+    const raw = await req.text()
+    if (raw.length > SCAN_DOCUMENT_MAX_BODY) return NextResponse.json({ error: 'Document trop volumineux' }, { status: 413 })
+    let json: unknown
+    try { json = JSON.parse(raw) } catch { return NextResponse.json({ error: 'Body JSON invalide' }, { status: 400 }) }
+    const parsed = scanDocumentCreateSchema.safeParse(json)
+    if (!parsed.success) return NextResponse.json({ error: 'Données invalides', details: parsed.error.issues }, { status: 400 })
+    const body = parsed.data
 
     // Déduplication par hash
     if (body.fileHash) {
@@ -145,7 +154,7 @@ export async function POST(req: Request) {
         fileName: body.fileName,
         fileType: body.fileType,
         fileSize: body.fileSize,
-        fileHash: body.fileHash || null,
+        fileHash: body.fileHash || '',
         extractedText: body.extractedText || '',
         documentKind: body.documentKind || null,
         supplierName: body.supplierName || null,
@@ -154,7 +163,7 @@ export async function POST(req: Request) {
         date: body.date ? new Date(body.date) : null,
         totalAmount: body.totalAmount || null,
         currency: body.currency || 'TND',
-        lines: body.lines || null,
+        lines: (body.lines as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
         avgConfidence: body.avgConfidence || null,
         lowConfidence: body.lowConfidence || false,
         source: body.source || 'SCAN',

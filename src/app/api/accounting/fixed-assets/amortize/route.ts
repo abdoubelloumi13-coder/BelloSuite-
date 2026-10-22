@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
@@ -40,10 +41,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(entry, { status: 201 })
   } catch (error: any) {
-    console.error('Error posting amortization:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to post amortization' },
-      { status: 500 }
-    )
+    return safeErrorResponse(error, 'POST amortize', 'Comptabilisation des amortissements impossible', {
+      'No active assets found for amortization': { message: 'Aucune immobilisation active à amortir', status: 400 },
+    })
   }
 }

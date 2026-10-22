@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Supabase exchangeCodeForSession error:', error)
-      return NextResponse.redirect(`${origin}/${locale}/login?error=exchange_failed&details=${encodeURIComponent(error.message)}`)
+      return NextResponse.redirect(`${origin}/${locale}/login?error=exchange_failed`) // détail technique seulement dans les logs
     }
 
     if (!error && data.user) {

@@ -39,3 +39,30 @@ export const bomUpdateSchema = z.object({
   isActive: z.boolean().optional(),
   items: z.array(z.object({ productId: z.string().min(1).max(64), quantity: qty }).strict()).max(500).optional(),
 }).strict()
+
+const optStr = (max: number) => z.string().max(max).nullish()
+const optNum = z.union([z.number(), z.string()]).nullish()
+  .transform(v => (v === null || v === undefined || v === '' ? null : Number(v)))
+  .refine(v => v === null || (Number.isFinite(v) && Math.abs(v) < 1e12), { message: 'Nombre invalide' })
+
+/** POST /api/scan/documents : champs bornés (audit M2) ; clés inconnues ignorées. */
+export const scanDocumentCreateSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  fileType: z.string().trim().min(1).max(100),
+  fileSize: z.coerce.number().int().min(0).max(50 * 1024 * 1024),
+  fileHash: optStr(128),
+  extractedText: z.string().max(200_000).nullish(),
+  documentKind: optStr(40),
+  supplierName: optStr(255),
+  supplierMf: optStr(64),
+  reference: optStr(128),
+  date: optStr(40),
+  totalAmount: optNum,
+  currency: optStr(8),
+  lines: z.array(z.unknown()).max(1000).nullish(),
+  avgConfidence: optNum,
+  lowConfidence: z.boolean().nullish(),
+  source: optStr(32),
+})
+
+export const SCAN_DOCUMENT_MAX_BODY = 1024 * 1024

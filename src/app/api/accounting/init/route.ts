@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
@@ -58,7 +59,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: 'Tunisian Chart of Accounts initialized successfully.', count: sortedAccounts.length })
   } catch (error: any) {
-    console.error('Accounting Init Error:', error)
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 })
+    return safeErrorResponse(error, 'Accounting Init', 'Initialisation de la comptabilité impossible')
   }
 }

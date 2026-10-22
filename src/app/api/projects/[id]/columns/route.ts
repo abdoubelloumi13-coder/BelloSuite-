@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { projectInTenant, columnInTenant, taskInTenant, notFound } from '@/lib/tenant-scope'
 import { requireTenant } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json(col)
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return safeErrorResponse(e, 'projects', 'Opération impossible')
   }
 }
 
@@ -42,7 +43,7 @@ export async function PATCH(req: NextRequest) {
     })
     return NextResponse.json(updated)
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return safeErrorResponse(e, 'projects', 'Opération impossible')
   }
 }
 
@@ -58,6 +59,6 @@ export async function DELETE(req: NextRequest) {
     await prisma.projectColumn.delete({ where: { id: columnId } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return safeErrorResponse(e, 'projects', 'Opération impossible')
   }
 }

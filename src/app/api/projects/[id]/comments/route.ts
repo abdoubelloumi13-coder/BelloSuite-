@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { projectInTenant, columnInTenant, taskInTenant, notFound } from '@/lib/tenant-scope'
 import { requireTenant } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     })
     return NextResponse.json(comments)
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return safeErrorResponse(e, 'projects', 'Opération impossible')
   }
 }
 
@@ -41,6 +42,6 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json(comment)
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return safeErrorResponse(e, 'projects', 'Opération impossible')
   }
 }

@@ -35,3 +35,15 @@ describe('bomUpdateSchema', () => {
     expect(bomUpdateSchema.safeParse({ items: [{ productId: 'p', quantity: -1 }] }).success).toBe(false)
   })
 })
+
+import { scanDocumentCreateSchema } from '@/lib/security/update-schemas'
+describe('scanDocumentCreateSchema', () => {
+  const base = { fileName: 'f.pdf', fileType: 'pdf', fileSize: 10 }
+  it('accepte un document normal', () => {
+    expect(scanDocumentCreateSchema.safeParse({ ...base, extractedText: 'abc', totalAmount: '12.5', lines: [{ a: 1 }] }).success).toBe(true)
+  })
+  it('borne texte et lignes', () => {
+    expect(scanDocumentCreateSchema.safeParse({ ...base, extractedText: 'x'.repeat(200_001) }).success).toBe(false)
+    expect(scanDocumentCreateSchema.safeParse({ ...base, lines: Array.from({ length: 1001 }, () => ({})) }).success).toBe(false)
+  })
+})

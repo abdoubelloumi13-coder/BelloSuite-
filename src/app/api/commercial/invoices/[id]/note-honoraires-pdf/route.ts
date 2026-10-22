@@ -1,3 +1,4 @@
+import { safeErrorResponse } from '@/lib/security/safe-error'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
@@ -75,7 +76,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
     });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 });
+    return safeErrorResponse(e, 'note-honoraires-pdf', 'Génération de la note d’honoraires impossible');
   }
 }
