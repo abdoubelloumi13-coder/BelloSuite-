@@ -138,7 +138,14 @@
     "error": "Error",
     "states": {
       "retry": "Retry",
-      "not_found": "Item not found or deleted."
+      "not_found": "Item not found or deleted.",
+      "page_not_found_title": "Page not found",
+      "page_not_found_desc": "This page does not exist or has been moved.",
+      "go_dashboard": "Dashboard",
+      "go_home": "Home",
+      "error_title": "Something went wrong",
+      "error_desc": "This page could not be displayed. Please try again; if the problem persists, contact support.",
+      "error_ref": "Ref: {ref}"
     }
   },
   "Auth": {

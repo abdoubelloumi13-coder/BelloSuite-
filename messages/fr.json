@@ -138,7 +138,14 @@
     "error": "Erreur",
     "states": {
       "retry": "Réessayer",
-      "not_found": "Élément introuvable ou supprimé."
+      "not_found": "Élément introuvable ou supprimé.",
+      "page_not_found_title": "Page introuvable",
+      "page_not_found_desc": "Cette page n'existe pas ou a été déplacée.",
+      "go_dashboard": "Tableau de bord",
+      "go_home": "Accueil",
+      "error_title": "Une erreur est survenue",
+      "error_desc": "Cette page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez le support.",
+      "error_ref": "Réf. : {ref}"
     }
   },
   "Auth": {
