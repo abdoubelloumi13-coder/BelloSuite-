@@ -3,7 +3,7 @@ import { getApiContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
 import { updateWarehouse, updateWarehouseSchema, deleteWarehouse } from '@/services/stock'
-import { isStockAdmin, forbidden, readJson, str } from '@/lib/stock-api'
+import { isStockAdmin, forbidden, readJson, str, schemaDriftResponse, forbiddenStockAdmin } from '@/lib/stock-api'
 import { valuationCost, stockValue, isLowStock, round3 } from '@/lib/stock-logic'
 
 type Params = { params: Promise<{ id: string }> }
@@ -63,14 +63,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const body = await readJson(req)
     const ctx = await getApiContext(req, str(body.tenantId))
     if (ctx instanceof NextResponse) return ctx
-    if (!isStockAdmin(ctx)) return forbidden()
+    if (!isStockAdmin(ctx)) return forbiddenStockAdmin('modifier un dépôt')
 
     const data = parseBody(updateWarehouseSchema, body)
     if (data instanceof NextResponse) return data
     const updated = await updateWarehouse(ctx.tenantId, id, data)
     return NextResponse.json(updated)
   } catch (err) {
-    return handleApiError(err, 'PUT warehouse')
+    return schemaDriftResponse(err) ?? handleApiError(err, 'PUT warehouse')
   }
 }
 

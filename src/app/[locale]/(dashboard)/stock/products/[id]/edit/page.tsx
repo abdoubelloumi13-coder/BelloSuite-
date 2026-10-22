@@ -1,4 +1,5 @@
 'use client'
+import { apiFormError, fetchJson } from '@/lib/form-errors'
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
@@ -82,17 +83,17 @@ export default function EditProductPage() {
     if (!form.code || !form.name) { setError(t('required')); return }
     setSaving(true)
     setError('')
-    const res = await fetch(`/api/stock/products/${id}`, {
+    const r = await fetchJson(`/api/stock/products/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, images, variants }),
     })
-    if (res.ok) {
+    if (r.ok) {
       router.push(`/stock/products/${id}`)
     } else {
-      const d = await res.json()
-      setError(d.error || t('error'))
+      // Réponse non-OK toujours affichée (y compris 500 / corps non JSON), bannière ramenée à l'écran
+      setError(apiFormError(r.status, r.data).message)
       setSaving(false)
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
     }
   }
 
@@ -108,9 +109,9 @@ export default function EditProductPage() {
         <div><h1 className="text-3xl font-black text-zinc-900 tracking-tight">{t('title')}</h1><p className="text-zinc-500 font-medium text-sm mt-1">{form.name || '...'}</p></div>
       </div>
 
-      {error && <div className="mb-6 px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-700 text-sm font-bold">{error}</div>}
+      {error && <div role="alert" className="mb-6 px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-700 text-sm font-bold">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} noValidate className="space-y-8">
         <div className="bg-white border border-zinc-200 rounded-[2rem] p-8">
           <h2 className="text-lg font-black text-zinc-900 flex items-center gap-2 mb-6"><Package className="w-5 h-5 text-teal-700" /> {t('info')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

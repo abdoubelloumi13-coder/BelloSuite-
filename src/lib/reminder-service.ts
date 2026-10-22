@@ -14,9 +14,12 @@
  *   CHATAPI_INSTANCE_ID, CHATAPI_TOKEN
  */
 
+import { fetchWithTimeout, withTimeout, PROVIDER_TIMEOUT_MS, DEFAULT_REMINDER_INTERVAL_DAYS, shouldRemind, lastCountedReminder, orderedChannels } from "@/lib/reminder-logic"
+
 export type ReminderMethod = "EMAIL" | "SMS" | "WHATSAPP"
 export type ReminderResult = {
-  status: "sent" | "delivered" | "failed"
+  /** simulated : aucun fournisseur configuré (ou tenant de démo) → rien n'est parti, mais la relance est tracée */
+  status: "sent" | "delivered" | "failed" | "simulated"
   error?: string
   messageId?: string
   provider?: string
@@ -79,20 +82,21 @@ function formatPhone(phone: string | null | undefined): string | null {
 async function sendEmailBrevo(ctx: ReminderContext): Promise<ReminderResult> {
   const apiKey = process.env.BREVO_API_KEY
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "relances@bellosuite.tn"
-  const to = ctx.client.email || ctx.tenant.email
-  if (!to) return { status: "failed", error: "Aucune adresse email", provider: "brevo" }
+  // E-mail du CLIENT uniquement (avant : repli sur l'e-mail de la société → la société se relançait elle-même)
+  const to = ctx.client.email
+  if (!to) return { status: "failed", error: "Aucune adresse e-mail client", provider: "brevo" }
 
   const { subject, emailHtml } = buildMessages(ctx)
   if (!apiKey) return sendEmailSMTP(ctx)
 
   try {
-    const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const resp = await fetchWithTimeout("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: { "api-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({ sender: { name: ctx.tenant.name || "BelloSuite", email: senderEmail }, to: [{ email: to, name: ctx.client.name }], subject, htmlContent: emailHtml }),
     })
     if (!resp.ok) { if (resp.status === 402) return sendEmailSMTP(ctx); return { status: "failed", error: await resp.text(), provider: "brevo" } }
-    const data = await resp.json()
+    const data = await resp.json().catch(() => ({}))
     return { status: "sent", messageId: data.messageId, provider: "brevo" }
   } catch { return sendEmailSMTP(ctx) }
 }
@@ -100,21 +104,21 @@ async function sendEmailBrevo(ctx: ReminderContext): Promise<ReminderResult> {
 // EMAIL — SMTP (Gmail App Password) 500/day FREE
 async function sendEmailSMTP(ctx: ReminderContext): Promise<ReminderResult> {
   const { subject, emailText } = buildMessages(ctx)
-  const to = ctx.client.email || ctx.tenant.email
-  if (!to) return { status: "failed", error: "No email", provider: "smtp" }
+  const to = ctx.client.email
+  if (!to) return { status: "failed", error: "Aucune adresse e-mail client", provider: "smtp" }
 
   const host = process.env.SMTP_HOST, port = process.env.SMTP_PORT || "587"
   const user = process.env.SMTP_USER, pass = process.env.SMTP_PASS
 
   if (!host || !user || !pass) {
-    console.log(`[EMAIL DEMO] To: ${to} | ${subject}`)
-    return { status: "sent", messageId: `demo_${Date.now()}`, provider: "console_log" }
+    console.log(`[EMAIL SIMULÉ] To: ${to} | ${subject}`)
+    return { status: "simulated", messageId: `demo_${Date.now()}`, provider: "console_log" }
   }
 
   try {
     const nodemailer = await import("nodemailer")
-    const tr = nodemailer.default.createTransport({ host, port: parseInt(port), secure: port === "465", auth: { user, pass } })
-    await tr.sendMail({ from: `"${ctx.tenant.name || "BelloSuite"}" <${user}>`, to: `${ctx.client.name} <${to}>`, subject, text: emailText })
+    const tr = nodemailer.default.createTransport({ host, port: parseInt(port), secure: port === "465", auth: { user, pass }, connectionTimeout: PROVIDER_TIMEOUT_MS, greetingTimeout: PROVIDER_TIMEOUT_MS, socketTimeout: PROVIDER_TIMEOUT_MS })
+    await withTimeout(tr.sendMail({ from: `"${ctx.tenant.name || "BelloSuite"}" <${user}>`, to: `${ctx.client.name} <${to}>`, subject, text: emailText }), PROVIDER_TIMEOUT_MS, "SMTP")
     return { status: "sent", messageId: `smtp_${Date.now()}`, provider: "smtp" }
   } catch (e: any) { return { status: "failed", error: e.message, provider: "smtp" } }
 }
@@ -128,17 +132,17 @@ async function sendSMSAfricaTalking(ctx: ReminderContext): Promise<ReminderResul
   if (!to) return { status: "failed", error: "Aucun numero", provider: "africastalking" }
 
   if (!apiKey) {
-    console.log(`[SMS DEMO] To: ${to} | ${smsBody}`)
-    return { status: "sent", messageId: `demo_sms_${Date.now()}`, provider: "africastalking_demo" }
+    console.log(`[SMS SIMULÉ] To: ${to} | ${smsBody}`)
+    return { status: "simulated", messageId: `demo_sms_${Date.now()}`, provider: "africastalking_demo" }
   }
 
   try {
-    const resp = await fetch("https://api.africastalking.com/version1/messaging", {
+    const resp = await fetchWithTimeout("https://api.africastalking.com/version1/messaging", {
       method: "POST",
       headers: { "api-key": apiKey, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ username, to, message: smsBody }),
     })
-    const data = await resp.json()
+    const data = await resp.json().catch(() => ({}))
     const msg = data.SMSMessageData?.Messages?.[0]
     if (msg?.status === "Success" || data.SMSMessageData?.status === "Success") return { status: "sent", messageId: msg?.messageId, provider: "africastalking" }
     return { status: "failed", error: data.SMSMessageData?.Message || data.errorMessage, provider: "africastalking" }
@@ -155,17 +159,17 @@ async function sendWhatsAppChatAPI(ctx: ReminderContext): Promise<ReminderResult
   const token = process.env.CHATAPI_TOKEN
 
   if (!instanceId || !token) {
-    console.log(`[WHATSAPP DEMO] To: ${to} | ${whatsappBody}`)
-    return { status: "sent", messageId: `demo_wa_${Date.now()}`, provider: "chatapi_demo" }
+    console.log(`[WHATSAPP SIMULÉ] To: ${to} | ${whatsappBody}`)
+    return { status: "simulated", messageId: `demo_wa_${Date.now()}`, provider: "chatapi_demo" }
   }
 
   try {
-    const resp = await fetch(`https://api.chat-api.com/instance${instanceId}/message?token=${token}`, {
+    const resp = await fetchWithTimeout(`https://api.chat-api.com/instance${instanceId}/message?token=${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: to.replace("+", ""), body: whatsappBody }),
     })
-    const data = await resp.json()
+    const data = await resp.json().catch(() => ({}))
     if (data.sent) return { status: "sent", messageId: data.id, provider: "chatapi" }
     return { status: "failed", error: data.error || "Send failed", provider: "chatapi" }
   } catch (e: any) { return { status: "failed", error: e.message, provider: "chatapi" } }
@@ -179,13 +183,13 @@ async function sendWhatsAppChatWoot(ctx: ReminderContext): Promise<ReminderResul
 
   const apiKey = process.env.CHATWOOT_WHATSAPP_TOKEN
   if (!apiKey) {
-    console.log(`[WHATSAPP-CW DEMO] To: ${to} | ${whatsappBody}`)
-    return { status: "sent", messageId: `demo_cw_${Date.now()}`, provider: "chatwoot_demo" }
+    console.log(`[WHATSAPP-CW SIMULÉ] To: ${to} | ${whatsappBody}`)
+    return { status: "simulated", messageId: `demo_cw_${Date.now()}`, provider: "chatwoot_demo" }
   }
 
   try {
     const base = process.env.CHATWOOT_URL || "https://app.chatwoot.com"
-    const resp = await fetch(`${base}/api/v1/features/send_message`, {
+    const resp = await fetchWithTimeout(`${base}/api/v1/features/send_message`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-access-token": apiKey },
       body: JSON.stringify({ phone_number: to.replace("+", ""), content: whatsappBody, message_type: "outgoing", inbox_id: process.env.CHATWOOT_INBOX_ID }),
@@ -213,28 +217,93 @@ export async function sendPaymentReminder(ctx: ReminderContext): Promise<Reminde
   }
 }
 
+/** Tenant du compte de démonstration publique : aucune relance réelle, statut « simulated ». */
+async function isDemoTenantId(tenantId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import("@/lib/db")
+    const u = await prisma.user.findFirst({ where: { email: { equals: "admin@demo.tn", mode: "insensitive" } }, select: { tenantId: true } })
+    return !!u?.tenantId && u.tenantId === tenantId
+  } catch { return false }
+}
+
+export type AutoReminderOptions = {
+  /** Jours de retard minimum après l'échéance (défaut 1) */
+  overdueDaysThreshold?: number
+  /** Canaux par ordre de préférence : UN SEUL envoi réussi par facture (les suivants = repli si échec) */
+  methods?: ReminderMethod[]
+  /** Intervalle minimal entre deux relances d'une même facture (défaut 7 j) */
+  intervalDays?: number
+  /** Nombre maximal de factures traitées par passage (défaut 200) */
+  maxInvoices?: number
+  /** Heure limite (ms epoch) : on s'arrête proprement avant le maxDuration de la fonction */
+  deadline?: number
+  now?: Date
+}
+
 export async function sendAutoReminders(
   tenantId: string,
-  opts: { overdueDaysThreshold?: number; methods?: ReminderMethod[] } = {}
-): Promise<{ sent: number; failed: number; errors: string[] }> {
-  const { overdueDaysThreshold = 1, methods = ["EMAIL", "WHATSAPP"] } = opts
+  opts: AutoReminderOptions = {}
+): Promise<{ sent: number; simulated: number; failed: number; skipped: number; errors: string[]; truncated: boolean }> {
+  const { overdueDaysThreshold = 1, methods = ["EMAIL", "WHATSAPP"], intervalDays = DEFAULT_REMINDER_INTERVAL_DAYS, maxInvoices = 200, deadline } = opts
+  const now = opts.now ?? new Date()
   const { prisma } = await import("@/lib/db")
 
-  const since = new Date(); since.setDate(since.getDate() - overdueDaysThreshold)
+  const since = new Date(now); since.setDate(since.getDate() - overdueDaysThreshold)
   const invoices = await prisma.invoice.findMany({
-    where: { tenantId, status: { notIn: ["PAID", "CANCELLED", "DRAFT"] }, dueDate: { lte: since } },
-    include: { client: true, tenant: true },
+    where: { tenantId, status: { notIn: ["PAID", "CANCELLED", "DRAFT"] }, dueDate: { lte: since }, type: "INVOICE" },
+    include: {
+      client: true,
+      tenant: true,
+      paymentFollowUp: { select: { id: true, nextReminderDate: true } },
+      reminders: { select: { sentAt: true, response: true }, orderBy: { sentAt: "desc" }, take: 5 },
+    },
+    orderBy: { dueDate: "asc" },
+    take: maxInvoices + 1,
   })
+  const truncated = invoices.length > maxInvoices
+  const demo = await isDemoTenantId(tenantId)
 
-  let sent = 0, failed = 0, errors: string[] = []
-  for (const inv of invoices) {
-    for (const method of methods) {
-      const r = await sendPaymentReminder({ invoice: inv, client: inv.client, tenant: inv.tenant, method })
-      if (r.status === "sent") {
-        sent++
-        await prisma.paymentReminder.create({ data: { invoiceId: inv.id, method, response: r.status } })
-      } else { failed++; errors.push(`${inv.number}(${method}): ${r.error}`) }
+  let sent = 0, simulated = 0, failed = 0, skipped = 0
+  const errors: string[] = []
+  for (const inv of invoices.slice(0, maxInvoices)) {
+    if (deadline && Date.now() > deadline) { errors.push("Arrêt anticipé : durée maximale atteinte, reprise au prochain passage"); break }
+    try {
+      // Déduplication : pas de nouvelle relance avant l'intervalle (défaut 7 j) ni avant la date planifiée
+      const last = lastCountedReminder(inv.reminders, inv.lastReminderSentAt)
+      const gate = shouldRemind({ now, intervalDays, lastReminderAt: last, nextReminderDate: inv.paymentFollowUp?.nextReminderDate ?? null })
+      if (!gate.ok || !inv.client) { skipped++; continue }
+
+      const channels = orderedChannels(methods, inv.client)
+      if (channels.length === 0) { skipped++; errors.push(`${inv.number}: aucun canal joignable (e-mail / téléphone client manquant)`); continue }
+
+      let done: { method: ReminderMethod; r: ReminderResult } | null = null
+      const failures: string[] = []
+      for (const method of channels) {
+        const r: ReminderResult = demo
+          ? { status: "simulated", provider: "demo", messageId: `demo_${Date.now()}` }
+          : await sendPaymentReminder({ invoice: inv, client: inv.client, tenant: inv.tenant, method })
+        if (r.status !== "failed") { done = { method, r }; break }
+        failures.push(`${method}: ${r.error || "échec"}`)
+      }
+
+      if (done) {
+        const nextDate = new Date(now.getTime() + intervalDays * 86_400_000)
+        await prisma.$transaction([
+          prisma.paymentReminder.create({ data: { invoiceId: inv.id, followUpId: inv.paymentFollowUp?.id ?? null, method: done.method, response: done.r.status, errorMessage: failures.length ? failures.join(" | ").slice(0, 500) : null } }),
+          prisma.invoice.update({ where: { id: inv.id }, data: { lastReminderSentAt: now } }),
+          ...(inv.paymentFollowUp ? [prisma.paymentFollowUp.update({ where: { id: inv.paymentFollowUp.id }, data: { nextReminderDate: nextDate } })] : []),
+        ])
+        // Compté seulement une fois la trace enregistrée (sinon la relance serait refaite au prochain passage)
+        if (done.r.status === "simulated") simulated++; else sent++
+      } else {
+        failed++
+        errors.push(`${inv.number}: ${failures.join(" | ")}`)
+        await prisma.paymentReminder.create({ data: { invoiceId: inv.id, followUpId: inv.paymentFollowUp?.id ?? null, method: channels[0], response: "failed", errorMessage: failures.join(" | ").slice(0, 500) } }).catch(() => {})
+      }
+    } catch (e) {
+      failed++
+      errors.push(`${inv.number}: ${(e as Error)?.message || "erreur"}`)
     }
   }
-  return { sent, failed, errors }
+  return { sent, simulated, failed, skipped, errors: errors.slice(0, 50), truncated }
 }
