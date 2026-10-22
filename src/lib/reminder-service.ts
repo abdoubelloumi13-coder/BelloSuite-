@@ -204,7 +204,7 @@ export async function sendPaymentReminder(ctx: ReminderContext): Promise<Reminde
   const tenantId: string | undefined = ctx.tenant?.id ?? ctx.invoice?.tenantId
   const { isDemoTenant } = await import("@/lib/session-guard")
   if (await isDemoTenant(tenantId)) {
-    return { status: "failed", error: "Envois désactivés en mode démo", provider: "none" }
+    return { status: "simulated", messageId: `demo_${Date.now()}`, provider: "demo" }
   }
   switch (ctx.method) {
     case "EMAIL": return sendEmailBrevo(ctx)

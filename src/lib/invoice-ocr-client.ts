@@ -83,12 +83,13 @@ async function extractPdf(file: File, onProgress: (p: OcrProgress) => void): Pro
   const pdfjs = await import('pdfjs-dist')
   pdfjs.GlobalWorkerOptions.workerSrc = `${CDN}/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
   const data = new Uint8Array(await file.arrayBuffer())
-  const doc = await pdfjs.getDocument({
+  const loadingTask = pdfjs.getDocument({
     data,
     cMapUrl: `${CDN}/pdfjs-dist@${pdfjs.version}/cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${CDN}/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
-  }).promise
+  })
+  const doc = await loadingTask.promise
   const pages = Math.min(doc.numPages, MAX_PDF_PAGES)
   const texts: string[] = []
   let usedOcr = false
@@ -116,7 +117,7 @@ async function extractPdf(file: File, onProgress: (p: OcrProgress) => void): Pro
       texts.push(text)
     }
   } finally {
-    await doc.destroy()
+    await loadingTask.destroy() // pdfjs 6 : destroy() est porté par la tâche de chargement
   }
   onProgress({ stage: 'done', progress: 1 })
   return { text: texts.join('\n'), method: usedOcr ? 'pdf-ocr' : 'pdf-text', pages, image }
