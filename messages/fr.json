@@ -3263,5 +3263,89 @@
     "error": "Erreur",
     "restart_signup": "Recommencer l'inscription",
     "login": "Se connecter"
+  },
+  "CRM": {
+    "statuses": {
+      "NOUVEAU": "Nouveau",
+      "CONTACTE": "Contacté",
+      "DEMO": "Démo",
+      "NEGOCIATION": "Négociation",
+      "GAGNE": "Gagné",
+      "PERDU": "Perdu"
+    },
+    "sectors": {
+      "GARAGE": "Garage / Auto",
+      "PME_INDUSTRIE": "PME Industrie",
+      "COMMERCE": "Commerce",
+      "SERVICES": "Services",
+      "AUTO_ENTREPRENEUR": "Auto-entrepreneur",
+      "AUTRE": "Autre"
+    },
+    "sources": {
+      "WEBSITE": "Site web",
+      "LINKEDIN": "LinkedIn",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "E-mail",
+      "REFERRAL": "Recommandation",
+      "COLD_CALL": "Prospection à froid",
+      "EVENT": "Événement",
+      "OTHER": "Autre"
+    },
+    "pipeline": {
+      "title": "Pipeline de prospection",
+      "total": "{count} lead(s) au total",
+      "search": "Rechercher un lead...",
+      "import": "Importer",
+      "new": "Nouveau lead",
+      "loading": "Chargement...",
+      "empty_column": "Aucun lead",
+      "load_error": "Impossible de charger les leads."
+    },
+    "import": {
+      "title": "Importer des leads (CSV/Excel)",
+      "columns": "Colonnes acceptées :",
+      "imported": "Importés",
+      "failed": "Échecs",
+      "row_error": "Ligne {row} : {error}",
+      "choose": "Cliquez pour choisir un fichier",
+      "importing": "Import en cours...",
+      "error": "Échec de l'import."
+    },
+    "form": {
+      "name": "Nom du contact",
+      "name_placeholder": "Ex. : Ahmed Ben Salah",
+      "company": "Entreprise",
+      "company_placeholder": "Ex. : Garage El Fath",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "city": "Ville",
+      "city_placeholder": "Tunis, Sfax...",
+      "address": "Adresse",
+      "sector": "Secteur",
+      "source": "Source",
+      "estimated_value": "Valeur estimée (DT)",
+      "next_follow_up": "Prochaine relance",
+      "saving": "Enregistrement...",
+      "create": "Créer le lead",
+      "save": "Enregistrer",
+      "new_title": "Nouveau lead",
+      "save_error": "Enregistrement impossible."
+    },
+    "detail": {
+      "loading": "Chargement...",
+      "not_found": "Lead introuvable",
+      "back": "Retour au pipeline",
+      "delete": "Supprimer",
+      "confirm_delete": "Supprimer ce lead ? Cette action est irréversible.",
+      "delete_error": "Suppression impossible.",
+      "info": "Informations",
+      "created_on": "Créé le {date}",
+      "history": "Historique des échanges ({count})",
+      "note_placeholder": "Ajouter une note...",
+      "add": "Ajouter",
+      "no_notes": "Aucune note",
+      "note_error": "Ajout de la note impossible.",
+      "load_error": "Impossible de charger le lead."
+    }
   }
 }

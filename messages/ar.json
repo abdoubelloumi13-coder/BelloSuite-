@@ -3263,5 +3263,89 @@
     "error": "خطأ",
     "restart_signup": "إعادة التسجيل",
     "login": "تسجيل الدخول"
+  },
+  "CRM": {
+    "statuses": {
+      "NOUVEAU": "جديد",
+      "CONTACTE": "تم الاتصال",
+      "DEMO": "عرض تجريبي",
+      "NEGOCIATION": "تفاوض",
+      "GAGNE": "مكسوب",
+      "PERDU": "خاسر"
+    },
+    "sectors": {
+      "GARAGE": "ورشة / سيارات",
+      "PME_INDUSTRIE": "مؤسسة صناعية صغرى ومتوسطة",
+      "COMMERCE": "تجارة",
+      "SERVICES": "خدمات",
+      "AUTO_ENTREPRENEUR": "باعث ذاتي",
+      "AUTRE": "أخرى"
+    },
+    "sources": {
+      "WEBSITE": "موقع الواب",
+      "LINKEDIN": "LinkedIn",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "بريد إلكتروني",
+      "REFERRAL": "توصية",
+      "COLD_CALL": "تنقيب مباشر",
+      "EVENT": "تظاهرة",
+      "OTHER": "أخرى"
+    },
+    "pipeline": {
+      "title": "مسار التنقيب التجاري",
+      "total": "المجموع: {count}",
+      "search": "البحث عن عميل محتمل...",
+      "import": "استيراد",
+      "new": "عميل محتمل جديد",
+      "loading": "جارٍ التحميل...",
+      "empty_column": "لا يوجد",
+      "load_error": "تعذر تحميل العملاء المحتملين."
+    },
+    "import": {
+      "title": "استيراد العملاء المحتملين (CSV/Excel)",
+      "columns": "الأعمدة المقبولة:",
+      "imported": "مستورد",
+      "failed": "فشل",
+      "row_error": "السطر {row}: {error}",
+      "choose": "انقر لاختيار ملف",
+      "importing": "جارٍ الاستيراد...",
+      "error": "فشل الاستيراد."
+    },
+    "form": {
+      "name": "اسم جهة الاتصال",
+      "name_placeholder": "مثال: أحمد بن صالح",
+      "company": "المؤسسة",
+      "company_placeholder": "مثال: ورشة الفتح",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "city": "المدينة",
+      "city_placeholder": "تونس، صفاقس...",
+      "address": "العنوان",
+      "sector": "القطاع",
+      "source": "المصدر",
+      "estimated_value": "القيمة التقديرية (د.ت)",
+      "next_follow_up": "المتابعة القادمة",
+      "saving": "جارٍ الحفظ...",
+      "create": "إنشاء العميل المحتمل",
+      "save": "حفظ",
+      "new_title": "عميل محتمل جديد",
+      "save_error": "تعذر الحفظ."
+    },
+    "detail": {
+      "loading": "جارٍ التحميل...",
+      "not_found": "العميل المحتمل غير موجود",
+      "back": "العودة إلى المسار",
+      "delete": "حذف",
+      "confirm_delete": "حذف هذا العميل المحتمل؟ لا يمكن التراجع عن هذا الإجراء.",
+      "delete_error": "تعذر الحذف.",
+      "info": "المعلومات",
+      "created_on": "أُنشئ في {date}",
+      "history": "سجل المبادلات ({count})",
+      "note_placeholder": "إضافة ملاحظة...",
+      "add": "إضافة",
+      "no_notes": "لا توجد ملاحظات",
+      "note_error": "تعذرت إضافة الملاحظة.",
+      "load_error": "تعذر تحميل العميل المحتمل."
+    }
   }
 }
