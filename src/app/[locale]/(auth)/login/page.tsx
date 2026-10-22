@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useRouter, Link } from '@/i18n/routing'
+import { currentUiLocale } from '@/lib/client-errors'
 import { useTranslations } from 'next-intl'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -49,7 +50,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/api/auth/callback?locale=fr&next=/dashboard',
+        redirectTo: `${window.location.origin}/api/auth/callback?locale=${currentUiLocale()}&next=/dashboard`,
       },
     })
   }

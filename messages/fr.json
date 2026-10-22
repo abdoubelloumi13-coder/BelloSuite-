@@ -3240,5 +3240,21 @@
     "privacy": "Confidentialité",
     "french_only": "Ce document est disponible en français uniquement ; la version française fait foi.",
     "contact": "Une question ?"
+  },
+  "AuthCallback": {
+    "loading_title": "Chargement...",
+    "redirecting": "Redirection en cours",
+    "unknown_error": "Erreur inconnue",
+    "invalid_link": "Lien de confirmation invalide ou expiré.",
+    "confirming": "Confirmation...",
+    "checking": "Vérification en cours",
+    "confirmed_title": "E-mail confirmé !",
+    "welcome": "Bienvenue sur <strong>BelloSuite</strong>.<br></br>Votre compte est actif. Redirection en cours...",
+    "signup_success": "Inscription réussie",
+    "go_dashboard": "Accéder à mon tableau de bord",
+    "failed_title": "Confirmation échouée",
+    "error": "Erreur",
+    "restart_signup": "Recommencer l'inscription",
+    "login": "Se connecter"
   }
 }

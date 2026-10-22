@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, Link } from '@/i18n/routing'
+import { currentUiLocale } from '@/lib/client-errors'
 import { useTranslations } from 'next-intl'
 import { Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
@@ -51,7 +52,7 @@ export default function RegisterPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
+        redirectTo: `${window.location.origin}/api/auth/callback?locale=${currentUiLocale()}&next=/dashboard`,
       },
     })
   }

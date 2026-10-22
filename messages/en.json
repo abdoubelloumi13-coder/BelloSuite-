@@ -3240,5 +3240,21 @@
     "privacy": "Privacy",
     "french_only": "This document is available in French only; the French version is authoritative.",
     "contact": "Any questions?"
+  },
+  "AuthCallback": {
+    "loading_title": "Loading...",
+    "redirecting": "Redirecting",
+    "unknown_error": "Unknown error",
+    "invalid_link": "Invalid or expired confirmation link.",
+    "confirming": "Confirming...",
+    "checking": "Checking",
+    "confirmed_title": "Email confirmed!",
+    "welcome": "Welcome to <strong>BelloSuite</strong>.<br></br>Your account is active. Redirecting...",
+    "signup_success": "Sign-up successful",
+    "go_dashboard": "Go to my dashboard",
+    "failed_title": "Confirmation failed",
+    "error": "Error",
+    "restart_signup": "Sign up again",
+    "login": "Sign in"
   }
 }

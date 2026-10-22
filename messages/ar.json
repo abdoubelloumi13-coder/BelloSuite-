@@ -3240,5 +3240,21 @@
     "privacy": "الخصوصية",
     "french_only": "هذه الوثيقة متوفرة باللغة الفرنسية فقط، والنسخة الفرنسية هي المعتمدة.",
     "contact": "لديك سؤال؟"
+  },
+  "AuthCallback": {
+    "loading_title": "جارٍ التحميل...",
+    "redirecting": "جارٍ التوجيه",
+    "unknown_error": "خطأ غير معروف",
+    "invalid_link": "رابط التأكيد غير صالح أو منتهي الصلاحية.",
+    "confirming": "جارٍ التأكيد...",
+    "checking": "جارٍ التحقق",
+    "confirmed_title": "تم تأكيد البريد الإلكتروني!",
+    "welcome": "مرحبًا بك في <strong>BelloSuite</strong>.<br></br>حسابك مفعّل. جارٍ التوجيه...",
+    "signup_success": "تم التسجيل بنجاح",
+    "go_dashboard": "الدخول إلى لوحة القيادة",
+    "failed_title": "فشل التأكيد",
+    "error": "خطأ",
+    "restart_signup": "إعادة التسجيل",
+    "login": "تسجيل الدخول"
   }
 }
