@@ -62,4 +62,12 @@ ALTER TABLE "POSSession" ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3);
 CREATE INDEX IF NOT EXISTS "POSSession_tenantId_status_openedAt_idx" ON "POSSession"("tenantId", "status", "openedAt");
 CREATE INDEX IF NOT EXISTS "POSOrder_tenantId_sessionId_idx" ON "POSOrder"("tenantId", "sessionId");
 
+-- ─── Relances : traçabilité (statut sent / simulated / failed, lien suivi) + dédup ─
+ALTER TABLE "PaymentReminder" ADD COLUMN IF NOT EXISTS "response" TEXT;
+ALTER TABLE "PaymentReminder" ADD COLUMN IF NOT EXISTS "errorMessage" TEXT;
+ALTER TABLE "PaymentReminder" ADD COLUMN IF NOT EXISTS "followUpId" TEXT;
+ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "lastReminderSentAt" TIMESTAMP(3);
+ALTER TABLE "PaymentFollowUp" ADD COLUMN IF NOT EXISTS "nextReminderDate" TIMESTAMP(3);
+CREATE INDEX IF NOT EXISTS "PaymentReminder_invoiceId_sentAt_idx" ON "PaymentReminder"("invoiceId", "sentAt");
+
 COMMIT;
