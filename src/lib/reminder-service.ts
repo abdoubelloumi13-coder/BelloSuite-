@@ -196,6 +196,12 @@ async function sendWhatsAppChatWoot(ctx: ReminderContext): Promise<ReminderResul
 }
 
 export async function sendPaymentReminder(ctx: ReminderContext): Promise<ReminderResult> {
+  // Démo publique : aucun e-mail / SMS / WhatsApp réel (sinon spam depuis le domaine BelloSuite)
+  const tenantId: string | undefined = ctx.tenant?.id ?? ctx.invoice?.tenantId
+  const { isDemoTenant } = await import("@/lib/session-guard")
+  if (await isDemoTenant(tenantId)) {
+    return { status: "failed", error: "Envois désactivés en mode démo", provider: "none" }
+  }
   switch (ctx.method) {
     case "EMAIL": return sendEmailBrevo(ctx)
     case "SMS": return sendSMSAfricaTalking(ctx)

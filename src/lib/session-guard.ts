@@ -134,3 +134,24 @@ export async function checkSessionLive(session: SessionPayload): Promise<Session
   const tenantActive = session.tenantId ? await loadTenantActive(session.tenantId) : undefined
   return evaluateSession(session, live, tenantActive)
 }
+
+const demoTenantCache: { at: number; value: string | null } = { at: 0, value: null }
+
+/**
+ * true si `tenantId` est le tenant du compte de démonstration publique (aucun envoi sortant depuis ce tenant).
+ * Cache par instance (TTL identique à l'identité).
+ */
+export async function isDemoTenant(tenantId: string | null | undefined): Promise<boolean> {
+  if (!tenantId) return false
+  if (Date.now() - demoTenantCache.at > IDENTITY_CACHE_TTL_MS) {
+    try {
+      const u = await prisma.user.findFirst({ where: { email: { equals: DEMO_EMAIL, mode: 'insensitive' } }, select: { tenantId: true } })
+      demoTenantCache.value = u?.tenantId ?? null
+      demoTenantCache.at = Date.now()
+    } catch (e) {
+      console.warn('[session-guard] tenant démo non déterminé', (e as Error)?.message)
+      return false
+    }
+  }
+  return demoTenantCache.value === tenantId
+}
