@@ -2,6 +2,8 @@ import { requireAccess } from '@/lib/rbac'
 import { requireTenant } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { updateEmployeeSchema, toEmployeeUpdateData } from '@/services/hr'
+import { BusinessError } from '@/lib/errors'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
     if (!employee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Employé introuvable' }, { status: 404 })
     }
 
     return NextResponse.json(employee)
@@ -50,26 +52,35 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'tenantId required' }, { status: 400 })
     }
 
+    // Liste blanche des champs de la fiche (situation familiale, enfants à charge, salaire…) — erreurs en français
+    const parsed = updateEmployeeSchema.safeParse(data)
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map(i => i.message).join(' ; ')
+      return NextResponse.json({ error: `Fiche employé invalide : ${msg}` }, { status: 400 })
+    }
+    let updateData: Record<string, unknown>
+    try {
+      updateData = toEmployeeUpdateData(parsed.data)
+    } catch (e) {
+      if (e instanceof BusinessError) return NextResponse.json({ error: e.message }, { status: e.statusCode })
+      throw e
+    }
+
     const employee = await prisma.employee.updateMany({
       where: { id, tenantId },
-      data: {
-        ...data,
-        birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
-        hireDate: data.hireDate ? new Date(data.hireDate) : undefined,
-        salary: data.salary !== undefined ? Number(data.salary) : undefined,
-        enfantsCharge: data.enfantsCharge !== undefined ? Number(data.enfantsCharge) : undefined,
-      },
+      data: updateData,
     })
 
     if (employee.count === 0) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Employé introuvable' }, { status: 404 })
     }
 
     const updated = await prisma.employee.findFirst({ where: { id, tenantId } })
     return NextResponse.json(updated)
   } catch (error: any) {
     console.error('Error updating employee:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    if (error?.code === 'P2002') return NextResponse.json({ error: 'Ce matricule est déjà utilisé par un autre employé' }, { status: 409 })
+    return NextResponse.json({ error: "Modification de l'employé impossible (erreur serveur)" }, { status: 500 })
   }
 }
 
@@ -93,7 +104,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     })
 
     if (employee.count === 0) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Employé introuvable' }, { status: 404 })
     }
 
     return NextResponse.json({ message: 'Employee deactivated' })

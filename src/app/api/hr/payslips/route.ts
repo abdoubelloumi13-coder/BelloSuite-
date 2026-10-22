@@ -2,7 +2,8 @@ import { requireAccess } from '@/lib/rbac'
 import { requireTenant, requireSession } from '@/lib/api-auth'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { calculerImpotTunisie } from "@/lib/fiscal";
+import { payrollParamsFromRecord } from "@/lib/payroll";
+import { computeEmployeePayslip, payslipAmounts, payslipReference, payrollErrorMessage } from "@/lib/payroll-payslip";
 
 
 export async function GET(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const month = searchParams.get("month");
 
     if (!tenantId) {
-      return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+      return NextResponse.json({ error: "Société (tenantId) requise" }, { status: 400 });
     }
 
     const where: any = { tenantId };
@@ -48,115 +49,118 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(payslips);
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json({ error: payrollErrorMessage(error, "Chargement des bulletins impossible") }, { status: 500 });
   }
 }
 
+/**
+ * POST /api/hr/payslips — génère (ou recalcule) les bulletins d'une période avec le moteur de paie 2026
+ * (lib/payroll : CNSS 9,68 %, frais pro 10 % plafonnés, déductions famille, IRPP barème annuel, CSS 0,5 %).
+ * Bulletin existant en brouillon (PENDING, non comptabilisé) → recalculé en conservant ses éléments variables ;
+ * bulletin payé, annulé ou comptabilisé → laissé tel quel.
+ * Réponse : { generated, updated, skipped: [{ employee, reason }] } ; erreurs en français.
+ */
 export async function POST(req: NextRequest) {
+  let body: any
   try {
-    const body = await req.json();
-    const {
-      tenantId: requestedTenantId,
-      employeeIds = [],
-      month,
-      year,
-    } = body;
-    const ctx = await requireTenant(req, requestedTenantId)
-    if (ctx instanceof NextResponse) return ctx
-    const accessDenied = requireAccess(ctx, 'hr:write')
-    if (accessDenied) return accessDenied
-    const tenantId = ctx.tenantId
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Requête invalide (JSON attendu)" }, { status: 400 });
+  }
+  const { tenantId: requestedTenantId, employeeIds = [], month, year } = body ?? {};
+  const ctx = await requireTenant(req, requestedTenantId)
+  if (ctx instanceof NextResponse) return ctx
+  const accessDenied = requireAccess(ctx, 'hr:write')
+  if (accessDenied) return accessDenied
+  const tenantId = ctx.tenantId
 
-    const mois = month !== undefined ? month : body.mois;
-    const annee = year !== undefined ? year : body.annee;
+  const mois = Number(month !== undefined ? month : body.mois);
+  const annee = Number(year !== undefined ? year : body.annee);
+  if (!Number.isInteger(mois) || mois < 1 || mois > 12 || !Number.isInteger(annee) || annee < 2000 || annee > 2100) {
+    return NextResponse.json({ error: "Période invalide : mois (1-12) et année requis" }, { status: 400 });
+  }
+  if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+    return NextResponse.json({ error: "Aucun employé actif à payer : créez d'abord des employés avec un salaire de base" }, { status: 400 });
+  }
 
-    if (!tenantId || !employeeIds.length || mois === undefined || !annee) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  try {
+    // Paramètres du tenant ; table/colonnes absentes → barème 2026 par défaut (la génération ne doit pas planter)
+    let paramsRecord: Record<string, unknown> | null = null
+    try {
+      paramsRecord = (await prisma.paieParameters.findUnique({ where: { tenantId } })) as unknown as Record<string, unknown> | null
+    } catch (e) {
+      console.warn("Paramètres de paie illisibles, valeurs 2026 par défaut :", e)
     }
+    const params = payrollParamsFromRecord(paramsRecord)
 
-    // Get paie parameters
-    const params = await prisma.paieParameters.findUnique({ where: { tenantId } }) || {} as any;
-    const cnrpsSal = Number(params.cnrpsSalarial || 4.75);
-    const cnssSal = Number(params.cnssSalarial || 1.5);
-    const cnavsSal = Number(params.cnavsSalarial || 3.5);
-    const amoSal = Number(params.amoSalarial || 0.75);
-    const plafond = Number(params.cnssPlafond || 10000);
+    const employees = await prisma.employee.findMany({
+      where: { tenantId, id: { in: employeeIds.map(String) } },
+    });
+    const byId = new Map(employees.map((e) => [e.id, e]));
 
-    let generatedCount = 0;
+    let generated = 0;
+    let updated = 0;
+    const skipped: { employee: string; reason: string }[] = [];
 
-    for (const employeeId of employeeIds) {
-      const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId: ctx.tenantId } });
-      if (!employee || !employee.salary || Number(employee.salary) <= 0) continue;
+    for (const employeeId of employeeIds.map(String)) {
+      const employee = byId.get(employeeId);
+      if (!employee) { skipped.push({ employee: employeeId, reason: "Employé introuvable" }); continue; }
+      const label = `${employee.employeeNumber} ${employee.firstName} ${employee.lastName}`.trim();
+      if (!employee.isActive) { skipped.push({ employee: label, reason: "Employé inactif" }); continue; }
+      if (!(Number(employee.salary) > 0)) { skipped.push({ employee: label, reason: "Salaire de base non renseigné" }); continue; }
 
-      const salaryBase = Number(employee.salary);
-      const joursTravailles = 26;
+      const existing = await prisma.paySlip.findFirst({ where: { tenantId, employeeId, mois, annee } });
+      if (existing && (existing.statut !== "PENDING" || existing.accountingEntryId)) {
+        skipped.push({ employee: label, reason: existing.accountingEntryId ? "Bulletin déjà comptabilisé" : "Bulletin déjà payé ou annulé" });
+        continue;
+      }
 
-      const brutGlobal = salaryBase; // Assuming no extra prime for bulk generation
+      const vars = existing ?? {};
+      const computation = computeEmployeePayslip(employee, params, vars);
+      const amounts = payslipAmounts(employee, computation, vars);
 
-      const cnrpsSalaire = Math.min(brutGlobal, plafond) * (cnrpsSal / 100);
-      const cnssSalaire = Math.min(brutGlobal, plafond) * (cnssSal / 100);
-      const cnavisSalaire = Math.min(brutGlobal, plafond) * (cnavsSal / 100);
-      const amoSalaire = brutGlobal * (amoSal / 100);
-      const totalCotisations = cnrpsSalaire + cnssSalaire + cnavisSalaire + amoSalaire;
-
-      const salaireImposable = brutGlobal - cnrpsSalaire - cnssSalaire;
-      const deductionChefFam = employee.situationFamiliale === "CHEF_FAMILLE" ? Number(params.deductionChefFamille || 150) : 0;
-      const deductionEnfants = Math.min(Number(employee.enfantsCharge || 0), Number(params.enfantsMaxDeductible || 6)) * Number(params.deductionParEnfant || 40);
-      const deductionTotale = deductionChefFam + deductionEnfants;
-      const taxableIncome = Math.max(0, salaireImposable - deductionTotale);
-
-      const taxableIncomeAnnuel = taxableIncome * 12;
-      const { impot: irpp } = calculerImpotTunisie(taxableIncomeAnnuel);
-
-      const netAPayer = Math.max(0, brutGlobal - totalCotisations - irpp);
-
-      const reference = `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][mois-1]}-${annee}-${employee.employeeNumber}`;
-
-      // Prevent duplicates
-      const existing = await prisma.paySlip.findFirst({
-        where: { tenantId, employeeId, mois, annee },
-      });
-
-      if (!existing) {
-        await prisma.paySlip.create({
-          data: {
-            tenantId,
-            employeeId,
-            reference,
-            mois,
-            annee,
-            joursTravailles,
-            salaireBase: salaryBase,
-            brutGlobal,
-            cnrpsSalaire,
-            cnssSalaire,
-            cnavisSalaire,
-            amoSalaire,
-            totalCotisations,
-            salaireImposable,
-            deductionChefFam,
-            deductionEnfants,
-            irpp,
-            netAPayer,
-            statut: "PENDING",
-            heuresSupQte: 0,
-            heuresSupMontant: 0,
-            primeAnciennete: 0,
-            primeTransport: 0,
-            primePanier: 0,
-            autresPrimes: 0,
-            deductionAbsences: 0,
-            deductionRetards: 0,
-            autresDeductions: 0,
-          },
-        });
-        generatedCount++;
+      try {
+        if (existing) {
+          await prisma.paySlip.update({
+            where: { id: existing.id },
+            data: amounts as any, // TODO prisma generate (css, cnssPatronal)
+          });
+          updated++;
+        } else {
+          await prisma.paySlip.create({
+            data: {
+              tenantId,
+              employeeId,
+              reference: payslipReference(mois, annee, employee.employeeNumber),
+              mois,
+              annee,
+              joursTravailles: 26,
+              statut: "PENDING",
+              ...amounts,
+            } as any, // TODO prisma generate (css, cnssPatronal)
+          });
+          generated++;
+        }
+      } catch (e) {
+        console.error(`Bulletin ${label} :`, e);
+        // Erreur de schéma (table/colonne) : inutile de continuer, même cause pour tous les employés
+        const code = (e as { code?: string })?.code;
+        if (code === "P2021" || code === "P2022" || code === "P2011") throw e;
+        skipped.push({ employee: label, reason: payrollErrorMessage(e, "Enregistrement impossible") });
       }
     }
 
-    return NextResponse.json({ generated: generatedCount }, { status: 201 });
+    if (generated === 0 && updated === 0) {
+      const reasons = skipped.map((s) => `${s.employee} : ${s.reason}`).join(" ; ");
+      return NextResponse.json(
+        { error: `Aucun bulletin généré${reasons ? ` — ${reasons}` : ""}`, generated, updated, skipped },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.json({ generated, updated, skipped }, { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    console.error("POST /api/hr/payslips :", error);
+    return NextResponse.json({ error: payrollErrorMessage(error) }, { status: 500 });
   }
 }

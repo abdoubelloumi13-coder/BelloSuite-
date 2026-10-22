@@ -1692,7 +1692,22 @@
         "cin": "ID card no.",
         "last_name": "Last name",
         "department_placeholder": "e.g. Production",
-        "position_placeholder": "e.g. Maintenance technician"
+        "position_placeholder": "e.g. Maintenance technician",
+        "family": "Family status (payroll)",
+        "marital_status": "Marital status",
+        "marital_CELIBATAIRE": "Single",
+        "marital_MARIE": "Married",
+        "marital_DIVORCE": "Divorced",
+        "marital_VEUF": "Widowed",
+        "head_of_family": "Head of family",
+        "head_of_family_hint": "Entitles to the head-of-family income tax deduction (300 TND/year)",
+        "children": "Dependent children",
+        "children_hint": "Income tax deduction of 100 TND/year per child (max 4)",
+        "edit_title": "Edit employee",
+        "edit_subtitle": "Update the employee's record",
+        "contract_SAISONNIER": "Seasonal",
+        "contract_INTERIM": "Temporary (agency)",
+        "contract_STAGE": "Internship"
       }
     },
     "payroll": {
@@ -1731,7 +1746,16 @@
         "validate": "Validate",
         "cancelled": "Cancelled",
         "position": "Position",
-        "paid": "Paid"
+        "paid": "Paid",
+        "css": "CSS (social solidarity contribution)",
+        "employer_cnss": "Employer CNSS (paid by the employer)",
+        "add_overtime": "Overtime",
+        "overtime_hours": "Hours",
+        "overtime_rate": "Premium",
+        "overtime_add_button": "Add and recompute",
+        "overtime_hint": "Hourly rate = base salary / 48-hour regime hours, never below the configured hourly minimum wage (2.667 TND in 2026). CNSS, income tax, CSS and net are recomputed.",
+        "overtime_hours_invalid": "Invalid number of hours",
+        "overtime_error": "Unable to add overtime"
       },
       "table": {
         "empty": "No payslips for this period",
@@ -1759,7 +1783,33 @@
       "generate_error": "Unable to generate payslips",
       "no_employees": "No active employees: add employees before generating payroll",
       "empty_period": "No payslips for this period. Click Generate to compute payroll.",
-      "cancelled_count": "Cancelled ({count})"
+      "cancelled_count": "Cancelled ({count})",
+      "params": {
+        "title": "Payroll settings",
+        "subtitle": "Rates used to compute payslips (2026 defaults)",
+        "save": "Save",
+        "cancel": "Cancel",
+        "load_error": "Unable to load payroll settings",
+        "save_error": "Unable to save payroll settings",
+        "disclaimer": "2026 defaults (CNSS 9.68% / 17.07%, minimum wage 554.736 TND / 2.667 TND/h): have them validated by your accountant. Draft payslips are recomputed when you click “Generate” again.",
+        "saved": "Settings saved",
+        "fields": {
+          "tauxCnssSalarial": "Employee CNSS (%)",
+          "tauxCnssPatronal": "Employer CNSS (%)",
+          "smigMensuel": "Monthly minimum wage, 48 h (TND)",
+          "smigHoraire": "Hourly minimum wage, 48 h (TND)",
+          "deductionChefFamille": "Head-of-family deduction (TND/year)",
+          "deductionParEnfant": "Per-child deduction (TND/year)",
+          "enfantsMaxDeductible": "Max children eligible",
+          "fraisProTaux": "Professional expenses (%)",
+          "fraisProPlafond": "Professional expenses cap (TND/year)",
+          "cssTaux": "Solidarity contribution CSS (%)",
+          "cssSeuilExoneration": "CSS exemption threshold (TND/year)"
+        }
+      },
+      "post": "Post payroll to accounting",
+      "post_success": "Payroll entry {number} recorded (general journal, balanced)",
+      "post_error": "Unable to post this period's payroll"
     }
   },
   "GPAO": {

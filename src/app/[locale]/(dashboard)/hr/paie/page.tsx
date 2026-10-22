@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { PayrollSummary } from "./components/PayrollSummary";
 import { PaySlipTable } from "./components/PaySlipTable";
 import { PaySlipModal } from "./components/PaySlipModal";
+import { PaieParametersModal } from "./components/PaieParametersModal";
 import { DollarSign, FileText, Users, Settings, Plus } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useTranslations } from 'next-intl'
@@ -27,6 +28,7 @@ const MONTHS = [
 export default function PaiePage() {
   const t = useTranslations('HR.payroll')
   const tm = useTranslations('Commercial.months')
+  const tp = useTranslations('HR.payroll.params')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { tenantId } = useSession();
@@ -36,6 +38,9 @@ export default function PaiePage() {
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [showParams, setShowParams] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const fetchPayrollData = useCallback(async () => {
@@ -73,6 +78,7 @@ export default function PaiePage() {
 
   async function handleGeneratePayslips() {
     setError("");
+    setNotice("");
     const employeeIds: string[] = Array.isArray(summary?.employeeIds) ? summary.employeeIds : [];
     if (!employeeIds.length) {
       setError(t("no_employees"));
@@ -95,12 +101,45 @@ export default function PaiePage() {
         setError(apiErrorMessage(data, t("generate_error")));
       } else {
         await fetchPayrollData();
+        // Employés ignorés (sans salaire, bulletin déjà payé/comptabilisé…) : message explicite
+        const skipped = Array.isArray(data?.skipped) ? data.skipped : [];
+        const parts = [
+          data?.generated ? `${data.generated} bulletin(s) généré(s)` : "",
+          data?.updated ? `${data.updated} bulletin(s) brouillon recalculé(s)` : "",
+          skipped.length ? `ignorés : ${skipped.map((s: { employee: string; reason: string }) => `${s.employee} (${s.reason})`).join(", ")}` : "",
+        ].filter(Boolean);
+        if (parts.length) setNotice(parts.join(" — "));
       }
     } catch (err) {
       console.error("Error generating payslips:", err);
       setError(t("generate_error"));
     } finally {
       setGenerating(false);
+    }
+  }
+
+  // Centralisation comptable de la période (écriture OD équilibrée 640/647 → 453/432/425)
+  async function handlePostToAccounting() {
+    setError("");
+    setNotice("");
+    setPosting(true);
+    try {
+      const res = await fetch("/api/hr/payroll/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth, year: selectedYear, tenantId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(apiErrorMessage(data, t("post_error")));
+      } else {
+        setNotice(t("post_success", { number: data?.entryNumber ?? "" }));
+        await fetchPayrollData();
+      }
+    } catch {
+      setError(t("post_error"));
+    } finally {
+      setPosting(false);
     }
   }
 
@@ -118,9 +157,21 @@ export default function PaiePage() {
           <p className="text-gray-500">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg">
+          <button
+            onClick={() => setShowParams(true)}
+            disabled={!tenantId}
+            className="disabled:opacity-50 flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
             <Settings className="w-4 h-4" />
             {t('settings')}
+          </button>
+          <button
+            onClick={handlePostToAccounting}
+            disabled={posting || loading || !payslips.some((p) => p.statut === "PENDING" && !p.accountingEntryId)}
+            className="disabled:opacity-50 flex items-center gap-2 px-4 py-2 text-sm bg-white border hover:bg-gray-50 rounded-lg"
+          >
+            <FileText className="w-4 h-4" />
+            {t('post')}
           </button>
           <button
             onClick={handleGeneratePayslips}
@@ -179,6 +230,12 @@ export default function PaiePage() {
         </div>
       )}
 
+      {notice && !error && (
+        <div role="status" className="p-4 rounded-xl border border-teal-200 bg-teal-50 text-teal-800 text-sm">
+          {notice}
+        </div>
+      )}
+
       {/* Summary Cards */}
       {summary && <PayrollSummary summary={summary} />}
 
@@ -200,10 +257,22 @@ export default function PaiePage() {
         />
       </div>
 
+      {showParams && tenantId && (
+        <PaieParametersModal
+          tenantId={tenantId}
+          onClose={() => setShowParams(false)}
+          onSaved={() => {
+            setShowParams(false);
+            setNotice(tp("saved"));
+          }}
+        />
+      )}
+
       {/* PaySlip Modal */}
       {showModal && selectedPayslip && (
         <PaySlipModal
           payslip={selectedPayslip}
+          onUpdated={() => { void fetchPayrollData(); }}
           onClose={() => {
             setShowModal(false);
             setSelectedPayslip(null);

@@ -9,6 +9,8 @@ import { BusinessError } from '@/lib/errors'
 import { TN_ACCOUNTS, findChartAccount, TUNISIAN_CHART_OF_ACCOUNTS } from '@/lib/tunisian-chart-of-accounts'
 import { buildAutoEntryLines, buildEntryDescription, computeSettlement, isPostableSaleType, PAYABLE_SALE_TYPES, SettlementError } from '@/lib/accounting-auto'
 import { r3 } from '@/lib/fiscal'
+import { buildPayrollJournalLines, PayrollBalanceError, type PayslipForAccounting } from '@/lib/payroll-payslip'
+import { DEFAULT_PAYROLL_PARAMS_2026, payrollParamsFromRecord } from '@/lib/payroll'
 
 type Db = Prisma.TransactionClient | typeof prisma
 
@@ -437,9 +439,22 @@ export async function postPurchaseToAccounting(purchaseOrderId: string, tenantId
   })
 }
 
+/**
+ * Centralisation de la paie d'une période (journal OD), écriture ÉQUILIBRÉE contrôlée :
+ *   D 640 salaires bruts + D 647 CNSS patronale = C 453 CNSS (salariale + patronale) + C 432 IRPP + CSS + C 425 rémunérations dues.
+ * Comptes créés dans le plan du tenant s'ils manquent (ensureAccount, libellés du plan tunisien).
+ * Voir lib/payroll-payslip.buildPayrollJournalLines.
+ */
 export async function postPayrollToAccounting(month: number, year: number, tenantId: string) {
+  // Taux patronal du tenant (hors transaction : une table non migrée ne doit pas avorter la transaction) ;
+  // sert de repli pour les bulletins antérieurs sans cnssPatronal enregistré
+  let employerRate = DEFAULT_PAYROLL_PARAMS_2026.cnssEmployerRate
+  try {
+    const rec = await prisma.paieParameters.findUnique({ where: { tenantId } })
+    employerRate = payrollParamsFromRecord(rec as unknown as Record<string, unknown> | null).cnssEmployerRate
+  } catch { /* paramètres illisibles : taux 2026 par défaut */ }
+
   return prisma.$transaction(async (tx) => {
-    // 1. Get all payslips for the period
     const payslips = await tx.paySlip.findMany({
       where: { tenantId, mois: month, annee: year, statut: 'PENDING' }
     })
@@ -447,45 +462,44 @@ export async function postPayrollToAccounting(month: number, year: number, tenan
     if (payslips.length === 0) throw new BusinessError('Aucun bulletin de paie en attente trouvé pour cette période', 400)
     if (payslips.some(p => p.accountingEntryId)) throw new BusinessError('Certains bulletins sont déjà comptabilisés', 409)
 
-    // 2. Aggregate amounts
-    const totals = payslips.reduce((acc, p) => ({
-      gross: acc.gross + Number(p.brutGlobal),
-      cnss: acc.cnss + Number(p.cnssSalaire),
-      irpp: acc.irpp + Number(p.irpp),
-      net: acc.net + Number(p.netAPayer),
-    }), { gross: 0, cnss: 0, irpp: 0, net: 0 })
+    const period = `${String(month).padStart(2, '0')}/${year}`
 
-    // 3. Comptes tunisiens : 640 salaires bruts / 431 CNSS, 4342 retenues sur salaires (IRPP), 425 rémunérations dues
-    const acc641 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.SALARIES)
-    const acc431 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.CNSS)
-    const acc432 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.PAYROLL_WITHHOLDING)
-    const acc421 = await ensureAccount(tx, tenantId, TN_ACCOUNTS.PERSONNEL_DUE)
+    let lines
+    try {
+      lines = buildPayrollJournalLines(payslips as unknown as PayslipForAccounting[], period, employerRate)
+    } catch (e) {
+      if (e instanceof PayrollBalanceError) throw new BusinessError(e.message, 422)
+      throw e
+    }
 
-    // 4. Journal OD et exercice
+    const accounts = new Map<string, { id: string }>()
+    for (const l of lines) {
+      if (!accounts.has(l.account)) accounts.set(l.account, await ensureAccount(tx, tenantId, l.account))
+    }
+
     const journal = await ensureJournal(tx, tenantId, 'OD')
-    const period = await ensurePeriodFor(tx, tenantId, new Date(year, month - 1, 28))
+    const fiscalPeriod = await ensurePeriodFor(tx, tenantId, new Date(year, month - 1, 28))
 
-    // 6. Create Journal Entry
+    // Numéro unique : PAIE-2026-10, puis PAIE-2026-10-2… pour un lot complémentaire du même mois
+    const baseNumber = `PAIE-${year}-${month.toString().padStart(2, '0')}`
+    const sameMonth = await tx.journalEntry.count({ where: { tenantId, entryNumber: { startsWith: baseNumber } } })
+    const entryNumber = sameMonth === 0 ? baseNumber : `${baseNumber}-${sameMonth + 1}`
+
     const entry = await tx.journalEntry.create({
       data: {
         tenantId,
         journalId: journal.id,
-        periodId: period.id,
-        entryNumber: `PAIE-${year}-${month.toString().padStart(2, '0')}`,
-        date: new Date(),
-        description: `Centralisation Paie ${month}/${year}`,
+        periodId: fiscalPeriod.id,
+        entryNumber,
+        // Date comptable : dernier jour de la période de paie (et non la date du clic)
+        date: new Date(Date.UTC(year, month, 0)),
+        description: `Centralisation paie ${period}`,
         lines: {
-          create: [
-            { accountId: acc641.id, debit: totals.gross, credit: 0, description: `Salaires Bruts ${month}/${year}` },
-            { accountId: acc431.id, debit: 0, credit: totals.cnss, description: `CNSS Salariale ${month}/${year}` },
-            { accountId: acc432.id, debit: 0, credit: totals.irpp, description: `IRPP Salariale ${month}/${year}` },
-            { accountId: acc421.id, debit: 0, credit: totals.net, description: `Salaires Nets à payer ${month}/${year}` },
-          ]
+          create: lines.map(l => ({ accountId: accounts.get(l.account)!.id, debit: l.debit, credit: l.credit, description: l.label })),
         }
       }
     })
 
-    // 7. Update payslips
     await tx.paySlip.updateMany({
       where: { id: { in: payslips.map(p => p.id) } },
       data: { accountingEntryId: entry.id }

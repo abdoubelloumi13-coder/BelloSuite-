@@ -4,13 +4,14 @@ import { requireAccess } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Genre, EstadoCivil, SituationFamiliale, TypeContrat, ModePaie } from '@prisma/client'
+import { normalizeFamily } from '@/lib/employee-family'
 
 // Required fields for employee import
 const REQUIRED = ['employeeNumber', 'firstName', 'lastName', 'hireDate']
 // All supported fields
 const OPTIONAL_FIELDS = [
   'email', 'phone', 'cin', 'birthDate', 'birthPlace', 'nationality',
-  'genre', 'etatCivil', 'enfantsCharge', 'situationFamiliale',
+  'genre', 'etatCivil', 'enfantsCharge', 'situationFamiliale', 'chefFamille',
   'address', 'city', 'departement', 'poste', 'qualificationCode',
   'typeContrat', 'salary', 'modePaie', 'banque', 'compteBancaire',
   'cnssNumber', 'cnrpsNumber', 'amoNumber',
@@ -36,8 +37,6 @@ function normalizeEnum(val: any, allowed: string[]): string {
 }
 
 const GENRE_MAP = ['MALE', 'FEMALE']
-const ETAT_CIVIL_MAP = ['CELIBATAIRE', 'MARIE', 'DIVORCE', 'VEUF']
-const SITUATION_FAM_MAP = ['CHEF_FAMILLE', 'NON_CHEF_FAMILLE']
 const TYPE_CONTRAT_MAP = ['CDI', 'CDD', 'STAGE', 'SAISONNIER', 'INTERIM']
 const MODE_PAIE_MAP = ['VIREMENT', 'CHEQUE', 'ESPECE']
 
@@ -123,6 +122,18 @@ export async function POST(req: NextRequest) {
       const qualCode = String(get('qualificationCode') || '').trim().toLowerCase()
       const qualificationId = qualCode && qualMap[qualCode] ? qualMap[qualCode] : null
 
+      // Situation familiale (paie) : « Marié », « oui »… acceptés ; valeur non reconnue → ligne rejetée
+      const family = normalizeFamily({
+        etatCivil: get('etatCivil'),
+        situationFamiliale: get('situationFamiliale'),
+        chefFamille: get('chefFamille'),
+        enfantsCharge: get('enfantsCharge'),
+      })
+      if (family.errors.length) {
+        errors.push({ row: rowNum, employeeNumber: empNum, error: family.errors.join(' ; ') })
+        continue
+      }
+
       try {
         const employee = await prisma.employee.create({
           data: {
@@ -137,9 +148,9 @@ export async function POST(req: NextRequest) {
             birthPlace: String(get('birthPlace') || '').trim() || null,
             nationality: String(get('nationality') || 'Tunisienne').trim(),
             genre: normalizeEnum(get('genre'), GENRE_MAP) as any as Genre,
-            etatCivil: normalizeEnum(get('etatCivil'), ETAT_CIVIL_MAP) as any as EstadoCivil,
-            enfantsCharge: toNum(get('enfantsCharge'), 0),
-            situationFamiliale: normalizeEnum(get('situationFamiliale'), SITUATION_FAM_MAP) as any as SituationFamiliale,
+            etatCivil: family.value.etatCivil as EstadoCivil,
+            enfantsCharge: family.value.enfantsCharge,
+            situationFamiliale: family.value.situationFamiliale as SituationFamiliale,
             address: String(get('address') || '').trim() || null,
             city: String(get('city') || '').trim() || null,
             hireDate,
