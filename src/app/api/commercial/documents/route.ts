@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { handleApiError } from '@/lib/errors'
 import { createInvoice, createInvoiceSchema } from '@/services/invoices'
+import { zodErrorResponse } from '@/lib/zod-errors'
 
 export async function GET(request: Request) {
   try {
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
       warehouseId: body.warehouseId || null,
     })
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Données invalides', details: parsed.error.issues }, { status: 400 })
+      return zodErrorResponse(parsed.error)
     }
     const result = await createInvoice(parsed.data, { userId: ctx.user?.id ?? null })
     return NextResponse.json(result)

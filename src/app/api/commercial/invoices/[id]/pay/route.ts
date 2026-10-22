@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApiContext, parseBody } from '@/lib/api'
+import { getApiContext } from '@/lib/api'
+import { dropEmptyStrings, parseBodyFields } from '@/lib/zod-errors'
 import { handleApiError } from '@/lib/errors'
 import { paymentSchema, postPaymentToAccounting } from '@/services/accounting'
 
@@ -18,7 +19,7 @@ export async function POST(
     const ctx = await getApiContext(req, tenantId)
     if (ctx instanceof NextResponse) return ctx
 
-    const data = parseBody(paymentSchema, body ?? {})
+    const data = parseBodyFields(paymentSchema, dropEmptyStrings(body ?? {}))
     if (data instanceof NextResponse) return data
 
     const entry = await postPaymentToAccounting(id, ctx.tenantId, data)

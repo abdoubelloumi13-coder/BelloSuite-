@@ -37,7 +37,9 @@ async function figuresFor(tenantId: string, year: number, month: number): Promis
       select: { status: true, subtotal: true, taxAmount: true, total: true },
     }),
     prisma.withholdingTax.findMany({
-      where: { tenantId, periodYear: year, periodMonth: month },
+      // RS opérées par le tenant (à déclarer au TEJ) ; les RS subies sur ventes en sont exclues
+      // TODO prisma generate : direction ajouté par la migration 20261022000100
+      where: { tenantId, periodYear: year, periodMonth: month, direction: { not: 'SUFFERED' } } as any,
       select: { taxAmount: true, beneficiaryTin: true, beneficiaryAddress: true, beneficiaryEmail: true, beneficiaryPhone: true, paymentDate: true, tejStatus: true },
     }),
   ])

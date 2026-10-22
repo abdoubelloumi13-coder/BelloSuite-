@@ -52,6 +52,12 @@ export default function NewRetenueSourcePage() {
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Erreurs renvoyées par le serveur champ par champ (zod) : affichées sous le champ concerné
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const fieldError = (name: string) => fieldErrors[name] ? (
+    <p role="alert" className="text-[11px] font-bold text-red-600 dark:text-red-400 px-1 mt-1">{fieldErrors[name]}</p>
+  ) : null;
+  const errBorder = (name: string) => fieldErrors[name] ? ' !border-red-500' : '';
 
   const SERVICE_TYPES = SERVICE_TYPE_VALUES.map((value) => ({
     value,
@@ -81,6 +87,7 @@ export default function NewRetenueSourcePage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setFieldErrors({});
     try {
       const res = await fetch('/api/commercial/retenue-source', {
         method: 'POST',
@@ -88,7 +95,9 @@ export default function NewRetenueSourcePage() {
         body: JSON.stringify(form),
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (data.fieldErrors) setFieldErrors(data.fieldErrors);
+        else if (data.field) setFieldErrors({ [data.field]: data.error });
         throw new Error(data.error || tc('create_failed'));
       }
       router.push('/commercial/retenue-source');
@@ -137,21 +146,25 @@ export default function NewRetenueSourcePage() {
               <label className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('beneficiary.name_label')}</label>
               <input
                 required
-                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner text-start"
+                className={"w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner text-start" + errBorder('beneficiaryName')}
                 value={form.beneficiaryName}
                 onChange={(e) => setForm((f) => ({ ...f, beneficiaryName: e.target.value }))}
                 placeholder={t('beneficiary.name_placeholder')}
               />
+              {fieldError('beneficiaryName')}
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('beneficiary.tin_label')}</label>
               <input
-                className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner font-mono tracking-widest text-start"
+                className={"w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-bold text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner font-mono tracking-widest text-start" + errBorder('beneficiaryTin')}
                 value={form.beneficiaryTin}
-                onChange={(e) => setForm((f) => ({ ...f, beneficiaryTin: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiaryTin: e.target.value.toUpperCase() }))}
                 placeholder={t('beneficiary.tin_placeholder')}
-                maxLength={11}
+                // Matricule complet : 13 caractères (1234567AAM000), jusqu'à 17 avec séparateurs (1234567/A/A/M/000)
+                maxLength={17}
+                autoCapitalize="characters"
               />
+              {fieldError('beneficiaryTin')}
             </div>
           </div>
           
@@ -215,13 +228,14 @@ export default function NewRetenueSourcePage() {
                   type="number"
                   min="0"
                   step="0.001"
-                  className="w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-black text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner font-mono text-start"
+                  className={"w-full bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 rounded-2xl px-5 py-3.5 text-sm font-black text-stone-900 dark:text-white outline-none focus:border-amber-500 transition-all shadow-inner font-mono text-start" + errBorder('grossAmount')}
                   value={form.grossAmount}
                   onChange={(e) => setForm(f => ({ ...f, grossAmount: e.target.value }))}
                   placeholder="0.000"
                 />
                 <span className="absolute inset-inline-end-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase">TND</span>
               </div>
+              {fieldError('grossAmount')}
             </div>
           </div>
 
@@ -280,6 +294,7 @@ export default function NewRetenueSourcePage() {
                 onChange={(e) => setForm((f) => ({ ...f, beneficiaryAddress: e.target.value }))}
               />
             </div>
+            {fieldError('beneficiaryEmail')}{fieldError('beneficiaryPhone')}{fieldError('beneficiaryAddress')}
           </div>
 
           {/* Calcul Preview */}
@@ -342,7 +357,7 @@ export default function NewRetenueSourcePage() {
                   value={form.periodYear}
                   onChange={(e) => setForm((f) => ({ ...f, periodYear: e.target.value }))}
                 >
-                  {[2024,2025,2026].map((y) => (
+                  {Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
@@ -368,6 +383,7 @@ export default function NewRetenueSourcePage() {
                     value={form.paymentDate}
                     onChange={(e) => setForm((f) => ({ ...f, paymentDate: e.target.value }))}
                   />
+                  {fieldError('paymentDate')}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-stone-400 dark:text-zinc-500 uppercase tracking-[0.2em] ms-1">{t('payment.method_label')}</label>

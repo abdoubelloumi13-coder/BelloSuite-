@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApiContext, parseBody } from '@/lib/api'
+import { getApiContext } from '@/lib/api'
+import { dropEmptyStrings, parseBodyFields } from '@/lib/zod-errors'
 import { handleApiError } from '@/lib/errors'
 import { getWithholdingTaxes, createWithholdingTax, createWithholdingTaxSchema } from '@/services/withholding-tax'
 import { TEJStatus } from '@prisma/client'
@@ -16,8 +17,10 @@ export async function GET(req: NextRequest) {
     const periodYear = searchParams.get('periodYear') ? Number(searchParams.get('periodYear')) : undefined
     const periodMonth = searchParams.get('periodMonth') ? Number(searchParams.get('periodMonth')) : undefined
     const tejStatus = searchParams.get('tejStatus') as TEJStatus | undefined
+    const dir = searchParams.get('direction')
+    const direction = dir === 'SUFFERED' || dir === 'DECLARED' ? dir : undefined
 
-    const records = await getWithholdingTaxes(ctx.tenantId, { periodYear, periodMonth, tejStatus })
+    const records = await getWithholdingTaxes(ctx.tenantId, { periodYear, periodMonth, tejStatus, direction })
     return NextResponse.json(records)
   } catch (err) {
     return handleApiError(err, 'GET withholding taxes')
@@ -27,12 +30,13 @@ export async function GET(req: NextRequest) {
 // POST /api/commercial/retenue-source
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => ({}))
 
     const ctx = await getApiContext(req, body?.tenantId)
     if (ctx instanceof NextResponse) return ctx
 
-    const data = parseBody(createWithholdingTaxSchema, { ...body, tenantId: ctx.tenantId })
+    // Champs laissés vides (mode de paiement « — », date…) = non renseignés ; erreurs renvoyées champ par champ
+    const data = parseBodyFields(createWithholdingTaxSchema, { ...dropEmptyStrings(body ?? {}, ['beneficiaryName']), tenantId: ctx.tenantId })
     if (data instanceof NextResponse) return data
 
     const record = await createWithholdingTax(data)
