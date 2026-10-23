@@ -53,6 +53,7 @@ export default function JournalEntriesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [actionMsg, setActionMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [acting, setActing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const fmt = (v: number) =>
     new Intl.NumberFormat(`${locale}-TN`, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v || 0)
@@ -188,7 +189,7 @@ export default function JournalEntriesPage() {
   }
 
   const deleteDraft = async (id: string) => {
-    if (!window.confirm(t('delete_confirm'))) return
+    setConfirmDelete(null)
     setActing(true)
     setActionMsg(null)
     try {
@@ -388,11 +389,17 @@ export default function JournalEntriesPage() {
                   </span>
                   <span className="font-mono text-sm text-white">{fmt(entry.totalDebit)}</span>
                 </button>
-                {!entry.isPosted && !entry.period?.isClosed && (
-                  <button onClick={() => deleteDraft(entry.id)} disabled={acting} className="p-3 me-2 text-zinc-500 hover:text-red-400 disabled:opacity-30" aria-label={t('delete_draft')}>
+                {!entry.isPosted && !entry.period?.isClosed && (confirmDelete === entry.id ? (
+                  <span className="flex items-center gap-2 me-3">
+                    <span className="text-xs text-red-300 hidden sm:inline">{t('delete_confirm')}</span>
+                    <button onClick={() => deleteDraft(entry.id)} disabled={acting} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white disabled:opacity-50">{t('delete_draft')}</button>
+                    <button onClick={() => setConfirmDelete(null)} className="p-1.5 text-zinc-500 hover:text-white" aria-label={t('cancel')}><X className="w-4 h-4" /></button>
+                  </span>
+                ) : (
+                  <button onClick={() => setConfirmDelete(entry.id)} disabled={acting} className="p-3 me-2 text-zinc-500 hover:text-red-400 disabled:opacity-30" aria-label={t('delete_draft')}>
                     <Trash2 className="w-4 h-4" />
                   </button>
-                )}
+                ))}
                 </div>
                 {open && (
                   <table className="w-full text-sm border-t border-zinc-800/50">

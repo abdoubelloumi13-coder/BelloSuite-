@@ -39,6 +39,7 @@ export default function PeriodsPage() {
   const [preview, setPreview] = useState<ClosingPreview | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
+  const [confirmReopen, setConfirmReopen] = useState<string | null>(null)
 
   const fmt = (v: number) =>
     new Intl.NumberFormat(`${locale}-TN`, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v || 0)
@@ -76,7 +77,7 @@ export default function PeriodsPage() {
   }
 
   const reopen = async (period: Period) => {
-    if (!window.confirm(t('reopen_confirm', { name: period.name }))) return
+    setConfirmReopen(null)
     setBusy(period.id)
     setActionError('')
     try {
@@ -248,8 +249,14 @@ export default function PeriodsPage() {
                           <CheckCircle2 className="w-3 h-3" /> {t('open')}
                         </span>
                       )}
-                      {period.isClosed ? (
-                        <button onClick={() => reopen(period)} disabled={busy === period.id} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-50">
+                      {period.isClosed && confirmReopen === period.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-amber-300 max-w-[220px]">{t('reopen_confirm', { name: period.name })}</span>
+                          <button onClick={() => reopen(period)} disabled={busy === period.id} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50">{t('reopen')}</button>
+                          <button onClick={() => setConfirmReopen(null)} className="p-1 text-zinc-500 hover:text-white" aria-label={t('cancel')}><X className="w-4 h-4" /></button>
+                        </span>
+                      ) : period.isClosed ? (
+                        <button onClick={() => setConfirmReopen(period.id)} disabled={busy === period.id} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-50">
                           <Unlock className="w-3 h-3" /> {t('reopen')}
                         </button>
                       ) : (
