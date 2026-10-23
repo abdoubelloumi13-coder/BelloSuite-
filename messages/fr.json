@@ -1744,15 +1744,15 @@
           "label": "Employés"
         },
         "evaluations": {
-          "desc": "Management des qualifications",
-          "label": "Évaluations"
+          "desc": "Grilles de qualification, coefficients et fourchettes de salaire",
+          "label": "Qualifications"
         },
         "payroll": {
           "desc": "Bulletins de salaire Tunisia",
           "label": "Paie"
         },
         "attendance": {
-          "desc": "Absences et retards",
+          "desc": "Absences, congés et retards",
           "label": "Présences"
         }
       },
@@ -1916,6 +1916,83 @@
       "post": "Comptabiliser la paie",
       "post_success": "Écriture de paie {number} enregistrée (journal OD, équilibrée)",
       "post_error": "Impossible de comptabiliser la paie de cette période"
+    },
+    "attendance": {
+      "title": "Présences",
+      "subtitle": "Absences, congés et retards du personnel, avec validation",
+      "year": "Année",
+      "tab_absences": "Absences et congés",
+      "tab_delays": "Retards",
+      "new_absence": "Nouvelle absence",
+      "new_delay": "Nouveau retard",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "loading": "Chargement…",
+      "load_error": "Impossible de charger les présences",
+      "save_error": "Enregistrement impossible",
+      "employee_required": "Choisissez un employé",
+      "no_employee": "Aucun employé actif : créez d'abord une fiche employé.",
+      "employee": "Employé",
+      "type": "Type",
+      "from": "Du",
+      "to": "Au",
+      "date": "Date",
+      "period": "Période",
+      "days": "Jours ouvrables",
+      "arrival": "Arrivée",
+      "normal_time": "Heure normale",
+      "minutes": "Minutes",
+      "reason": "Motif",
+      "observations": "Observations",
+      "justified": "Justifié",
+      "status_label": "Statut",
+      "approve": "Approuver",
+      "reject": "Rejeter",
+      "delete": "Supprimer",
+      "days_preview": "{cal} jour(s) calendaire(s), {ouvr} jour(s) ouvrable(s) hors dimanches",
+      "dates_invalid": "La date de fin doit suivre la date de début",
+      "late_preview": "Retard : {minutes} min",
+      "kpi_pending": "Demandes en attente",
+      "kpi_days": "Jours d'absence approuvés",
+      "kpi_late": "Retards cumulés",
+      "empty_absences": "Aucune absence sur cette année",
+      "empty_delays": "Aucun retard sur cette année",
+      "status": {
+        "EN_ATTENTE": "En attente",
+        "APPROUVE": "Approuvé",
+        "REJETE": "Rejeté"
+      },
+      "types": {
+        "MALADIE": "Maladie",
+        "ACCIDENT_TRAVAIL": "Accident du travail",
+        "CONGE_PAYE": "Congé payé",
+        "SANS_SOLDE": "Congé sans solde",
+        "MATERNITE": "Maternité",
+        "PATERNITE": "Paternité",
+        "AUTRE": "Autre"
+      }
+    },
+    "qualifications": {
+      "title": "Qualifications",
+      "subtitle": "Grilles de qualification, coefficients et fourchettes de salaire de base",
+      "new": "Nouvelle qualification",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "loading": "Chargement…",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "code": "Code",
+      "designation": "Désignation",
+      "coefficient": "Coefficient",
+      "salary_min": "Salaire min (TND)",
+      "salary_max": "Salaire max (TND)",
+      "salary_range": "Fourchette de salaire",
+      "empty": "Aucune qualification : créez votre grille (ex. OS, OQ, Agent de maîtrise, Cadre).",
+      "load_error": "Impossible de charger les qualifications",
+      "save_error": "Enregistrement impossible",
+      "range_error": "Le salaire maximum doit être supérieur au minimum"
     }
   },
   "GPAO": {

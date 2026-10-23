@@ -1744,15 +1744,15 @@
           "label": "Employees"
         },
         "evaluations": {
-          "desc": "Skills management",
-          "label": "Evaluations"
+          "desc": "Qualification grades, coefficients and salary ranges",
+          "label": "Qualifications"
         },
         "payroll": {
           "desc": "Tunisian payslips",
           "label": "Payroll"
         },
         "attendance": {
-          "desc": "Absences and late arrivals",
+          "desc": "Absences, leave and lateness",
           "label": "Attendance"
         }
       },
@@ -1916,6 +1916,83 @@
       "post": "Post payroll to accounting",
       "post_success": "Payroll entry {number} recorded (general journal, balanced)",
       "post_error": "Unable to post this period's payroll"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "subtitle": "Staff absences, leave and lateness, with approval",
+      "year": "Year",
+      "tab_absences": "Absences & leave",
+      "tab_delays": "Lateness",
+      "new_absence": "New absence",
+      "new_delay": "New late arrival",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "loading": "Loading…",
+      "load_error": "Could not load attendance",
+      "save_error": "Could not save",
+      "employee_required": "Choose an employee",
+      "no_employee": "No active employee: create an employee first.",
+      "employee": "Employee",
+      "type": "Type",
+      "from": "From",
+      "to": "To",
+      "date": "Date",
+      "period": "Period",
+      "days": "Working days",
+      "arrival": "Arrival",
+      "normal_time": "Scheduled time",
+      "minutes": "Minutes",
+      "reason": "Reason",
+      "observations": "Notes",
+      "justified": "Justified",
+      "status_label": "Status",
+      "approve": "Approve",
+      "reject": "Reject",
+      "delete": "Delete",
+      "days_preview": "{cal} calendar day(s), {ouvr} working day(s) excluding Sundays",
+      "dates_invalid": "The end date must follow the start date",
+      "late_preview": "Late by {minutes} min",
+      "kpi_pending": "Pending requests",
+      "kpi_days": "Approved absence days",
+      "kpi_late": "Total lateness",
+      "empty_absences": "No absences this year",
+      "empty_delays": "No lateness this year",
+      "status": {
+        "EN_ATTENTE": "Pending",
+        "APPROUVE": "Approved",
+        "REJETE": "Rejected"
+      },
+      "types": {
+        "MALADIE": "Sick leave",
+        "ACCIDENT_TRAVAIL": "Work accident",
+        "CONGE_PAYE": "Paid leave",
+        "SANS_SOLDE": "Unpaid leave",
+        "MATERNITE": "Maternity",
+        "PATERNITE": "Paternity",
+        "AUTRE": "Other"
+      }
+    },
+    "qualifications": {
+      "title": "Qualifications",
+      "subtitle": "Qualification grades, coefficients and base salary ranges",
+      "new": "New qualification",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "loading": "Loading…",
+      "edit": "Edit",
+      "archive": "Archive",
+      "code": "Code",
+      "designation": "Title",
+      "coefficient": "Coefficient",
+      "salary_min": "Min salary (TND)",
+      "salary_max": "Max salary (TND)",
+      "salary_range": "Salary range",
+      "empty": "No qualifications yet: create your grid (e.g. unskilled, skilled, supervisor, manager).",
+      "load_error": "Could not load qualifications",
+      "save_error": "Could not save",
+      "range_error": "Max salary must exceed the minimum"
     }
   },
   "GPAO": {

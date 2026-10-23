@@ -57,8 +57,42 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error creating qualification:', error)
     if (error.code === 'P2002') {
-      return NextResponse.json({ error: 'Qualification code already exists' }, { status: 409 })
+      return NextResponse.json({ error: 'Ce code de qualification existe déjà' }, { status: 409 })
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}
+
+// PATCH /api/hr/qualifications { id, designation?, coefficient?, salaryMin?, salaryMax?, isActive? }
+export async function PATCH(request: Request) {
+  try {
+    const ctx = await requireTenant(request)
+    if (ctx instanceof NextResponse) return ctx
+    const accessDenied = requireAccess(ctx, 'hr:write')
+    if (accessDenied) return accessDenied
+    const body = await request.json().catch(() => null)
+    if (!body?.id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
+    const existing = await prisma.qualification.findFirst({ where: { id: body.id, tenantId: ctx.tenantId }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Qualification introuvable' }, { status: 404 })
+    const num = (v: unknown) => (v === undefined || v === '' || v === null ? undefined : Number(v))
+    const data: Record<string, unknown> = {}
+    if (typeof body.designation === 'string' && body.designation.trim()) data.designation = body.designation.trim()
+    for (const k of ['coefficient', 'salaryMin', 'salaryMax'] as const) {
+      const v = num(body[k])
+      if (v !== undefined) {
+        if (!Number.isFinite(v) || v < 0) return NextResponse.json({ error: `${k} invalide` }, { status: 400 })
+        data[k] = v
+      }
+    }
+    if (typeof body.isActive === 'boolean') data.isActive = body.isActive
+    const min = (data.salaryMin as number | undefined), max = (data.salaryMax as number | undefined)
+    if (min !== undefined && max !== undefined && max > 0 && max < min) {
+      return NextResponse.json({ error: 'Le salaire maximum doit être supérieur au minimum' }, { status: 400 })
+    }
+    const updated = await prisma.qualification.update({ where: { id: body.id }, data })
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error('Error updating qualification:', error)
+    return NextResponse.json({ error: 'Mise à jour impossible' }, { status: 500 })
   }
 }
