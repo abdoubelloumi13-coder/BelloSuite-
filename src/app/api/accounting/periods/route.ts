@@ -40,11 +40,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return NextResponse.json({ error: 'Dates d\u2019exercice invalides : la fin doit suivre le début' }, { status: 400 })
+    }
+    const overlap = await prisma.accountingPeriod.findFirst({
+      where: { tenantId, startDate: { lte: end }, endDate: { gte: start } },
+      select: { name: true },
+    })
+    if (overlap) {
+      return NextResponse.json({ error: `Cet exercice chevauche l\u2019exercice ${overlap.name}` }, { status: 409 })
+    }
+
     const newPeriod = await prisma.accountingPeriod.create({
       data: {
         name,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: start,
+        endDate: end,
         tenant: {
           connect: { id: tenantId }
         }
@@ -54,6 +67,6 @@ export async function POST(req: Request) {
     return NextResponse.json(newPeriod, { status: 201 })
   } catch (error) {
     console.error('Error creating period:', error)
-    return NextResponse.json({ error: 'Failed to create period' }, { status: 500 })
+    return NextResponse.json({ error: 'Création de l\u2019exercice impossible (nom déjà utilisé ?)' }, { status: 500 })
   }
 }

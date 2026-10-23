@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Download, FileText, Printer } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
+import { Link } from '@/i18n/routing'
 import { useTranslations, useLocale } from 'next-intl'
 
 export default function TrialBalancePage() {
@@ -59,15 +60,9 @@ export default function TrialBalancePage() {
       {/* Report type selector */}
       {data && (
         <div className="flex items-center gap-3 overflow-x-auto pb-2">
-          <a href={`/api/accounting/reports/financial?from=${from}&to=${to}&type=bilan`} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs whitespace-nowrap transition-all">
-            <Printer className="w-3 h-3" /> {t('balance_sheet')}
-          </a>
-          <a href={`/api/accounting/reports/financial?from=${from}&to=${to}&type=cr`} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs whitespace-nowrap transition-all">
-            <Printer className="w-3 h-3" /> {t('income_statement')}
-          </a>
-          <a href={`/api/accounting/reports/financial?from=${from}&to=${to}&type=ebp`} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold text-xs whitespace-nowrap transition-all">
-            <Printer className="w-3 h-3" /> {t('cash_flow')}
-          </a>
+          <Link href="/accounting/statements" className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs whitespace-nowrap transition-all">
+            <Printer className="w-3 h-3" /> {t('balance_sheet')} · {t('income_statement')}
+          </Link>
         </div>
       )}
 

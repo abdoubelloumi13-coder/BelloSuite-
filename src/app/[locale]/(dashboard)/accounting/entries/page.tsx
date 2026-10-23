@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import { FileText, Plus, Trash2, Save, Filter, ChevronDown, ChevronRight, AlertTriangle, X } from 'lucide-react'
+import { FileText, Plus, Trash2, Save, Filter, ChevronDown, ChevronRight, AlertTriangle, X, CheckCircle2, Lock } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 import { apiErrorMessage } from '@/lib/zod-helpers'
 import { entryTotals, validateEntryLines } from '@/lib/journal-entry-logic'
@@ -17,6 +17,7 @@ interface Entry {
   date: string
   description: string
   reference: string | null
+  isPosted: boolean
   journal: Journal
   period: { id: string; name: string; isClosed: boolean }
   lines: EntryLine[]
@@ -49,6 +50,9 @@ export default function JournalEntriesPage() {
   const [lines, setLines] = useState<FormLine[]>([emptyLine(), emptyLine()])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [actionMsg, setActionMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [acting, setActing] = useState(false)
 
   const fmt = (v: number) =>
     new Intl.NumberFormat(`${locale}-TN`, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v || 0)
@@ -145,6 +149,58 @@ export default function JournalEntriesPage() {
       setFormError(t('errors.save'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const drafts = entries.filter(e => !e.isPosted && !e.period?.isClosed)
+  const toggleSelect = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const validateSelected = async () => {
+    if (!selected.size) return
+    setActing(true)
+    setActionMsg(null)
+    try {
+      const res = await fetch('/api/accounting/entries/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selected] }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { setActionMsg({ ok: false, text: apiErrorMessage(json, t('validate_error')) }); return }
+      const errs: { entryNumber?: string; error: string }[] = json?.errors ?? []
+      setActionMsg({
+        ok: errs.length === 0,
+        text: [t('validated_count', { count: json?.validated ?? 0 }), ...errs.map(e => `${e.entryNumber ?? ''} : ${e.error}`)].join(' — '),
+      })
+      setSelected(new Set())
+      await fetchEntries()
+    } catch {
+      setActionMsg({ ok: false, text: t('validate_error') })
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const deleteDraft = async (id: string) => {
+    if (!window.confirm(t('delete_confirm'))) return
+    setActing(true)
+    setActionMsg(null)
+    try {
+      const res = await fetch(`/api/accounting/entries/${id}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { setActionMsg({ ok: false, text: apiErrorMessage(json, t('delete_error')) }); return }
+      setSelected(prev => { const n = new Set(prev); n.delete(id); return n })
+      await fetchEntries()
+    } catch {
+      setActionMsg({ ok: false, text: t('delete_error') })
+    } finally {
+      setActing(false)
     }
   }
 
@@ -287,6 +343,22 @@ export default function JournalEntriesPage() {
         <div role="alert" className="px-4 py-3 rounded-2xl text-sm font-bold bg-red-500/10 text-red-400 border border-red-500/20">{loadError}</div>
       )}
 
+      {drafts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => setSelected(new Set(drafts.map(d => d.id)))} className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300">
+            {t('select_drafts')}
+          </button>
+          <button onClick={validateSelected} disabled={!selected.size || acting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 text-white">
+            <CheckCircle2 className="w-4 h-4" /> {t('validate_selected', { count: selected.size })}
+          </button>
+          <span className="text-xs text-zinc-500">{t('posted_hint')}</span>
+        </div>
+      )}
+
+      {actionMsg && (
+        <div role="status" className={`px-4 py-3 rounded-2xl text-sm font-bold border ${actionMsg.ok ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>{actionMsg.text}</div>
+      )}
+
       {loading ? (
         <div className="space-y-3">{[0, 1, 2].map(i => <div key={i} className="h-16 bg-zinc-900 rounded-2xl animate-pulse opacity-40" />)}</div>
       ) : entries.length === 0 ? (
@@ -301,14 +373,27 @@ export default function JournalEntriesPage() {
             const open = expanded.has(entry.id)
             return (
               <div key={entry.id} className="bg-zinc-900/40 border border-zinc-800/50 rounded-2xl overflow-hidden">
-                <button onClick={() => toggle(entry.id)} className="w-full flex flex-wrap items-center gap-4 p-4 hover:bg-zinc-800/30 text-start">
+                <div className="flex items-center">
+                {!entry.isPosted && !entry.period?.isClosed ? (
+                  <input type="checkbox" checked={selected.has(entry.id)} onChange={() => toggleSelect(entry.id)} className="ms-4 w-4 h-4 accent-emerald-500" aria-label={t('select_drafts')} />
+                ) : <span className="ms-4 w-4" />}
+                <button onClick={() => toggle(entry.id)} className="flex-1 min-w-0 flex flex-wrap items-center gap-4 p-4 hover:bg-zinc-800/30 text-start">
                   {open ? <ChevronDown className="w-4 h-4 text-zinc-500" /> : <ChevronRight className="w-4 h-4 text-zinc-500 rtl:rotate-180" />}
                   <span className="font-mono text-xs text-zinc-400">{new Date(entry.date).toLocaleDateString(`${locale}-TN`)}</span>
                   <span className="font-mono text-xs text-amber-400">{entry.entryNumber}</span>
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400">{entry.journal?.code}</span>
                   <span className="text-sm text-white font-bold grow truncate">{entry.description}</span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${entry.isPosted ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                    {entry.isPosted && <Lock className="w-3 h-3" />}{entry.isPosted ? t('posted') : t('draft')}
+                  </span>
                   <span className="font-mono text-sm text-white">{fmt(entry.totalDebit)}</span>
                 </button>
+                {!entry.isPosted && !entry.period?.isClosed && (
+                  <button onClick={() => deleteDraft(entry.id)} disabled={acting} className="p-3 me-2 text-zinc-500 hover:text-red-400 disabled:opacity-30" aria-label={t('delete_draft')}>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+                </div>
                 {open && (
                   <table className="w-full text-sm border-t border-zinc-800/50">
                     <tbody>

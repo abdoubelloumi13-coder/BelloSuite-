@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Plus, Save, AlertTriangle, CheckCircle2, Lock } from 'lucide-react'
+import { Calendar, Plus, Save, AlertTriangle, CheckCircle2, Lock, Unlock, X } from 'lucide-react'
+import { apiErrorMessage } from '@/lib/zod-helpers'
 import { useSession } from '@/hooks/useSession'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -11,6 +12,14 @@ interface Period {
   startDate: string
   endDate: string
   isClosed: boolean
+}
+
+interface ClosingPreview {
+  period: Period
+  canClose: boolean
+  blockers: string[]
+  resultatNet: number
+  closingLines: unknown[]
 }
 
 export default function PeriodsPage() {
@@ -27,6 +36,60 @@ export default function PeriodsPage() {
     endDate: `${currentYear}-12-31`
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [preview, setPreview] = useState<ClosingPreview | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+
+  const fmt = (v: number) =>
+    new Intl.NumberFormat(`${locale}-TN`, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v || 0)
+
+  const openClose = async (period: Period) => {
+    setActionError('')
+    setBusy(period.id)
+    try {
+      const res = await fetch(`/api/accounting/periods/${period.id}/close`)
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { setActionError(apiErrorMessage(json, t('action_error'))); return }
+      setPreview(json)
+    } catch {
+      setActionError(t('action_error'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const confirmClose = async () => {
+    if (!preview) return
+    setBusy(preview.period.id)
+    setActionError('')
+    try {
+      const res = await fetch(`/api/accounting/periods/${preview.period.id}/close`, { method: 'POST' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { setActionError(apiErrorMessage(json, t('action_error'))); return }
+      setPreview(null)
+      fetchPeriods(tenantId)
+    } catch {
+      setActionError(t('action_error'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const reopen = async (period: Period) => {
+    if (!window.confirm(t('reopen_confirm', { name: period.name }))) return
+    setBusy(period.id)
+    setActionError('')
+    try {
+      const res = await fetch(`/api/accounting/periods/${period.id}/reopen`, { method: 'POST' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { setActionError(apiErrorMessage(json, t('action_error'))); return }
+      fetchPeriods(tenantId)
+    } catch {
+      setActionError(t('action_error'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const fetchPeriods = useCallback(async (tid: string) => {
     setLoading(true)
@@ -64,7 +127,8 @@ export default function PeriodsPage() {
         })
         fetchPeriods(tenantId)
       } else {
-        alert(t('create_error'))
+        const json = await res.json().catch(() => null)
+        setActionError(apiErrorMessage(json, t('create_error')))
       }
     } catch (err) {
       console.error(err)
@@ -141,6 +205,11 @@ export default function PeriodsPage() {
         </div>
 
         {/* LIST */}
+        {actionError && (
+          <div role="alert" className="lg:col-span-3 order-first flex items-start gap-2 px-4 py-3 rounded-2xl text-sm font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> {actionError}
+          </div>
+        )}
         <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800/50 rounded-3xl p-6">
           <h2 className="text-lg font-bold text-white mb-6">{t('existing')}</h2>
           
@@ -169,7 +238,7 @@ export default function PeriodsPage() {
                         <p className="text-xs text-zinc-500 mt-1">{t('range', { start: startDate, end: endDate })}</p>
                       </div>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
                       {period.isClosed ? (
                          <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1.5">
                            {t('closed')}
@@ -179,6 +248,15 @@ export default function PeriodsPage() {
                           <CheckCircle2 className="w-3 h-3" /> {t('open')}
                         </span>
                       )}
+                      {period.isClosed ? (
+                        <button onClick={() => reopen(period)} disabled={busy === period.id} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-50">
+                          <Unlock className="w-3 h-3" /> {t('reopen')}
+                        </button>
+                      ) : (
+                        <button onClick={() => openClose(period)} disabled={busy === period.id} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50">
+                          <Lock className="w-3 h-3" /> {busy === period.id ? t('loading') : t('close')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -187,6 +265,36 @@ export default function PeriodsPage() {
           )}
         </div>
       </div>
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-lg font-bold text-white">{t('close_title', { name: preview.period.name })}</h2>
+              <button onClick={() => setPreview(null)} className="text-zinc-500 hover:text-white" aria-label={t('cancel')}><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-zinc-400 leading-relaxed">{t('close_explain')}</p>
+            <div className={`px-4 py-3 rounded-2xl text-sm font-bold ${preview.resultatNet >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+              {preview.resultatNet >= 0
+                ? t('result_profit', { amount: fmt(preview.resultatNet) })
+                : t('result_loss', { amount: fmt(Math.abs(preview.resultatNet)) })}
+              <span className="block text-xs font-medium opacity-80 mt-1">{t('closing_lines', { count: Math.max(preview.closingLines.length - 1, 0) })}</span>
+            </div>
+            {!preview.canClose && (
+              <div className="px-4 py-3 rounded-2xl text-sm bg-amber-500/10 text-amber-400 border border-amber-500/20 space-y-1">
+                <p className="font-bold">{t('blockers_title')}</p>
+                <ul className="list-disc ps-5">{preview.blockers.map(b => <li key={b}>{b}</li>)}</ul>
+              </div>
+            )}
+            {actionError && <p role="alert" className="text-sm font-bold text-red-400">{actionError}</p>}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setPreview(null)} className="px-4 py-2 rounded-xl text-sm font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700">{t('cancel')}</button>
+              <button onClick={confirmClose} disabled={!preview.canClose || busy === preview.period.id} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-700 text-white">
+                <Lock className="w-4 h-4" /> {t('confirm_close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
