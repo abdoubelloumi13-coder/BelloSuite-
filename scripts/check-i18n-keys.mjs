@@ -45,7 +45,7 @@ for (const l of locales) {
 }
 
 // Les variables ICU ({name}) doivent être les mêmes dans les trois langues
-const vars = s => new Set([...String(s).matchAll(/\{\s*(\w+)/g)].map(m => m[1]))
+const vars = s => new Set([...String(s).matchAll(/\{\s*(\w+)\s*[,}]/g)].map(m => m[1]))
 for (const k of maps.fr.keys()) {
   const ref = [...vars(maps.fr.get(k))].sort().join(',')
   for (const l of ['en', 'ar']) {
