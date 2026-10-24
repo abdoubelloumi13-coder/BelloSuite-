@@ -1,6 +1,7 @@
 import { requireSuperAdmin } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { purgeTenant } from '@/lib/super-admin/tenant-purge'
 import { logAudit, clientIp } from '@/lib/super-admin-audit'
 import { Prisma } from '@prisma/client'
 import { invalidateIdentityCache } from '@/lib/session-guard'
@@ -73,22 +74,18 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     if (mode === 'hard') {
       try {
-        // Tentative de suppression en cascade explicite : users + tenant.
-        // Les autres tables (products, invoices, etc.) ont des FK vers tenantId
-        // sans onDelete: Cascade -> Prisma lancera P2003.
-        // On capture l'erreur pour la rendre compréhensible.
-        await prisma.user.deleteMany({ where: { tenantId: id } })
-        await prisma.tenant.delete({ where: { id } })
+        // Purge complète déduite du schéma (factures, produits, employés, écritures…), en transaction.
+        const deleted = await purgeTenant(prisma, id)
         await logAudit(auth.id, 'TENANT_DELETE_HARD', {
           target: 'tenant', targetId: id, tenantId: id,
-          details: { name: tenant.name, subdomain: tenant.subdomain }, ip: clientIp(req),
+          details: { name: tenant.name, subdomain: tenant.subdomain, deleted }, ip: clientIp(req),
         })
-        return NextResponse.json({ success: true, mode: 'hard' })
+        return NextResponse.json({ success: true, mode: 'hard', deleted })
       } catch (err: any) {
         // Prisma P2003 = Foreign key constraint failed (d'autres tables enfant bloquent la suppression)
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
           return NextResponse.json({
-            error: 'Suppression impossible : des données liées existent encore (produits, factures, employés, etc.). Utilisez le mode « Suspendre » (soft delete) ou supprimez manuellement les données liées avant.'
+            error: 'Suppression impossible : une donnée hors entreprise référence encore celle-ci. Utilisez « Suspendre » et contactez le support technique.'
           }, { status: 409 })
         }
         throw err
