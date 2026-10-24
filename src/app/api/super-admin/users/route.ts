@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAuthAccount } from '@/lib/auth-accounts'
 import { getSuperAdminContext, parseBody } from '@/lib/api'
 import { handleApiError } from '@/lib/errors'
 import { prisma } from '@/lib/db'
@@ -23,33 +23,6 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     return handleApiError(err, 'GET super-admin users')
   }
-}
-
-/**
- * Crée le compte d'authentification Supabase puis l'utilisateur applicatif (rôle + entreprise).
- * Avec SUPABASE_SERVICE_ROLE_KEY (serveur uniquement) : compte confirmé d'office ; sinon signUp classique
- * (l'utilisateur confirme son e-mail selon la configuration Supabase).
- */
-async function createAuthAccount(email: string, password: string): Promise<'created' | 'existing'> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || (!serviceKey && !anonKey)) throw new Error('Supabase non configuré')
-  if (serviceKey) {
-    const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-    const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
-    if (!error) return 'created'
-    if (/already|registered|exists/i.test(error.message)) return 'existing'
-    throw error
-  }
-  const client = createClient(url, anonKey!, { auth: { persistSession: false } })
-  const { data, error } = await client.auth.signUp({ email, password })
-  if (error) {
-    if (/already|registered|exists/i.test(error.message)) return 'existing'
-    throw error
-  }
-  // Supabase renvoie un user sans identities quand l'e-mail existe déjà (anti-énumération)
-  return data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0 ? 'existing' : 'created'
 }
 
 // POST /api/super-admin/users
