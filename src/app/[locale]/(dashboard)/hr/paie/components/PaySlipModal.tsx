@@ -199,6 +199,12 @@ export function PaySlipModal({ payslip: initialPayslip, onClose, onUpdated }: Pa
                 <span className="font-medium text-red-600">-{fmt(payslip.deductionAbsences)} TND</span>
               </div>
             )}
+            {Number(payslip.deductionRetards) > 0 && (
+              <div className="flex justify-between py-2 border-b border-red-200">
+                <span className="text-gray-600">{t('delays')}</span>
+                <span className="font-medium text-red-600">-{fmt(payslip.deductionRetards)} TND</span>
+              </div>
+            )}
             {Number(payslip.autresDeductions) > 0 && (
               <div className="flex justify-between py-2 border-b border-red-200">
                 <span className="text-gray-600">{t('other_deductions')}</span>

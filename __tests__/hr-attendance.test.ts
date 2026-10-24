@@ -16,3 +16,38 @@ describe('absences et retards', () => {
     expect(lateMinutes('8h', '08:00')).toBeNull()
   })
 })
+
+import { attendancePayrollDeductions, isUnpaidAbsence } from '@/lib/hr-attendance'
+
+describe('report des présences sur la paie', () => {
+  const base = { baseSalary: 1300, month: 10, year: 2026 }
+  it('retient les absences non payées approuvées au prorata de 26 jours', () => {
+    // sans solde lun 19 → mer 21 oct. 2026 : 3 jours ouvrables → 3 × 50 = 150
+    const r = attendancePayrollDeductions({ ...base, delays: [], absences: [
+      { dateDebut: '2026-10-19', dateFin: '2026-10-21', type: 'SANS_SOLDE', justifie: true, statut: 'APPROUVE' },
+      { dateDebut: '2026-10-05', dateFin: '2026-10-09', type: 'CONGE_PAYE', justifie: true, statut: 'APPROUVE' },
+      { dateDebut: '2026-10-12', dateFin: '2026-10-12', type: 'AUTRE', justifie: false, statut: 'EN_ATTENTE' },
+    ] })
+    expect(r).toMatchObject({ deductionAbsences: 150, unpaidDays: 3, joursTravailles: 23 })
+  })
+  it('ne compte que les jours du mois pour une absence à cheval', () => {
+    // 29 oct. → 3 nov. 2026 : jeu, ven, sam en octobre = 3 jours ouvrables
+    const r = attendancePayrollDeductions({ ...base, delays: [], absences: [
+      { dateDebut: '2026-10-29', dateFin: '2026-11-03', type: 'AUTRE', justifie: false, statut: 'APPROUVE' },
+    ] })
+    expect(r.unpaidDays).toBe(3)
+  })
+  it('ne retient pas une maladie justifiée', () => {
+    expect(isUnpaidAbsence({ type: 'MALADIE', justifie: true })).toBe(false)
+    expect(isUnpaidAbsence({ type: 'MALADIE', justifie: false })).toBe(true)
+  })
+  it('retient les retards approuvés non justifiés à la minute', () => {
+    // 1300 / 26 / 480 = 0,104166… par minute ; 30 min → 3,125
+    const r = attendancePayrollDeductions({ ...base, absences: [], delays: [
+      { date: '2026-10-20', minutesRetard: 30, justifie: false, statut: 'APPROUVE' },
+      { date: '2026-10-21', minutesRetard: 45, justifie: true, statut: 'APPROUVE' },
+      { date: '2026-09-21', minutesRetard: 45, justifie: false, statut: 'APPROUVE' },
+    ] })
+    expect(r).toMatchObject({ deductionRetards: 3.125, lateMinutes: 30 })
+  })
+})

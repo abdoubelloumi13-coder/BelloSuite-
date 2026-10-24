@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { payrollParamsFromRecord } from "@/lib/payroll";
 import { computeEmployeePayslip, payslipAmounts, payslipReference, payrollErrorMessage } from "@/lib/payroll-payslip";
+import { attendancePayrollDeductions } from "@/lib/hr-attendance";
 
 
 export async function GET(req: NextRequest) {
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest) {
     });
     const byId = new Map(employees.map((e) => [e.id, e]));
 
+    // Absences et retards APPROUVÉS du mois → retenues automatiques sur le bulletin
+    const monthStart = new Date(Date.UTC(annee, mois - 1, 1));
+    const nextMonth = new Date(Date.UTC(annee, mois, 1));
+    const ids = employees.map((e) => e.id);
+    const [absences, delays] = await Promise.all([
+      prisma.absence.findMany({ where: { tenantId, employeeId: { in: ids }, statut: "APPROUVE", dateDebut: { lt: nextMonth }, dateFin: { gte: monthStart } } }).catch((e) => { console.warn("Absences illisibles :", e); return []; }),
+      prisma.delay.findMany({ where: { tenantId, employeeId: { in: ids }, statut: "APPROUVE", date: { gte: monthStart, lt: nextMonth } } }).catch((e) => { console.warn("Retards illisibles :", e); return []; }),
+    ]);
+
     let generated = 0;
     let updated = 0;
     const skipped: { employee: string; reason: string }[] = [];
@@ -115,9 +125,16 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const vars = existing ?? {};
+      const attendance = attendancePayrollDeductions({
+        baseSalary: Number(employee.salary),
+        month: mois,
+        year: annee,
+        absences: absences.filter((a) => a.employeeId === employeeId),
+        delays: delays.filter((d) => d.employeeId === employeeId),
+      });
+      const vars = { ...(existing ?? {}), deductionAbsences: attendance.deductionAbsences, deductionRetards: attendance.deductionRetards };
       const computation = computeEmployeePayslip(employee, params, vars);
-      const amounts = payslipAmounts(employee, computation, vars);
+      const amounts = { ...payslipAmounts(employee, computation, vars), joursTravailles: attendance.joursTravailles };
 
       try {
         if (existing) {
@@ -134,7 +151,6 @@ export async function POST(req: NextRequest) {
               reference: payslipReference(mois, annee, employee.employeeNumber),
               mois,
               annee,
-              joursTravailles: 26,
               statut: "PENDING",
               ...amounts,
             } as any, // TODO prisma generate (css, cnssPatronal)

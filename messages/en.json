@@ -1861,7 +1861,8 @@
         "overtime_add_button": "Add and recompute",
         "overtime_hint": "Hourly rate = base salary / 48-hour regime hours, never below the configured hourly minimum wage (2.667 TND in 2026). CNSS, income tax, CSS and net are recomputed.",
         "overtime_hours_invalid": "Invalid number of hours",
-        "overtime_error": "Unable to add overtime"
+        "overtime_error": "Unable to add overtime",
+        "delays": "Lateness"
       },
       "table": {
         "empty": "No payslips for this period",
