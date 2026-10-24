@@ -14,6 +14,7 @@ import CreateUserModal from '@/components/super-admin/CreateUserModal'
 import TenantDetailModal from '@/components/super-admin/TenantDetailModal'
 import GlobalSearch from '@/components/super-admin/GlobalSearch'
 import AuditLogsTab from '@/components/super-admin/AuditLogsTab'
+import BillingActivityTab from '@/components/super-admin/BillingActivityTab'
 import Header from './Header'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -39,7 +40,7 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
   const ts = useTranslations('SuperAdmin.dashboard')
   const locale = useLocale()
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'modules' | 'audit'>('tenants')
+  const [activeTab, setActiveTab] = useState<'billing' | 'tenants' | 'users' | 'modules' | 'audit'>('billing')
   const [tenants, setTenants] = useState(initialTenants)
   const [users, setUsers] = useState(initialUsers)
   const [modules, setModules] = useState(initialModules)
@@ -226,10 +227,10 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
 
         {/* Tabs */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex gap-1 bg-zinc-900 p-1 rounded-2xl border border-zinc-800">
-            {(['tenants', 'users', 'modules', 'audit'] as const).map(tab => (
+          <div className="flex gap-1 bg-zinc-900 p-1 rounded-2xl border border-zinc-800 overflow-x-auto max-w-full">
+            {(['billing', 'tenants', 'users', 'modules', 'audit'] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-zinc-950' : 'text-zinc-500 hover:text-white'}`}>
-                {tab === 'tenants' ? ts('tab_tenants') : tab === 'users' ? ts('tab_users') : tab === 'modules' ? ts('tab_modules') : ts('tab_audit')}
+                {tab === 'billing' ? 'Activité & facturation' : tab === 'tenants' ? ts('tab_tenants') : tab === 'users' ? ts('tab_users') : tab === 'modules' ? ts('tab_modules') : ts('tab_audit')}
               </button>
             ))}
           </div>
@@ -441,6 +442,10 @@ export default function SuperAdminDashboardClient({ stats: initialStats, initial
         {/* ============ AUDIT LOGS TAB ============ */}
         {activeTab === 'audit' && (
           <AuditLogsTab />
+        )}
+
+        {activeTab === 'billing' && (
+          <BillingActivityTab />
         )}
       </main>
 
